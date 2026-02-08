@@ -1,0 +1,8 @@
+# QuaiVault - Robots.txt
+User-agent: *
+Allow: /
+Allow: /create
+Disallow: /wallet/
+
+# Sitemap
+Sitemap: https://testnet.quaivault.org/sitemap.xml

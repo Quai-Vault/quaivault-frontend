@@ -1,0 +1,295 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS Custom Properties for Theme-Dependent Values
+   ============================================ */
+
+:root {
+  /* Light theme (default) */
+  --body-bg: #fafafa;
+  --body-bg-gradient: radial-gradient(ellipse at top, rgba(220, 38, 38, 0.03) 0%, transparent 50%);
+  --scrollbar-track: #f5f5f5;
+  --scrollbar-thumb: #dc2626;
+  --scrollbar-thumb-hover: #ef4444;
+  --scrollbar-border: #e5e5e5;
+  --shadow-vault-outer: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --shadow-vault-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-vault-inner: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-vault-button: 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-vault-button-hover: 0 2px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-red-glow: none;
+  --shadow-red-glow-lg: 0 0 15px rgba(220, 38, 38, 0.08);
+  --panel-accent-line: rgba(220, 38, 38, 0.25);
+}
+
+.dark {
+  /* Dark theme */
+  --body-bg: #000000;
+  --body-bg-gradient:
+    radial-gradient(ellipse at top, rgba(220, 38, 38, 0.05) 0%, transparent 50%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(220, 38, 38, 0.02) 2px, rgba(220, 38, 38, 0.02) 4px);
+  --scrollbar-track: #000000;
+  --scrollbar-thumb: #dc2626;
+  --scrollbar-thumb-hover: #ef4444;
+  --scrollbar-border: #000000;
+  --shadow-vault-outer: 0 4px 6px rgba(0, 0, 0, 0.7), 0 10px 15px rgba(0, 0, 0, 0.5), 0 0 20px rgba(220, 38, 38, 0.2);
+  --shadow-vault-card: 0 8px 16px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(220, 38, 38, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-vault-inner: inset 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 -2px 4px rgba(220, 38, 38, 0.1);
+  --shadow-vault-button: 0 4px 8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(220, 38, 38, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-vault-button-hover: 0 6px 12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(220, 38, 38, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-red-glow: 0 0 20px rgba(220, 38, 38, 0.3), 0 0 40px rgba(220, 38, 38, 0.1);
+  --shadow-red-glow-lg: 0 0 40px rgba(220, 38, 38, 0.4), 0 0 80px rgba(220, 38, 38, 0.2);
+  --panel-accent-line: rgba(220, 38, 38, 0.5);
+}
+
+/* ============================================
+   Base Layer
+   ============================================ */
+
+@layer base {
+  * {
+    @apply border-dark-200 dark:border-dark-700;
+  }
+
+  body {
+    @apply bg-dark-50 dark:bg-vault-black text-dark-800 dark:text-dark-100 font-sans antialiased;
+    background-color: var(--body-bg);
+    background-image: var(--body-bg-gradient);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  /* Base font sizes */
+  html {
+    font-size: 16px;
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      font-size: 18px;
+    }
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+  }
+
+  /* Scrollbar styling with CSS variables */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-left: 1px solid rgba(220, 38, 38, 0.1);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid var(--scrollbar-border);
+    border-radius: 5px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    box-shadow: var(--shadow-red-glow);
+  }
+}
+
+/* ============================================
+   Component Layer
+   ============================================ */
+
+@layer components {
+  /* Primary Button - Red gradient works for both themes */
+  .btn-primary {
+    @apply px-5 py-2.5 text-base font-semibold text-white
+           bg-gradient-to-b from-primary-600 to-primary-700
+           rounded-md border border-primary-500
+           hover:from-primary-500 hover:to-primary-600
+           active:scale-[0.98] transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed
+           relative overflow-hidden;
+    box-shadow: var(--shadow-vault-button);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: var(--shadow-vault-button-hover);
+  }
+
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+
+  .btn-primary:hover::before {
+    transform: translateX(100%);
+  }
+
+  /* Secondary Button - Theme-aware */
+  .btn-secondary {
+    @apply px-5 py-2.5 text-base font-semibold
+           text-dark-700 dark:text-dark-100
+           bg-dark-100 dark:bg-vault-dark-4
+           rounded-md
+           border border-dark-300 dark:border-dark-600
+           hover:bg-dark-200 dark:hover:bg-vault-dark-3
+           hover:border-dark-400 dark:hover:border-dark-500
+           active:scale-[0.98] transition-all duration-200;
+    box-shadow: var(--shadow-vault-inner);
+  }
+
+  .btn-secondary:hover {
+    box-shadow: var(--shadow-vault-outer);
+  }
+
+  /* Card - Theme-aware */
+  .card {
+    @apply rounded-lg
+           bg-white dark:bg-gradient-to-br dark:from-vault-dark-2 dark:to-vault-dark-3
+           border border-dark-200 dark:border-dark-700
+           hover:border-primary-400 dark:hover:border-primary-600/30
+           transition-all duration-300 relative overflow-hidden;
+    box-shadow: var(--shadow-vault-card);
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-red-glow-lg);
+  }
+
+  .card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-primary-600/0 via-primary-600/0 to-primary-600/5;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .card:hover::before {
+    opacity: 1;
+  }
+
+  .card-glow {
+    @apply rounded-lg
+           bg-white dark:bg-gradient-to-br dark:from-vault-dark-2 dark:to-vault-dark-3
+           border border-dark-200 dark:border-dark-700
+           hover:border-primary-400 dark:hover:border-primary-600/30
+           transition-all duration-300 relative overflow-hidden;
+    box-shadow: var(--shadow-vault-card);
+  }
+
+  .card-glow:hover {
+    box-shadow: var(--shadow-red-glow-lg);
+  }
+
+  /* Input Field - Theme-aware */
+  .input-field {
+    @apply px-4 py-2.5
+           bg-white dark:bg-vault-dark-3
+           border border-dark-300 dark:border-dark-600
+           rounded-md
+           text-dark-800 dark:text-dark-100
+           placeholder-dark-400 dark:placeholder-dark-500
+           font-mono text-base
+           focus:ring-2 focus:ring-primary-500/50 dark:focus:ring-primary-600/50
+           focus:border-primary-500 dark:focus:border-primary-600
+           focus:bg-dark-50 dark:focus:bg-vault-dark-2
+           transition-all duration-200;
+  }
+
+  .dark .input-field:focus {
+    box-shadow: var(--shadow-red-glow);
+  }
+
+  /* Vault Panel - Theme-aware */
+  .vault-panel {
+    @apply border rounded-lg relative overflow-hidden
+           bg-white dark:bg-gradient-to-br dark:from-vault-dark-1 dark:via-vault-dark-2 dark:to-vault-dark-1
+           border-dark-200 dark:border-dark-700;
+    box-shadow: var(--shadow-vault-outer);
+  }
+
+  .vault-panel::after {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-px;
+    background: linear-gradient(to right, transparent, var(--panel-accent-line), transparent);
+  }
+
+  /* Vault Badge - Theme-aware */
+  .vault-badge {
+    @apply inline-flex items-center px-3 py-1.5 rounded text-base font-semibold
+           bg-dark-100 dark:bg-vault-dark-4
+           border border-dark-300 dark:border-dark-600
+           text-dark-600 dark:text-dark-200;
+    box-shadow: var(--shadow-vault-inner);
+  }
+
+  /* Vault Text Glow - Only in dark mode */
+  .vault-text-glow {
+    /* No glow in light mode */
+  }
+
+  .dark .vault-text-glow {
+    text-shadow: 0 0 10px rgba(220, 38, 38, 0.5),
+                 0 0 20px rgba(220, 38, 38, 0.3),
+                 0 0 30px rgba(220, 38, 38, 0.1);
+  }
+
+  /* Vault Divider - Theme-aware */
+  .vault-divider {
+    @apply border-t border-dark-200 dark:border-dark-700 relative;
+  }
+
+  .vault-divider::before {
+    content: '';
+    @apply absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-px;
+    background: linear-gradient(to right, transparent, var(--panel-accent-line), transparent);
+  }
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================
+   Utility Layer
+   ============================================ */
+
+@layer utilities {
+  .text-gradient-red {
+    @apply bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 bg-clip-text text-transparent;
+  }
+
+  .bg-vault-mesh {
+    background-image:
+      linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}

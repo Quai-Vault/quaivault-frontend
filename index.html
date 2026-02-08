@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Theme flash prevention - must be first script -->
+    <script>
+      (function() {
+        var theme = 'system';
+        try {
+          var stored = localStorage.getItem('theme-storage');
+          var parsed = JSON.parse(stored);
+          var t = parsed && parsed.state && parsed.state.theme;
+          if (t === 'light' || t === 'dark' || t === 'system') theme = t;
+        } catch(e) {}
+        var isDark = theme === 'dark' ||
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.add('light');
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-x2btY2Tg2hHHcUxrbiuK5E5Ltd61a2311NvAlnhqnK4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: wss:; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; worker-src 'self';" />
+
+    <!-- Primary Meta Tags -->
+    <title>QuaiVault - Secure Multisig Wallet for Quai Network</title>
+    <meta name="title" content="QuaiVault - Secure Multisig Wallet for Quai Network" />
+    <meta name="description" content="Decentralized multisignature wallet solution for Quai Network. Secure collaborative fund management with multi-owner approval, social recovery, and advanced security modules." />
+    <meta name="keywords" content="Quai Network, multisig wallet, cryptocurrency wallet, multi-signature, blockchain security, decentralized wallet, smart contract wallet, crypto multisig, Quai multisig, collaborative wallet" />
+    <meta name="author" content="QuaiVault" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#e63946" />
+    <link rel="canonical" href="%VITE_SITE_URL%" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="%VITE_SITE_URL%" />
+    <meta property="og:title" content="QuaiVault - Secure Multisig Wallet for Quai Network" />
+    <meta property="og:description" content="Decentralized multisignature wallet solution for Quai Network. Secure collaborative fund management with multi-owner approval, social recovery, and advanced security modules." />
+    <meta property="og:image" content="%VITE_SITE_URL%/og-image.png" />
+    <meta property="og:site_name" content="QuaiVault" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="QuaiVault - Secure Multisig Wallet for Quai Network" />
+    <meta name="twitter:description" content="Decentralized multisignature wallet solution for Quai Network. Secure collaborative fund management with multi-owner approval, social recovery, and advanced security modules." />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.png" />
+
+    <!-- Font preconnect for faster font loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Favicon and Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/quai-multisig-icon-final.png" />
+    <link rel="apple-touch-icon" href="/quai-multisig-icon-final.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Additional SEO -->
+    <meta name="application-name" content="QuaiVault" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Quai Vault" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "QuaiVault",
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "Cryptocurrency Wallet",
+      "operatingSystem": "Web Browser",
+      "description": "Decentralized multisignature wallet solution for Quai Network. Secure collaborative fund management with multi-owner approval, social recovery, and advanced security modules.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Multi-signature transaction approval",
+        "Social recovery module",
+        "Daily spending limits",
+        "Whitelist management",
+        "Decentralized and trustless",
+        "Gas-optimized smart contracts"
+      ],
+      "screenshot": "%VITE_SITE_URL%/og-image.png",
+      "softwareVersion": "0.1.0",
+      "url": "%VITE_SITE_URL%"
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
