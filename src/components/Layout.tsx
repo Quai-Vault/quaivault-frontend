@@ -167,7 +167,7 @@ export function Layout({ children }: LayoutProps) {
             </div>
             <div className="mt-2 flex items-center gap-3">
               <a
-                href="https://github.com/Quai-Vault/quai-multisig"
+                href={import.meta.env.VITE_GITHUB_URL || 'https://github.com/Quai-Vault/quaivault-frontend'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-base text-dark-400 dark:text-dark-500 hover:text-primary-400 transition-colors"
