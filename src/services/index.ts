@@ -40,4 +40,3 @@ export { indexerService } from './indexer';
 
 // Re-export utility services
 export { transactionBuilderService } from './TransactionBuilderService';
-export { walletConnectionService } from './WalletConnectionService';

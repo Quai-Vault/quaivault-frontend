@@ -39,13 +39,14 @@ export default defineConfig(({ mode }) => {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'quais': ['quais'],
           'tanstack': ['@tanstack/react-query'],
+          'walletconnect': ['@reown/appkit', '@reown/appkit-adapter-wagmi', 'wagmi', 'viem'],
         },
       },
     },
   },
   // Optimize dependency pre-bundling
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'quais', '@tanstack/react-query'],
+    include: ['react', 'react-dom', 'react-router-dom', 'quais', '@tanstack/react-query', '@reown/appkit', '@reown/appkit-adapter-wagmi', 'wagmi', 'viem'],
   },
   // SPA fallback for preview mode
   preview: {

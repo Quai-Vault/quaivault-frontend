@@ -15,6 +15,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@reown/appkit": "^1.8.18",
+    "@reown/appkit-adapter-wagmi": "^1.8.18",
     "@supabase/supabase-js": "^2.93.3",
     "@tanstack/react-query": "^5.17.9",
     "@tanstack/react-virtual": "^3.13.18",
@@ -23,6 +25,8 @@
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.3",
     "react-router-dom": "^6.21.1",
+    "viem": "^2.46.2",
+    "wagmi": "^3.5.0",
     "zod": "^3.25.76",
     "zustand": "^4.4.7"
   },
