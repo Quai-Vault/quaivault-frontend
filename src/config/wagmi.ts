@@ -70,8 +70,18 @@ if (projectId) {
       url: import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org',
       icons: [`${import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org'}/quai-multisig-icon-final.png`],
     },
+    // Only show injected wallets (Pelagus) + WalletConnect QR (Tangem).
+    // Quai Network is not supported by other wallets.
+    // NOTE: includeWalletIds must contain a non-empty dummy value because
+    // the AppKit API treats an empty array as "no filter" and returns
+    // default recommended wallets (MetaMask, Binance, etc.).
+    featuredWalletIds: [],
+    includeWalletIds: ['none'],
+    allWallets: 'HIDE',
     features: {
       analytics: false,
+      email: false,
+      socials: false,
     },
   });
 } else {
