@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useWalletStore } from '../store/walletStore';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { useConnectorClient, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
-import { connectorClientToQuaisSigner } from '../config/walletBridge';
+import { providerToQuaisSigner } from '../config/walletBridge';
 import type { Signer } from '../types';
 
 export function useWallet() {
@@ -19,16 +19,15 @@ export function useWallet() {
   const { open } = useAppKit();
   const { disconnect: wagmiDisconnect } = useDisconnect();
 
-  // Get the raw connector client (has EIP-1193 transport)
-  const { data: connectorClient } = useConnectorClient();
+  // Get the active connector (provides raw EIP-1193 provider, no chain validation)
+  const { connector } = useAccount();
 
-  // Keep a ref to the signer for signMessage and to avoid duplicate bridging
+  // Keep a ref to the signer for signMessage
   const signerRef = useRef<Signer | null>(null);
-  const lastClientRef = useRef<typeof connectorClient | null>(null);
 
   // Sync connection state immediately so wallet list loads without waiting for the signer bridge.
-  // connectorClient can be unavailable when the wallet's chain ID doesn't exactly match wagmi's
-  // configured chain, but read-only operations (wallet list, balances) don't need a signer.
+  // The signer bridge can fail if the wallet's chain ID doesn't match wagmi's configured chain,
+  // but read-only operations (wallet list, balances) only need the address.
   useEffect(() => {
     if (isConnected && address) {
       setConnected(true, address);
@@ -40,30 +39,37 @@ export function useWallet() {
     }
   }, [isConnected, address, setConnected]);
 
-  // Bridge wagmi connector client -> quais Signer -> multisigService (for signing txs)
+  // Bridge connector raw EIP-1193 provider -> quais Signer -> multisigService (for signing txs).
+  // Uses connector.getProvider() directly to bypass wagmi's chain validation, which blocks
+  // useConnectorClient() when the wallet reports a chain ID not in wagmi's configured list.
+  // NOTE: no ref-guard here — the isActive flag handles cancellation. A ref guard would cause
+  // the signer to never be set under React 18 strict mode (effects run twice, second run skipped).
   useEffect(() => {
-    if (connectorClient === lastClientRef.current) return;
-    lastClientRef.current = connectorClient;
+    if (!connector || !isConnected || !address) return;
 
-    // Guard against stale async callbacks during rapid account switches
+    // Guard against stale async callbacks during rapid account switches / strict mode double-invoke
     let isActive = true;
 
-    if (connectorClient && isConnected && address) {
-      connectorClientToQuaisSigner(connectorClient)
-        .then((signer) => {
-          if (!isActive) return;
-          signerRef.current = signer;
-          multisigService.setSigner(signer);
-        })
-        .catch((err) => {
-          if (!isActive) return;
-          console.error('Failed to create quais signer from connector:', err);
-          setError(err instanceof Error ? err.message : 'Failed to initialize signer');
-        });
-    }
+    connector.getProvider()
+      .then((rawProvider) => {
+        if (!isActive || !rawProvider) return;
+        return providerToQuaisSigner(
+          rawProvider as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
+        );
+      })
+      .then((signer) => {
+        if (!isActive || !signer) return;
+        signerRef.current = signer;
+        multisigService.setSigner(signer);
+      })
+      .catch((err) => {
+        if (!isActive) return;
+        console.error('Failed to create quais signer from connector:', err);
+        setError(err instanceof Error ? err.message : 'Failed to initialize signer');
+      });
 
     return () => { isActive = false; };
-  }, [connectorClient, isConnected, address, setError]);
+  }, [connector, isConnected, address, setError]);
 
   // Connect: open the AppKit modal
   const connect = useCallback(async () => {
