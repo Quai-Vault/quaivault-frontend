@@ -1,6 +1,8 @@
 import { Component, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { wagmiConfig } from './config/wagmi';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { WalletDetail } from './pages/WalletDetail';
@@ -87,23 +89,25 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <Layout>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/create" element={<CreateWallet />} />
-              <Route path="/wallet/:address" element={<WalletDetail />} />
-              <Route path="/wallet/:address/transaction/new" element={<NewTransaction />} />
-              <Route path="/wallet/:address/history" element={<TransactionHistory />} />
-              <Route path="/wallet/:address/lookup" element={<LookupTransaction />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ErrorBoundary>
-        </Layout>
-      </Router>
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <Layout>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/create" element={<CreateWallet />} />
+                <Route path="/wallet/:address" element={<WalletDetail />} />
+                <Route path="/wallet/:address/transaction/new" element={<NewTransaction />} />
+                <Route path="/wallet/:address/history" element={<TransactionHistory />} />
+                <Route path="/wallet/:address/lookup" element={<LookupTransaction />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+          </Layout>
+        </Router>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 

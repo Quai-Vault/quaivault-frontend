@@ -1,55 +1,68 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useWalletStore } from '../store/walletStore';
-import { walletConnectionService } from '../services/WalletConnectionService';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useConnectorClient, useDisconnect } from 'wagmi';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
+import { connectorClientToQuaisSigner } from '../config/walletBridge';
+import type { Signer } from '../types';
 
 export function useWallet() {
   const {
-    connected,
-    address,
     setConnected,
     setError,
     setLoading,
   } = useWalletStore();
 
+  // AppKit hooks for connection state
+  const { address, isConnected } = useAppKitAccount();
+  const { open } = useAppKit();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+
+  // Get the raw connector client (has EIP-1193 transport)
+  const { data: connectorClient } = useConnectorClient();
+
+  // Keep a ref to the signer for signMessage and to avoid duplicate bridging
+  const signerRef = useRef<Signer | null>(null);
+  const lastClientRef = useRef<typeof connectorClient | null>(null);
+
+  // Bridge wagmi connector client -> quais Signer -> multisigService
   useEffect(() => {
-    // Subscribe to wallet connection changes first so we don't miss the reconnect event
-    const unsubscribe = walletConnectionService.subscribe((state) => {
-      setConnected(state.connected, state.address);
+    if (connectorClient === lastClientRef.current) return;
+    lastClientRef.current = connectorClient;
 
-      // Update multisig service signer when connected
-      if (state.signer) {
-        multisigService.setSigner(state.signer);
-      } else {
-        // Clear signer when disconnected
-        multisigService.setSigner(null);
-        // Tear down all indexer subscriptions to prevent channel leaks
-        indexerService.cleanup();
-      }
-    });
+    // Guard against stale async callbacks during rapid account switches
+    let isActive = true;
 
-    // Sync initial state (may already be connected from a previous hook mount)
-    const initialState = walletConnectionService.getState();
-    if (initialState.connected) {
-      if (initialState.signer) {
-        multisigService.setSigner(initialState.signer);
-      }
-      setConnected(initialState.connected, initialState.address);
-    } else {
-      // Try to silently reconnect from an existing Pelagus session
-      walletConnectionService.tryReconnect();
+    if (connectorClient && isConnected && address) {
+      connectorClientToQuaisSigner(connectorClient)
+        .then((signer) => {
+          if (!isActive) return;
+          signerRef.current = signer;
+          multisigService.setSigner(signer);
+          setConnected(true, address);
+        })
+        .catch((err) => {
+          if (!isActive) return;
+          console.error('Failed to create quais signer from connector:', err);
+          setError(err instanceof Error ? err.message : 'Failed to initialize signer');
+        });
+    } else if (!isConnected) {
+      signerRef.current = null;
+      multisigService.setSigner(null);
+      indexerService.cleanup();
+      setConnected(false, null);
     }
 
-    return unsubscribe;
-  }, [setConnected]);
+    return () => { isActive = false; };
+  }, [connectorClient, isConnected, address, setConnected, setError]);
 
+  // Connect: open the AppKit modal
   const connect = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      await walletConnectionService.connect();
+      await open();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
       setError(errorMessage);
@@ -57,15 +70,24 @@ export function useWallet() {
     } finally {
       setLoading(false);
     }
-  }, [setError, setLoading]);
+  }, [open, setError, setLoading]);
 
+  // Disconnect: use wagmi disconnect
   const disconnect = useCallback(() => {
-    walletConnectionService.disconnect();
-  }, []);
+    wagmiDisconnect();
+    signerRef.current = null;
+    multisigService.setSigner(null);
+    indexerService.cleanup();
+    setConnected(false, null);
+  }, [wagmiDisconnect, setConnected]);
 
+  // Sign message using the bridged quais signer
   const signMessage = useCallback(async (message: string) => {
+    if (!signerRef.current) {
+      throw new Error('Wallet not connected');
+    }
     try {
-      return await walletConnectionService.signMessage(message);
+      return await signerRef.current.signMessage(message);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign message';
       setError(errorMessage);
@@ -74,8 +96,8 @@ export function useWallet() {
   }, [setError]);
 
   return {
-    connected,
-    address,
+    connected: isConnected,
+    address: address ?? null,
     connect,
     disconnect,
     signMessage,
