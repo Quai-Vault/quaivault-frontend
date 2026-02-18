@@ -75,6 +75,10 @@ if (projectId) {
     // NOTE: includeWalletIds must contain a non-empty dummy value because
     // the AppKit API treats an empty array as "no filter" and returns
     // default recommended wallets (MetaMask, Binance, etc.).
+    // Suppress "Switch Network" dialog - Pelagus reports a zone-specific
+    // chain ID that may not exactly match our configured caipNetworkId.
+    // Network validation is handled by the quais bridge layer.
+    allowUnsupportedChain: true,
     featuredWalletIds: [],
     includeWalletIds: ['none'],
     allWallets: 'HIDE',
