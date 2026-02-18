@@ -1,10 +1,28 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createAppKit } from '@reown/appkit/react';
-import { defineChain } from '@reown/appkit/networks';
+import { defineChain, type AppKitNetwork } from '@reown/appkit/networks';
 
 const projectId = import.meta.env.VITE_WC_PROJECT_ID || '';
 
-// Quai Orchard Testnet - not in viem's default chain list, so define manually
+// Quai chains - not in viem's default chain list, so define manually
+export const quaiMainnet = defineChain({
+  id: 9,
+  caipNetworkId: 'eip155:9',
+  chainNamespace: 'eip155',
+  name: 'Quai Network',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Quai',
+    symbol: 'QUAI',
+  },
+  rpcUrls: {
+    default: { http: ['https://rpc.quai.network'] },
+  },
+  blockExplorers: {
+    default: { name: 'Quaiscan', url: 'https://quaiscan.io' },
+  },
+});
+
 export const quaiOrchardTestnet = defineChain({
   id: 15000,
   caipNetworkId: 'eip155:15000',
@@ -28,7 +46,10 @@ export const quaiOrchardTestnet = defineChain({
   },
 });
 
-export const networks = [quaiOrchardTestnet] as const;
+// Select active network based on VITE_CHAIN_ID
+const chainId = Number(import.meta.env.VITE_CHAIN_ID);
+const activeNetwork = chainId === 9 ? quaiMainnet : quaiOrchardTestnet;
+export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [activeNetwork];
 
 export const wagmiAdapter = new WagmiAdapter({
   storage: undefined,
@@ -42,7 +63,7 @@ if (projectId) {
     adapters: [wagmiAdapter],
     projectId,
     networks,
-    defaultNetwork: quaiOrchardTestnet,
+    defaultNetwork: activeNetwork,
     metadata: {
       name: 'QuaiVault',
       description: 'Decentralized multisig solution for Quai Network',
