@@ -26,7 +26,21 @@ export function useWallet() {
   const signerRef = useRef<Signer | null>(null);
   const lastClientRef = useRef<typeof connectorClient | null>(null);
 
-  // Bridge wagmi connector client -> quais Signer -> multisigService
+  // Sync connection state immediately so wallet list loads without waiting for the signer bridge.
+  // connectorClient can be unavailable when the wallet's chain ID doesn't exactly match wagmi's
+  // configured chain, but read-only operations (wallet list, balances) don't need a signer.
+  useEffect(() => {
+    if (isConnected && address) {
+      setConnected(true, address);
+    } else if (!isConnected) {
+      signerRef.current = null;
+      multisigService.setSigner(null);
+      indexerService.cleanup();
+      setConnected(false, null);
+    }
+  }, [isConnected, address, setConnected]);
+
+  // Bridge wagmi connector client -> quais Signer -> multisigService (for signing txs)
   useEffect(() => {
     if (connectorClient === lastClientRef.current) return;
     lastClientRef.current = connectorClient;
@@ -40,22 +54,16 @@ export function useWallet() {
           if (!isActive) return;
           signerRef.current = signer;
           multisigService.setSigner(signer);
-          setConnected(true, address);
         })
         .catch((err) => {
           if (!isActive) return;
           console.error('Failed to create quais signer from connector:', err);
           setError(err instanceof Error ? err.message : 'Failed to initialize signer');
         });
-    } else if (!isConnected) {
-      signerRef.current = null;
-      multisigService.setSigner(null);
-      indexerService.cleanup();
-      setConnected(false, null);
     }
 
     return () => { isActive = false; };
-  }, [connectorClient, isConnected, address, setConnected, setError]);
+  }, [connectorClient, isConnected, address, setError]);
 
   // Connect: open the AppKit modal
   const connect = useCallback(async () => {
