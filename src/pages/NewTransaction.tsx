@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMultisig } from '../hooks/useMultisig';
+import { useWallet } from '../hooks/useWallet';
 import { transactionBuilderService } from '../services/TransactionBuilderService';
 import { multisigService } from '../services/MultisigService';
 import { Modal } from '../components/Modal';
@@ -12,7 +13,15 @@ import { TIMING } from '../config/contracts';
 export function NewTransaction() {
   const { address: walletAddress } = useParams<{ address: string }>();
   const navigate = useNavigate();
+  const { address: connectedAddress } = useWallet();
   const { proposeTransactionAsync, executeToWhitelistAsync, executeBelowLimitAsync, walletInfo } = useMultisig(walletAddress);
+
+  const isOwner = useMemo(() =>
+    walletInfo?.owners.some(
+      (owner) => owner.toLowerCase() === connectedAddress?.toLowerCase()
+    ) || false,
+    [walletInfo?.owners, connectedAddress]
+  );
 
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
@@ -393,6 +402,35 @@ export function NewTransaction() {
           </div>
           <h2 className="text-2xl font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Invalid Vault Address</h2>
           <p className="text-dark-500">The requested vault address is invalid.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (walletInfo && !isOwner) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8">
+          <button
+            onClick={() => navigate(`/wallet/${walletAddress}`)}
+            className="text-lg text-primary-600 dark:text-primary-400 hover:text-primary-600 dark:text-primary-300 mb-3 inline-flex items-center gap-4 transition-colors font-semibold"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Vault
+          </button>
+        </div>
+        <div className="text-center py-20">
+          <div className="vault-panel max-w-md mx-auto p-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-100 dark:bg-vault-dark-4 border-2 border-yellow-500/30 mb-6">
+              <svg className="w-8 h-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Not a Vault Owner</h2>
+            <p className="text-dark-500">Your connected account is not an owner of this vault. Only owners can propose transactions.</p>
+          </div>
         </div>
       </div>
     );
