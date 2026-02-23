@@ -138,7 +138,7 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
 
   return (
     <div className="vault-panel p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className={`flex items-center justify-between${enabledCount > 0 ? ' mb-2' : ''}`}>
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Modules</h2>
           {enabledCount > 0 && (
@@ -262,29 +262,6 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {enabledCount === 0 && (
-        <div className="text-center py-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-dark-100 dark:bg-vault-dark-4 border-2 border-dark-300 dark:border-dark-600 mb-3">
-            <svg className="w-6 h-6 text-dark-400 dark:text-dark-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <p className="text-base text-dark-500 font-semibold mb-2">No modules enabled</p>
-          {disabledModules.length > 0 && (
-            <button
-              onClick={() => setShowAddModule(true)}
-              className="btn-primary text-base px-4 py-2 inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Module
-            </button>
-          )}
         </div>
       )}
 
