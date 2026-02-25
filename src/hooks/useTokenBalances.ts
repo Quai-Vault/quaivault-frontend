@@ -23,7 +23,9 @@ export function useTokenBalances(walletAddress?: string) {
   const {
     data: tokens,
     isLoading: isLoadingTokens,
+    isRefetching: isRefetchingTokens,
     error: tokensError,
+    refetch: refetchTokens,
   } = useQuery<Token[]>({
     queryKey: ['walletTokens', walletAddress],
     queryFn: async () => {
@@ -45,6 +47,7 @@ export function useTokenBalances(walletAddress?: string) {
   const {
     data: erc20Balances,
     isLoading: isLoadingBalances,
+    isRefetching: isRefetchingBalances,
     error: balancesError,
     refetch: refetchBalances,
   } = useQuery<OnChainTokenBalance[]>({
@@ -126,6 +129,13 @@ export function useTokenBalances(walletAddress?: string) {
 
   const error = tokensError || balancesError;
 
+  const isRefetching = isRefetchingTokens || isRefetchingBalances;
+
+  const refetchAll = () => {
+    refetchTokens();
+    refetchBalances();
+  };
+
   return {
     tokens: tokens ?? [],
     erc20Balances: erc20Balances ?? [],
@@ -134,9 +144,11 @@ export function useTokenBalances(walletAddress?: string) {
     isLoadingTokens,
     isLoadingBalances,
     isLoadingTransfers,
+    isRefetching,
     isIndexerEnabled,
     isIndexerConnected,
     error: error instanceof Error ? error.message : error ? String(error) : null,
+    refetchAll,
     refetchBalances,
     refetchTransfers,
   };
