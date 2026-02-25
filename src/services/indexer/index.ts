@@ -22,3 +22,4 @@ export {
   SubscriptionManager,
   type WalletSubscriptionCallbacks,
 } from './SubscriptionManager';
+export { IndexerTokenService } from './IndexerTokenService';

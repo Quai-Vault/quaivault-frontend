@@ -3,6 +3,7 @@ import { decodeTransaction } from '../utils/transactionDecoder';
 import { transactionBuilderService } from '../services/TransactionBuilderService';
 import { Interface } from 'quais';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
+import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
 // Hoisted — avoid re-constructing on every render
 const quaiVaultInterface = new Interface(QuaiVaultABI.abi);
@@ -27,6 +28,8 @@ interface TransactionPreviewProps {
   value: string;
   data: string;
   walletAddress: string;
+  contractAbi?: any[] | null;
+  tokenMetadata?: TokenMetadata | null;
   onConfirm: () => void;
   onCancel: () => void;
   isWhitelisted?: boolean;
@@ -38,6 +41,8 @@ export function TransactionPreview({
   value,
   data,
   walletAddress,
+  contractAbi,
+  tokenMetadata,
   onConfirm,
   onCancel,
   isWhitelisted = false,
@@ -52,7 +57,7 @@ export function TransactionPreview({
       return '0';
     }
   })();
-  const decoded = decodeTransaction({ to, value: weiValue, data }, walletAddress);
+  const decoded = decodeTransaction({ to, value: weiValue, data }, walletAddress, tokenMetadata);
 
   useEffect(() => {
     // Try to decode contract call data against known ABIs
@@ -79,11 +84,25 @@ export function TransactionPreview({
         // Not a known module call
       }
 
+      // Try fetched contract ABI (for external contract calls)
+      if (contractAbi) {
+        try {
+          const contractInterface = new Interface(contractAbi);
+          const result = contractInterface.parseTransaction({ data });
+          if (result) {
+            setDecodedCall({ name: result.name, args: result.args });
+            return;
+          }
+        } catch {
+          // Not decodable with this ABI
+        }
+      }
+
       setDecodedCall(null);
     } else {
       setDecodedCall(null);
     }
-  }, [data]);
+  }, [data, contractAbi]);
 
   return (
     <div className="space-y-6">

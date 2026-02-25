@@ -10,6 +10,7 @@ import {
   WalletOwnerSchema,
   SocialRecoverySchema,
   RecoveryApprovalSchema,
+  TokenTransferSchema,
   type IndexerTransaction,
   type Deposit,
   type Confirmation,
@@ -19,6 +20,7 @@ import {
   type WalletOwner,
   type SocialRecovery,
   type RecoveryApproval,
+  type TokenTransfer,
 } from '../../types/database';
 
 export interface SubscriptionCallbacks<T> {
@@ -849,6 +851,71 @@ export class IndexerSubscriptionService {
               callbacks.onUpdate?.(parsed.data);
             } else {
               callbacks.onError?.(new Error(`Invalid recovery approval payload: ${parsed.error.message}`));
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (this.isReconnecting.get(channelName)) {
+              this.isReconnecting.set(channelName, false);
+              callbacks.onReconnect?.();
+            }
+            this.reconnectAttempts.set(channelName, 0);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            this.handleReconnect(channelName, subscribe, callbacks.onError);
+          } else if (status === 'CLOSED') {
+            this.channels.delete(channelName);
+            this.reconnectAttempts.delete(channelName);
+            this.isReconnecting.delete(channelName);
+          }
+        });
+
+      this.channels.set(channelName, channel);
+    };
+
+    subscribe();
+
+    return () => {
+      const timeout = this.reconnectTimeouts.get(channelName);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.reconnectTimeouts.delete(channelName);
+      }
+
+      const channel = this.channels.get(channelName);
+      if (channel) {
+        this.ensureClient().removeChannel(channel);
+        this.channels.delete(channelName);
+        this.reconnectAttempts.delete(channelName);
+        this.isReconnecting.delete(channelName);
+      }
+    };
+  }
+
+  subscribeToTokenTransfers(
+    walletAddress: string,
+    callbacks: SubscriptionCallbacks<TokenTransfer>
+  ): () => void {
+    const client = this.ensureClient();
+    const channelName = `token_transfers:${walletAddress.toLowerCase()}`;
+
+    const subscribe = () => {
+      const channel = client
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: INDEXER_CONFIG.SCHEMA,
+            table: 'token_transfers',
+            filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
+          },
+          (payload) => {
+            const parsed = TokenTransferSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onInsert?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid token transfer payload: ${parsed.error.message}`));
             }
           }
         )

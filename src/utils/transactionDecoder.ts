@@ -1,10 +1,13 @@
-import { formatQuai, Interface } from 'quais';
+import { formatQuai, formatUnits, Interface } from 'quais';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { formatAddress } from './formatting';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
+import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
 export type TransactionType =
   | 'transfer'
+  | 'erc20_transfer'
+  | 'erc721_transfer'
   | 'addOwner'
   | 'removeOwner'
   | 'changeThreshold'
@@ -79,6 +82,21 @@ const MODULE_FUNCTION_DESCRIPTIONS: Record<string, (args: any[]) => string> = {
 const moduleInterface = new Interface(MODULE_FUNCTION_ABIS);
 const quaiVaultInterface = new Interface(QuaiVaultABI.abi);
 
+// Standard ERC20/ERC721 ABIs for decoding external contract calls
+const erc20Interface = new Interface([
+  'function transfer(address to, uint256 amount)',
+  'function approve(address spender, uint256 amount)',
+  'function transferFrom(address from, address to, uint256 amount)',
+]);
+
+const erc721Interface = new Interface([
+  'function transferFrom(address from, address to, uint256 tokenId)',
+  'function safeTransferFrom(address from, address to, uint256 tokenId)',
+  'function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)',
+  'function approve(address to, uint256 tokenId)',
+  'function setApprovalForAll(address operator, bool approved)',
+]);
+
 function decodeModuleCall(data: string): { name: string; description: string } | null {
   try {
     const iface = moduleInterface;
@@ -94,10 +112,99 @@ function decodeModuleCall(data: string): { name: string; description: string } |
   }
 }
 
+/**
+ * Format a raw token amount using token metadata when available.
+ * Returns a human-readable string like "0.5 WQI" or falls back to the raw value.
+ */
+function formatTokenAmount(raw: string | bigint, tokenMeta?: TokenMetadata | null): string {
+  if (!tokenMeta?.decimals) return String(raw);
+  try {
+    const formatted = parseFloat(formatUnits(BigInt(raw), tokenMeta.decimals)).toFixed(
+      tokenMeta.decimals > 4 ? 4 : tokenMeta.decimals,
+    );
+    return tokenMeta.symbol ? `${formatted} ${tokenMeta.symbol}` : formatted;
+  } catch {
+    return String(raw);
+  }
+}
+
 export function decodeTransaction(
-  tx: { to: string; value: string; data: string },
-  walletAddress: string
+  tx: { to: string; value: string; data: string; transactionType?: string; decodedParams?: Record<string, unknown> | null },
+  walletAddress: string,
+  tokenMeta?: TokenMetadata | null,
 ): DecodedTransaction {
+  // ERC20 transfer (indexer-provided type)
+  // Handle common alternative field names from indexer decoded_params
+  // If all params resolve to '?', fall through to calldata-based decoding below
+  if (tx.transactionType === 'erc20_transfer' && tx.decodedParams) {
+    const params = tx.decodedParams;
+    const rawAmount = params.amount ?? params.value ?? params._value ?? params._amount;
+    const rawTo = params.to ?? params.recipient ?? params._to ?? params.dst;
+    const amount = rawAmount ? String(rawAmount) : null;
+    const to = rawTo ? formatAddress(String(rawTo)) : null;
+
+    // Only use indexer params if we actually got at least one useful value
+    if (amount || to) {
+      const spender = params.spender ?? params._spender;
+      if (spender) {
+        return {
+          type: 'erc20_transfer',
+          description: 'Token Approval',
+          details: `Approve ${formatAddress(String(spender))} to spend ${amount ?? '?'}`,
+          icon: '🔓',
+          bgColor: 'bg-amber-900',
+          borderColor: 'border-amber-700',
+          textColor: 'text-amber-200',
+        };
+      }
+
+      const from = params.from ?? params._from ?? params.sender;
+      if (from) {
+        return {
+          type: 'erc20_transfer',
+          description: 'Token Transfer',
+          details: `Transfer ${amount ?? '?'} tokens from ${formatAddress(String(from))} to ${to ?? '?'}`,
+          icon: '🪙',
+          bgColor: 'bg-yellow-900',
+          borderColor: 'border-yellow-700',
+          textColor: 'text-yellow-200',
+        };
+      }
+
+      return {
+        type: 'erc20_transfer',
+        description: 'Token Transfer',
+        details: `Send ${amount ?? '?'} tokens to ${to ?? '?'}`,
+        icon: '🪙',
+        bgColor: 'bg-yellow-900',
+        borderColor: 'border-yellow-700',
+        textColor: 'text-yellow-200',
+      };
+    }
+    // If no useful params found, fall through to calldata decoding
+  }
+
+  // ERC721 transfer (indexer-provided type)
+  if (tx.transactionType === 'erc721_transfer' && tx.decodedParams) {
+    const params = tx.decodedParams;
+    const from = params.from ? formatAddress(String(params.from)) : null;
+    const to = params.to ? formatAddress(String(params.to)) : null;
+    const tokenId = params.tokenId ?? params.token_id;
+
+    if (from || to || tokenId != null) {
+      return {
+        type: 'erc721_transfer',
+        description: 'NFT Transfer',
+        details: `Transfer NFT #${tokenId ?? '?'} from ${from ?? '?'} to ${to ?? '?'}`,
+        icon: '🖼️',
+        bgColor: 'bg-purple-900',
+        borderColor: 'border-purple-700',
+        textColor: 'text-purple-200',
+      };
+    }
+    // Fall through to calldata decoding if no useful params
+  }
+
   // Plain transfer
   if (tx.data === '0x' || tx.data === '') {
     return {
@@ -304,7 +411,106 @@ export function decodeTransaction(
     };
   }
 
-  // External contract call
+  // Try to decode as ERC20 call from raw calldata
+  if (tx.data && tx.data.length > 10) {
+    try {
+      const decoded = erc20Interface.parseTransaction({ data: tx.data });
+      if (decoded) {
+        if (decoded.name === 'transfer') {
+          const to = formatAddress(String(decoded.args[0]));
+          const amount = formatTokenAmount(decoded.args[1], tokenMeta);
+          return {
+            type: 'erc20_transfer',
+            description: 'Token Transfer',
+            details: `Send ${amount} to ${to}`,
+            icon: '🪙',
+            bgColor: 'bg-yellow-900',
+            borderColor: 'border-yellow-700',
+            textColor: 'text-yellow-200',
+          };
+        }
+        if (decoded.name === 'approve') {
+          const spender = formatAddress(String(decoded.args[0]));
+          const amount = formatTokenAmount(decoded.args[1], tokenMeta);
+          return {
+            type: 'erc20_transfer',
+            description: 'Token Approval',
+            details: `Approve ${spender} to spend ${amount}`,
+            icon: '🔓',
+            bgColor: 'bg-amber-900',
+            borderColor: 'border-amber-700',
+            textColor: 'text-amber-200',
+          };
+        }
+        if (decoded.name === 'transferFrom') {
+          const from = formatAddress(String(decoded.args[0]));
+          const to = formatAddress(String(decoded.args[1]));
+          const amount = formatTokenAmount(decoded.args[2], tokenMeta);
+          return {
+            type: 'erc20_transfer',
+            description: 'Token Transfer',
+            details: `Transfer ${amount} from ${from} to ${to}`,
+            icon: '🪙',
+            bgColor: 'bg-yellow-900',
+            borderColor: 'border-yellow-700',
+            textColor: 'text-yellow-200',
+          };
+        }
+      }
+    } catch {
+      // Not an ERC20 call — try ERC721
+    }
+
+    try {
+      const decoded = erc721Interface.parseTransaction({ data: tx.data });
+      if (decoded) {
+        if (decoded.name === 'transferFrom' || decoded.name === 'safeTransferFrom') {
+          const from = formatAddress(String(decoded.args[0]));
+          const to = formatAddress(String(decoded.args[1]));
+          const tokenId = String(decoded.args[2]);
+          return {
+            type: 'erc721_transfer',
+            description: 'NFT Transfer',
+            details: `Transfer NFT #${tokenId} from ${from} to ${to}`,
+            icon: '🖼️',
+            bgColor: 'bg-purple-900',
+            borderColor: 'border-purple-700',
+            textColor: 'text-purple-200',
+          };
+        }
+        if (decoded.name === 'approve') {
+          const approved = formatAddress(String(decoded.args[0]));
+          const tokenId = String(decoded.args[1]);
+          return {
+            type: 'erc721_transfer',
+            description: 'NFT Approval',
+            details: `Approve ${approved} for NFT #${tokenId}`,
+            icon: '🔓',
+            bgColor: 'bg-amber-900',
+            borderColor: 'border-amber-700',
+            textColor: 'text-amber-200',
+          };
+        }
+        if (decoded.name === 'setApprovalForAll') {
+          const operator = formatAddress(String(decoded.args[0]));
+          const approved = decoded.args[1] ? 'approve' : 'revoke';
+          return {
+            type: 'erc721_transfer',
+            description: 'NFT Approval',
+            details: `${approved === 'approve' ? 'Approve' : 'Revoke'} ${operator} for all NFTs`,
+            icon: '🔓',
+            bgColor: 'bg-amber-900',
+            borderColor: 'border-amber-700',
+            textColor: 'text-amber-200',
+          };
+        }
+      }
+    } catch {
+      // Not an ERC721 call either
+    }
+  }
+
+  // External contract call (unknown function)
   return {
     type: 'contractCall',
     description: 'Contract Call',

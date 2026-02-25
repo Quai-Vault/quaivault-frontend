@@ -9,6 +9,7 @@ import type {
   WalletOwner,
   SocialRecovery,
   RecoveryApproval,
+  TokenTransfer,
 } from '../../types/database';
 
 export interface WalletSubscriptionCallbacks {
@@ -38,6 +39,8 @@ export interface WalletSubscriptionCallbacks {
   // Recovery approval subscriptions
   onRecoveryApprovalInsert?: (approval: RecoveryApproval) => void;
   onRecoveryApprovalUpdate?: (approval: RecoveryApproval) => void;
+  // Token transfer subscriptions
+  onTokenTransferInsert?: (transfer: TokenTransfer) => void;
   // Error handling
   onError?: (error: Error) => void;
   /** Called when this wallet is evicted due to subscription limit */
@@ -173,6 +176,15 @@ export class SubscriptionManager {
         onError: callbacks.onError,
       });
       unsubscribers.push(unsubApprovals);
+    }
+
+    // Subscribe to token transfers
+    if (callbacks.onTokenTransferInsert) {
+      const unsubTokenTransfers = this.subscriptionService.subscribeToTokenTransfers(normalizedAddress, {
+        onInsert: callbacks.onTokenTransferInsert,
+        onError: callbacks.onError,
+      });
+      unsubscribers.push(unsubTokenTransfers);
     }
 
     this.activeWallets.add(normalizedAddress);

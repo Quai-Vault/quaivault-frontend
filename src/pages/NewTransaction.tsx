@@ -7,6 +7,8 @@ import { multisigService } from '../services/MultisigService';
 import { Modal } from '../components/Modal';
 import { TransactionFlow } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
+import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
+import { useContractInteraction } from '../hooks/useContractInteraction';
 import { isQuaiAddress, isHexString } from 'quais';
 import { TIMING } from '../config/contracts';
 
@@ -36,7 +38,24 @@ export function NewTransaction() {
   const [useDailyLimit, setUseDailyLimit] = useState(true); // User's choice: use daily limit or propose
   const [remainingDailyLimit, setRemainingDailyLimit] = useState<bigint | null>(null);
   const [dailyLimitInfo, setDailyLimitInfo] = useState<{ limit: bigint; spent: bigint } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [assetValidationBlocking, setAssetValidationBlocking] = useState(false);
+  const [assetValidationWarning, setAssetValidationWarning] = useState<string | null>(null);
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Contract detection and ABI fetching
+  const {
+    isContract: isRecipientContract,
+    isDetecting: isDetectingContract,
+    abi: contractAbi,
+    abiSource,
+    isFetchingAbi,
+    abiFetchError,
+    functions: contractFunctions,
+    contractType,
+    tokenMetadata,
+    setManualAbi,
+  } = useContractInteraction(isQuaiAddress(to) ? to : undefined);
 
   // Clean up navigate timeout on unmount
   useEffect(() => {
@@ -84,6 +103,11 @@ export function NewTransaction() {
       return null;
     }
   }, [value, remainingDailyLimit, dailyLimitInfo]);
+
+  const handleValidationChange = useCallback((validation: { warning: string | null; isBlocking: boolean }) => {
+    setAssetValidationBlocking(validation.isBlocking);
+    setAssetValidationWarning(validation.warning);
+  }, []);
 
   // Check whitelist status when address or value changes
   useEffect(() => {
@@ -261,6 +285,11 @@ export function NewTransaction() {
       if (!isHexString(data)) {
         newErrors.push('Invalid data format (must be hex string)');
       }
+    }
+
+    // Check asset validation (ERC20 balance / ERC721 ownership)
+    if (assetValidationWarning) {
+      newErrors.push(assetValidationWarning);
     }
 
     setErrors(newErrors);
@@ -472,6 +501,33 @@ export function NewTransaction() {
             placeholder="0x..."
             className="input-field w-full"
           />
+          {/* Contract detection badge */}
+          {isQuaiAddress(to) && (
+            isDetectingContract ? (
+              <p className="mt-2 text-sm font-mono text-dark-400 flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Detecting...
+              </p>
+            ) : isRecipientContract ? (
+              <p className={`mt-2 text-sm font-mono flex items-center gap-2 ${
+                contractType === 'erc20' ? 'text-blue-600 dark:text-blue-400'
+                  : contractType === 'erc721' ? 'text-purple-600 dark:text-purple-400'
+                  : 'text-blue-600 dark:text-blue-400'
+              }`}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                {contractType === 'erc20'
+                  ? `ERC-20 Token${tokenMetadata?.symbol ? ` (${tokenMetadata.symbol})` : ''}`
+                  : contractType === 'erc721'
+                  ? 'ERC-721 NFT Contract'
+                  : 'Smart Contract Detected'}
+              </p>
+            ) : null
+          )}
         </div>
 
         {/* Value */}
@@ -499,23 +555,56 @@ export function NewTransaction() {
           )}
         </div>
 
-        {/* Data (Optional) */}
-        <div className="mb-8">
-          <label htmlFor="data" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
-            Data (Optional)
-          </label>
-          <textarea
-            id="data"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            placeholder="0x"
-            rows={4}
-            className="input-field w-full font-mono text-lg"
+        {/* Contract Interaction or Advanced Data */}
+        {isRecipientContract === true ? (
+          <ContractInteractionBuilder
+            abi={contractAbi}
+            abiSource={abiSource}
+            isFetchingAbi={isFetchingAbi}
+            abiFetchError={abiFetchError}
+            functions={contractFunctions}
+            contractType={contractType}
+            tokenMetadata={tokenMetadata}
+            onDataChange={setData}
+            onValueChange={setValue}
+            currentValue={value}
+            setManualAbi={setManualAbi}
+            walletAddress={walletAddress}
+            contractAddress={to}
+            onValidationChange={handleValidationChange}
           />
-          <p className="mt-2 text-base font-mono text-dark-600">
-            Optional contract call data. Leave as "0x" for simple transfers.
-          </p>
-        </div>
+        ) : (
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-sm font-mono text-dark-400 hover:text-dark-600 dark:hover:text-dark-300 flex items-center gap-1 transition-colors"
+            >
+              Advanced Options
+              <svg className={`w-3 h-3 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showAdvanced && (
+              <div className="mt-3">
+                <label htmlFor="data" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
+                  Data (Optional)
+                </label>
+                <textarea
+                  id="data"
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  placeholder="0x"
+                  rows={4}
+                  className="input-field w-full font-mono text-lg"
+                />
+                <p className="mt-2 text-base font-mono text-dark-600">
+                  Optional contract call data. Leave as "0x" for simple transfers.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Transaction Mode Selector - shown when daily limit is available */}
         {canUseDailyLimit === true && (!data || data === '0x') && !isWhitelisted && (
@@ -683,6 +772,8 @@ export function NewTransaction() {
           value={value}
           data={data}
           walletAddress={walletAddress}
+          contractAbi={contractAbi}
+          tokenMetadata={tokenMetadata}
           onConfirm={handlePreviewConfirm}
           onCancel={handlePreviewCancel}
           isWhitelisted={isWhitelisted === true}

@@ -15,6 +15,7 @@ import { multisigService } from '../services/MultisigService';
 import { CONTRACT_ADDRESSES, TIMING } from '../config/contracts';
 import { formatQuai } from 'quais';
 import { ExplorerLink } from '../components/ExplorerLink';
+import { TokenBalancePanel } from '../components/TokenBalancePanel';
 
 export function WalletDetail() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -257,6 +258,9 @@ export function WalletDetail() {
                 )}
               </div>
             </div>
+
+            {/* Token Balances */}
+            {walletAddress && <TokenBalancePanel walletAddress={walletAddress} />}
           </div>
         </div>
 

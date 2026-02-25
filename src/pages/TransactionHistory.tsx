@@ -10,6 +10,7 @@ import { formatAddress, formatTimestamp, formatDateString } from '../utils/forma
 import { CopyButton } from '../components/CopyButton';
 import { EmptyState } from '../components/EmptyState';
 import { formatQuai } from 'quais';
+import { TokenTransferHistory } from '../components/TokenTransferHistory';
 import type { RecoveryApproval } from '../types/database';
 
 const PAGE_SIZE = 50;
@@ -18,7 +19,7 @@ export function TransactionHistory() {
   const { address: walletAddress } = useParams<{ address: string }>();
   const { isConnected: isIndexerConnected } = useIndexerConnection();
   const { executedTransactions, cancelledTransactions, recoveryHistory, isLoadingHistory, isLoadingCancelled, isLoadingRecoveryHistory, refreshHistory, refreshCancelled, refreshRecoveryHistory } = useMultisig(walletAddress);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'cancelled' | 'recovery'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'cancelled' | 'recovery' | 'tokens'>('transactions');
   const [executedVisible, setExecutedVisible] = useState(PAGE_SIZE);
   const [cancelledVisible, setCancelledVisible] = useState(PAGE_SIZE);
   const [recoveryVisible, setRecoveryVisible] = useState(PAGE_SIZE);
@@ -180,6 +181,16 @@ export function TransactionHistory() {
           {recoveryHistory && recoveryHistory.length > 0 && (
             <span className="ml-2 text-base font-mono text-dark-500">({recoveryHistory.length})</span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab('tokens')}
+          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+            activeTab === 'tokens'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
+          }`}
+        >
+          Token Transfers
         </button>
       </div>
 
@@ -787,6 +798,11 @@ export function TransactionHistory() {
             )}
           </div>
         )}
+      </div>}
+
+      {/* Token Transfers */}
+      {activeTab === 'tokens' && walletAddress && <div className="vault-panel p-8">
+        <TokenTransferHistory walletAddress={walletAddress} />
       </div>}
     </div>
   );

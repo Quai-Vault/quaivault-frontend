@@ -1,5 +1,6 @@
 import { useState, memo, useCallback, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../hooks/useWallet';
 import { useMultisig } from '../hooks/useMultisig';
 import type { PendingTransaction } from '../types';
@@ -14,6 +15,8 @@ import { decodeTransaction, type DecodedTransaction } from '../utils/transaction
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { formatAddress, formatTimestamp } from '../utils/formatting';
+import { indexerService } from '../services';
+import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
 // Virtualization constants
 const ESTIMATED_ITEM_HEIGHT = 320; // Approximate height of a transaction item
@@ -268,14 +271,42 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
     setCancelModalTx(tx);
   }, []);
 
+  // Extract unique target addresses for token metadata lookup
+  const targetAddresses = useMemo(() => {
+    const addrs = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.to.toLowerCase() !== walletAddress.toLowerCase() && tx.data && tx.data !== '0x') {
+        addrs.add(tx.to);
+      }
+    }
+    return [...addrs];
+  }, [transactions, walletAddress]);
+
+  // Fetch token metadata from DB for target contract addresses
+  const { data: tokenMetaMap } = useQuery({
+    queryKey: ['txListTokenMeta', ...targetAddresses],
+    queryFn: async () => {
+      if (targetAddresses.length === 0) return new Map<string, TokenMetadata>();
+      const tokens = await indexerService.token.getTokensByAddresses(targetAddresses);
+      const metaMap = new Map<string, TokenMetadata>();
+      for (const [addr, token] of tokens) {
+        metaMap.set(addr, { name: token.name, symbol: token.symbol, decimals: token.decimals });
+      }
+      return metaMap;
+    },
+    enabled: targetAddresses.length > 0,
+    staleTime: 60_000,
+  });
+
   // Memoize decoded transactions to avoid expensive decoding on every render
   const decodedTransactions = useMemo(() => {
     const decoded = new Map<string, DecodedTransaction>();
     for (const tx of transactions) {
-      decoded.set(tx.hash, decodeTransaction(tx, walletAddress));
+      const meta = tokenMetaMap?.get(tx.to.toLowerCase()) ?? null;
+      decoded.set(tx.hash, decodeTransaction(tx, walletAddress, meta));
     }
     return decoded;
-  }, [transactions, walletAddress]);
+  }, [transactions, walletAddress, tokenMetaMap]);
 
   // Determine if we should use virtualization
   const shouldVirtualize = transactions.length > VIRTUALIZATION_THRESHOLD;

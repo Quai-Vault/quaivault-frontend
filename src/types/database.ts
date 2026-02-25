@@ -199,6 +199,35 @@ export const ModuleExecutionSchema = z.object({
   created_at: z.string(),
 });
 
+// ============ Token Tables ============
+
+export const TokenSchema = z.object({
+  id: z.string(),
+  address: z.string(),
+  standard: z.enum(['ERC20', 'ERC721']),
+  symbol: z.string().nullable(),
+  name: z.string().nullable(),
+  decimals: z.number().nullable(),
+  discovered_at_block: z.number().nullable(),
+  discovered_via: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export const TokenTransferSchema = z.object({
+  id: z.string(),
+  token_address: z.string(),
+  wallet_address: z.string(),
+  from_address: z.string(),
+  to_address: z.string(),
+  value: z.string(),
+  token_id: z.string().nullable(),
+  direction: z.enum(['inflow', 'outflow']),
+  block_number: z.number(),
+  transaction_hash: z.string(),
+  log_index: z.number(),
+  created_at: z.string(),
+});
+
 // ============ Type Exports ============
 
 export type Wallet = z.infer<typeof WalletSchema>;
@@ -215,3 +244,5 @@ export type SocialRecovery = z.infer<typeof SocialRecoverySchema>;
 export type RecoveryApproval = z.infer<typeof RecoveryApprovalSchema>;
 export type ModuleTransaction = z.infer<typeof ModuleTransactionSchema>;
 export type ModuleExecution = z.infer<typeof ModuleExecutionSchema>;
+export type Token = z.infer<typeof TokenSchema>;
+export type TokenTransfer = z.infer<typeof TokenTransferSchema>;

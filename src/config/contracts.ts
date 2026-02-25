@@ -15,6 +15,7 @@ export const NETWORK_CONFIG = {
   RPC_URL: import.meta.env.VITE_RPC_URL || 'https://rpc.orchard.quai.network',
   CHAIN_ID: Number(import.meta.env.VITE_CHAIN_ID) || 15000,
   BLOCK_EXPLORER_URL: import.meta.env.VITE_BLOCK_EXPLORER_URL || 'https://orchard.quaiscan.io',
+  IPFS_GATEWAY: import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.qu.ai',
 };
 
 // Block lookback ranges for event queries (blockchain fallback when indexer is offline).
