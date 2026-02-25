@@ -140,7 +140,7 @@ export function decodeTransaction(
     const params = tx.decodedParams;
     const rawAmount = params.amount ?? params.value ?? params._value ?? params._amount;
     const rawTo = params.to ?? params.recipient ?? params._to ?? params.dst;
-    const amount = rawAmount ? String(rawAmount) : null;
+    const amount = rawAmount != null ? formatTokenAmount(String(rawAmount), tokenMeta) : null;
     const to = rawTo ? formatAddress(String(rawTo)) : null;
 
     // Only use indexer params if we actually got at least one useful value
@@ -150,7 +150,7 @@ export function decodeTransaction(
         return {
           type: 'erc20_transfer',
           description: 'Token Approval',
-          details: `Approve ${formatAddress(String(spender))} to spend ${amount ?? '?'}`,
+          details: `Approve ${formatAddress(String(spender))} to spend ${amount ?? '?'} tokens`,
           icon: '🔓',
           bgColor: 'bg-amber-900',
           borderColor: 'border-amber-700',

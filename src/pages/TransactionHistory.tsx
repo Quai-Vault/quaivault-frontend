@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useMultisig } from '../hooks/useMultisig';
 import { useIndexerConnection } from '../hooks/useIndexerConnection';
 import { multisigService } from '../services/MultisigService';
+import { indexerService } from '../services';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
 import { formatAddress, formatTimestamp, formatDateString } from '../utils/formatting';
@@ -12,6 +13,7 @@ import { EmptyState } from '../components/EmptyState';
 import { formatQuai } from 'quais';
 import { TokenTransferHistory } from '../components/TokenTransferHistory';
 import type { RecoveryApproval } from '../types/database';
+import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
 const PAGE_SIZE = 50;
 
@@ -79,6 +81,32 @@ export function TransactionHistory() {
       return new Map(results);
     },
     enabled: !!walletAddress && activeTab === 'recovery' && recoveryHashes.length > 0,
+  });
+
+  // Collect unique contract addresses from both executed and cancelled tx lists for token metadata
+  const tokenTargetAddresses = useMemo(() => {
+    const addrs = new Set<string>();
+    for (const tx of [...(executedTransactions ?? []), ...(cancelledTransactions ?? [])]) {
+      if (tx.to && tx.to.toLowerCase() !== walletAddress?.toLowerCase() && tx.data && tx.data !== '0x') {
+        addrs.add(tx.to);
+      }
+    }
+    return [...addrs];
+  }, [executedTransactions, cancelledTransactions, walletAddress]);
+
+  const { data: tokenMetaMap } = useQuery<Map<string, TokenMetadata>>({
+    queryKey: ['txHistoryTokenMeta', ...tokenTargetAddresses],
+    queryFn: async () => {
+      if (tokenTargetAddresses.length === 0) return new Map<string, TokenMetadata>();
+      const tokens = await indexerService.token.getTokensByAddresses(tokenTargetAddresses);
+      const metaMap = new Map<string, TokenMetadata>();
+      for (const [addr, token] of tokens) {
+        metaMap.set(addr, { name: token.name, symbol: token.symbol, decimals: token.decimals });
+      }
+      return metaMap;
+    },
+    enabled: tokenTargetAddresses.length > 0,
+    staleTime: 60_000,
   });
 
   if (!walletAddress) {
@@ -255,7 +283,7 @@ export function TransactionHistory() {
         ) : (
           <div className="space-y-4">
             {executedTransactions.slice(0, executedVisible).map((tx) => {
-              const decoded = decodeTransaction(tx, walletAddress);
+              const decoded = decodeTransaction(tx, walletAddress, tokenMetaMap?.get(tx.to.toLowerCase()) ?? null);
               const isExpanded = expandedItems.has(tx.hash);
               const hasDetails = tx.to.toLowerCase() !== walletAddress.toLowerCase() || Object.keys(tx.approvals).length > 0;
 
@@ -438,7 +466,7 @@ export function TransactionHistory() {
         ) : (
           <div className="space-y-4">
             {cancelledTransactions.slice(0, cancelledVisible).map((tx) => {
-              const decoded = decodeTransaction(tx, walletAddress);
+              const decoded = decodeTransaction(tx, walletAddress, tokenMetaMap?.get(tx.to.toLowerCase()) ?? null);
               const isExpanded = expandedItems.has(tx.hash);
               const hasDetails = tx.to.toLowerCase() !== walletAddress.toLowerCase() || (Object.keys(tx.approvals).length > 0 && Object.values(tx.approvals).some(v => v));
 
