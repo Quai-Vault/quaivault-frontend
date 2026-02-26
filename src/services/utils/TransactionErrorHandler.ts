@@ -75,7 +75,7 @@ export function decodeErrorData(contract: Contract, errorData: string): string |
       }
       let message = decoded.name;
       if (decoded.args && decoded.args.length > 0) {
-        message += ` - ${decoded.args.map((arg: any) => arg.toString()).join(', ')}`;
+        message += ` - ${decoded.args.map((arg: unknown) => String(arg)).join(', ')}`;
       }
       return message;
     }
@@ -147,11 +147,11 @@ export function formatTransactionError(
  * Check receipt status and throw if reverted
  */
 export function checkReceiptStatus(
-  receipt: any,
+  receipt: unknown,
   operation: string,
   additionalContext?: string
 ): void {
-  if (receipt && 'status' in receipt && receipt.status === 0) {
+  if (receipt !== null && typeof receipt === 'object' && 'status' in receipt && receipt.status === 0) {
     const context = additionalContext ? ` ${additionalContext}` : '';
     throw new Error(`${operation} reverted.${context}`);
   }

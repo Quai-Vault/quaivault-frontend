@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
 import { notificationManager } from './NotificationContainer';
 import { Modal } from './Modal';
@@ -14,6 +15,7 @@ interface SocialRecoveryConfigurationProps {
 
 export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialRecoveryConfigurationProps) {
   const queryClient = useQueryClient();
+  const isPageVisible = usePageVisibility();
   const [guardianInputs, setGuardianInputs] = useState<{ id: string; value: string }[]>([
     { id: crypto.randomUUID(), value: '' },
   ]);
@@ -30,7 +32,8 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
       return await multisigService.getRecoveryConfig(walletAddress);
     },
     enabled: !!walletAddress,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Query pending recoveries to prevent config updates during active recoveries
@@ -40,7 +43,8 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
       return await multisigService.getPendingRecoveries(walletAddress);
     },
     enabled: !!walletAddress && !!recoveryConfig && recoveryConfig.guardians.length > 0,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
 import { transactionBuilderService } from '../services/TransactionBuilderService';
 import { notificationManager } from './NotificationContainer';
@@ -14,6 +15,7 @@ interface DailyLimitConfigurationProps {
 
 export function DailyLimitConfiguration({ walletAddress, onUpdate }: DailyLimitConfigurationProps) {
   const queryClient = useQueryClient();
+  const isPageVisible = usePageVisibility();
   const [newLimit, setNewLimit] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmAction, setConfirmAction] = useState<'reset' | 'disable' | null>(null);
@@ -25,7 +27,8 @@ export function DailyLimitConfiguration({ walletAddress, onUpdate }: DailyLimitC
       return await multisigService.getDailyLimit(walletAddress);
     },
     enabled: !!walletAddress,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Query remaining limit
@@ -35,7 +38,8 @@ export function DailyLimitConfiguration({ walletAddress, onUpdate }: DailyLimitC
       return await multisigService.getRemainingLimit(walletAddress);
     },
     enabled: !!walletAddress,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Query time until reset
@@ -45,7 +49,8 @@ export function DailyLimitConfiguration({ walletAddress, onUpdate }: DailyLimitC
       return await multisigService.getTimeUntilReset(walletAddress);
     },
     enabled: !!walletAddress,
-    refetchInterval: 60000, // Refetch every minute
+    staleTime: 60_000,
+    refetchInterval: isPageVisible ? 60000 : false,
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);

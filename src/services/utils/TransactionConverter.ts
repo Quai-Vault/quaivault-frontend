@@ -3,7 +3,7 @@ import type { IndexerTransaction, Confirmation } from '../../types/database';
 import type { PendingTransaction } from '../../types';
 
 /** Checksum an address, falling back to the raw string if malformed */
-function safeGetAddress(address: string): string {
+export function safeGetAddress(address: string): string {
   try {
     return getAddress(address);
   } catch {

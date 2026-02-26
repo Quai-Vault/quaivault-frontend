@@ -12,7 +12,7 @@ export const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
   : null;
 
 export const INDEXER_CONFIG = {
-  HEALTH_URL: import.meta.env.VITE_INDEXER_URL || 'http://localhost:3001',
+  HEALTH_URL: import.meta.env.VITE_INDEXER_URL || 'http://localhost:8081',
   SCHEMA: NETWORK_SCHEMA,
   HEALTH_CACHE_MS: 5000, // Cache health check for 5 seconds for faster recovery detection
   MAX_SUBSCRIPTIONS: 10, // Max concurrent wallet subscriptions per client

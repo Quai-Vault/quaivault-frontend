@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Interface, Contract as QuaisContract } from 'quais';
+import { JsonRpcProvider, Interface, Contract as QuaisContract, getAddress } from 'quais';
 import { decode, AuxdataStyle } from '@ethereum-sourcify/bytecode-utils';
 import { NETWORK_CONFIG, CONTRACT_ADDRESSES } from '../../config/contracts';
 import QuaiVaultABI from '../../config/abi/QuaiVault.json';
@@ -58,11 +58,16 @@ export async function isContract(address: string): Promise<boolean> {
   const cached = cache.get(key);
   if (cached !== undefined) return cached.isContract;
 
-  const code = await provider.getCode(address);
-  const result = code !== '0x' && code !== '0x0' && code.length > 2;
-
-  cache.set(key, { isContract: result, abi: null, source: null });
-  return result;
+  const checksummed = getAddress(address);
+  try {
+    const code = await provider.getCode(checksummed);
+    const result = code !== '0x' && code !== '0x0' && code.length > 2;
+    cache.set(key, { isContract: result, abi: null, source: null });
+    return result;
+  } catch (e) {
+    console.error('[ContractMetadata] getCode failed for', checksummed, e);
+    throw e;
+  }
 }
 
 /**
@@ -116,7 +121,8 @@ async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | nul
   if (depth >= MAX_PROXY_DEPTH) return null;
 
   try {
-    const bytecode = await provider.getCode(address);
+    const checksummed = getAddress(address);
+    const bytecode = await provider.getCode(checksummed);
     if (!bytecode || bytecode === '0x' || bytecode.length <= 2) return null;
 
     // Check for EIP-1167 minimal proxy
@@ -128,7 +134,7 @@ async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | nul
     // Decode CBOR metadata from bytecode
     const metadata = decode(bytecode, AuxdataStyle.SOLIDITY);
     if (!metadata.ipfs) {
-      console.warn('[ContractMetadata] No IPFS CID in bytecode metadata for', address);
+      console.warn('[ContractMetadata] No IPFS CID in bytecode metadata for', checksummed);
       return null;
     }
 
@@ -143,7 +149,7 @@ async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | nul
     const metadataJson = await response.json();
     const abi = metadataJson?.output?.abi;
     if (!abi || !Array.isArray(abi)) {
-      console.warn('[ContractMetadata] No ABI in IPFS metadata for', address);
+      console.warn('[ContractMetadata] No ABI in IPFS metadata for', checksummed);
       return null;
     }
 
@@ -152,7 +158,7 @@ async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | nul
 
     // Check if this looks like a proxy contract (EIP-1967)
     if (looksLikeProxy(abi)) {
-      const implAddr = await getEip1967Implementation(address);
+      const implAddr = await getEip1967Implementation(checksummed);
       if (implAddr) {
         const implAbi = await fetchAbiFromIpfs(implAddr, depth + 1);
         if (implAbi) return implAbi;
@@ -199,7 +205,7 @@ function looksLikeProxy(abi: any[]): boolean {
  */
 async function getEip1967Implementation(proxyAddress: string): Promise<string | null> {
   try {
-    const slot = await provider.getStorage(proxyAddress, EIP_1967_IMPL_SLOT);
+    const slot = await provider.getStorage(getAddress(proxyAddress), EIP_1967_IMPL_SLOT);
     if (!slot || slot === '0x' || slot === '0x' + '0'.repeat(64)) return null;
     // Address is in the last 20 bytes (40 hex chars) of the 32-byte slot
     return '0x' + slot.slice(-40);
@@ -261,7 +267,7 @@ export async function fetchTokenMetadata(address: string): Promise<TokenMetadata
   const cached = tokenMetadataCache.get(key);
   if (cached) return cached;
 
-  const contract = new QuaisContract(address, ERC20_METADATA_ABI, provider);
+  const contract = new QuaisContract(getAddress(address), ERC20_METADATA_ABI, provider);
   const [name, symbol, decimals] = await Promise.allSettled([
     contract.name() as Promise<string>,
     contract.symbol() as Promise<string>,
@@ -297,8 +303,8 @@ export async function getTokenBalance(
   walletAddress: string,
 ): Promise<bigint | null> {
   try {
-    const contract = new QuaisContract(tokenAddress, ERC20_BALANCE_ABI, provider);
-    const balance: bigint = await contract.balanceOf(walletAddress);
+    const contract = new QuaisContract(getAddress(tokenAddress), ERC20_BALANCE_ABI, provider);
+    const balance: bigint = await contract.balanceOf(getAddress(walletAddress));
     return balance;
   } catch (e) {
     console.warn('[ContractMetadata] Failed to fetch ERC20 balance:', e);
@@ -315,7 +321,7 @@ export async function getNftOwner(
   tokenId: string,
 ): Promise<string | null> {
   try {
-    const contract = new QuaisContract(tokenAddress, ERC721_OWNER_ABI, provider);
+    const contract = new QuaisContract(getAddress(tokenAddress), ERC721_OWNER_ABI, provider);
     const owner: string = await contract.ownerOf(tokenId);
     return owner;
   } catch (e) {
@@ -329,7 +335,7 @@ export async function getNftOwner(
  */
 async function fetchAbiFromExplorer(address: string): Promise<any[] | null> {
   try {
-    const url = `${NETWORK_CONFIG.BLOCK_EXPLORER_URL}/api?module=contract&action=getabi&address=${address}`;
+    const url = `${NETWORK_CONFIG.BLOCK_EXPLORER_URL}/api?module=contract&action=getabi&address=${getAddress(address)}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!response.ok) return null;
 

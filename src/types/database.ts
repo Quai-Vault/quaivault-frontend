@@ -199,6 +199,17 @@ export const ModuleExecutionSchema = z.object({
   created_at: z.string(),
 });
 
+// ============ Indexer State Table ============
+
+export const IndexerStateSchema = z.object({
+  id: z.string(),
+  last_indexed_block: z.number(),
+  last_block_hash: z.string().nullable(),
+  last_indexed_at: z.string().nullable(),
+  is_syncing: z.boolean(),
+  updated_at: z.string(),
+});
+
 // ============ Token Tables ============
 
 export const TokenSchema = z.object({
@@ -244,5 +255,6 @@ export type SocialRecovery = z.infer<typeof SocialRecoverySchema>;
 export type RecoveryApproval = z.infer<typeof RecoveryApprovalSchema>;
 export type ModuleTransaction = z.infer<typeof ModuleTransactionSchema>;
 export type ModuleExecution = z.infer<typeof ModuleExecutionSchema>;
+export type IndexerState = z.infer<typeof IndexerStateSchema>;
 export type Token = z.infer<typeof TokenSchema>;
 export type TokenTransfer = z.infer<typeof TokenTransferSchema>;

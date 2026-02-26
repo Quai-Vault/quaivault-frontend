@@ -1,23 +1,25 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
-import { formatUnits } from 'quais';
+import { useEffect } from 'react';
 import { indexerService } from '../services/indexer';
 import { getERC20Balances, type OnChainTokenBalance } from '../services/utils/TokenBalanceService';
 import { useIndexerConnection } from './useIndexerConnection';
+import { usePageVisibility } from './usePageVisibility';
 import type { Token, TokenTransfer } from '../types/database';
 import type { PaginatedResult } from '../services/indexer';
-import { notificationManager } from '../components/NotificationContainer';
-import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/notifications';
 
-const POLLING_INTERVALS = {
-  TOKEN_LIST: 30000,
-  TOKEN_BALANCES: 30000,
-  TOKEN_TRANSFERS: 30000,
-} as const;
+// Single polling interval used for all token queries.
+// Only active when the page is visible AND the indexer subscription is offline —
+// real-time subscriptions handle updates when the indexer is connected.
+const TOKEN_POLLING_INTERVAL_MS = 30_000;
 
 export function useTokenBalances(walletAddress?: string) {
   const queryClient = useQueryClient();
   const { isConnected: isIndexerConnected, isEnabled: isIndexerEnabled } = useIndexerConnection();
+  const isPageVisible = usePageVisibility();
+
+  // Poll only when the page is visible and subscriptions are not active.
+  // When the indexer is connected, real-time invalidation handles updates.
+  const pollingInterval = !isPageVisible || isIndexerConnected ? false : TOKEN_POLLING_INTERVAL_MS;
 
   // Step 1: Get tokens this wallet has interacted with (from indexer)
   const {
@@ -33,15 +35,9 @@ export function useTokenBalances(walletAddress?: string) {
       return indexerService.token.getTokensForWallet(walletAddress);
     },
     enabled: !!walletAddress && isIndexerConnected,
-    staleTime: POLLING_INTERVALS.TOKEN_LIST,
-    refetchInterval: POLLING_INTERVALS.TOKEN_LIST,
+    staleTime: TOKEN_POLLING_INTERVAL_MS,
+    refetchInterval: pollingInterval,
   });
-
-  // Keep a ref to the latest tokens so the subscription callback always has fresh metadata
-  const tokensRef = useRef<Token[]>([]);
-  useEffect(() => {
-    tokensRef.current = tokens ?? [];
-  }, [tokens]);
 
   // Step 2: Fetch on-chain balances for discovered ERC20 tokens
   const {
@@ -57,8 +53,8 @@ export function useTokenBalances(walletAddress?: string) {
       return getERC20Balances(walletAddress, tokens);
     },
     enabled: !!walletAddress && !!tokens && tokens.length > 0,
-    staleTime: POLLING_INTERVALS.TOKEN_BALANCES,
-    refetchInterval: POLLING_INTERVALS.TOKEN_BALANCES,
+    staleTime: TOKEN_POLLING_INTERVAL_MS,
+    refetchInterval: pollingInterval,
   });
 
   // Step 3: Get recent token transfers for history display
@@ -73,8 +69,8 @@ export function useTokenBalances(walletAddress?: string) {
       return indexerService.token.getTokenTransfers(walletAddress, { limit: 50 });
     },
     enabled: !!walletAddress && isIndexerConnected,
-    staleTime: POLLING_INTERVALS.TOKEN_TRANSFERS,
-    refetchInterval: POLLING_INTERVALS.TOKEN_TRANSFERS,
+    staleTime: TOKEN_POLLING_INTERVAL_MS,
+    refetchInterval: pollingInterval,
   });
 
   // Step 4: Real-time subscription for new token transfers
@@ -82,40 +78,10 @@ export function useTokenBalances(walletAddress?: string) {
     if (!walletAddress || !isIndexerConnected) return;
 
     const unsubscribe = indexerService.subscription.subscribeToTokenTransfers(walletAddress, {
-      onInsert: (transfer: TokenTransfer) => {
+      onInsert: (_transfer: TokenTransfer) => {
         queryClient.invalidateQueries({ queryKey: ['walletTokens', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['erc20Balances', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['tokenTransfers', walletAddress] });
-
-        if (transfer.direction === 'inflow') {
-          const token = tokensRef.current.find(
-            t => t.address.toLowerCase() === transfer.token_address.toLowerCase()
-          );
-          const symbol = token?.symbol ?? `${transfer.token_address.slice(0, 6)}...`;
-          const isNFT = transfer.token_id !== null;
-
-          let amountDisplay: string;
-          if (isNFT) {
-            amountDisplay = `NFT #${transfer.token_id} (${symbol})`;
-          } else {
-            const decimals = token?.decimals ?? 18;
-            const formatted = parseFloat(formatUnits(BigInt(transfer.value), decimals)).toFixed(4);
-            amountDisplay = `${formatted} ${symbol}`;
-          }
-
-          const senderShort = `${transfer.from_address.slice(0, 6)}...${transfer.from_address.slice(-4)}`;
-          notificationManager.add({
-            message: `💎 Vault received ${amountDisplay} from ${senderShort}`,
-            type: 'success',
-          });
-
-          if (canShowBrowserNotifications()) {
-            sendBrowserNotification('Vault Received Tokens', {
-              body: `Received ${amountDisplay} from ${senderShort}`,
-              tag: `${walletAddress}-token-${transfer.transaction_hash}-${transfer.log_index}`,
-            });
-          }
-        }
       },
       onReconnect: () => {
         queryClient.invalidateQueries({ queryKey: ['walletTokens', walletAddress] });
@@ -134,6 +100,7 @@ export function useTokenBalances(walletAddress?: string) {
   const refetchAll = () => {
     refetchTokens();
     refetchBalances();
+    refetchTransfers();
   };
 
   return {

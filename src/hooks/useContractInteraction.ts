@@ -28,6 +28,7 @@ export interface FunctionInfo {
 export interface ContractInteractionResult {
   isContract: boolean | null;
   isDetecting: boolean;
+  detectError: string | null;
   abi: any[] | null;
   abiSource: 'ipfs' | 'explorer' | 'known' | null;
   isFetchingAbi: boolean;
@@ -77,6 +78,7 @@ export function useContractInteraction(address: string | undefined): ContractInt
   const {
     data: contractCheck,
     isLoading: isDetecting,
+    error: detectErrorObj,
   } = useQuery({
     queryKey: ['contractDetect', address],
     queryFn: () => isContract(address!),
@@ -134,6 +136,7 @@ export function useContractInteraction(address: string | undefined): ContractInt
   return {
     isContract: address ? (contractCheck ?? null) : null,
     isDetecting,
+    detectError: detectErrorObj ? (detectErrorObj instanceof Error ? detectErrorObj.message : 'Contract detection failed') : null,
     abi: effectiveAbi,
     abiSource: effectiveSource,
     isFetchingAbi: isFetchingAbi && !manualAbi,

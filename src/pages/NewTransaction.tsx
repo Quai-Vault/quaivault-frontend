@@ -9,7 +9,7 @@ import { TransactionFlow } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
 import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
 import { useContractInteraction } from '../hooks/useContractInteraction';
-import { isQuaiAddress, isHexString } from 'quais';
+import { isQuaiAddress, isHexString, isAddress } from 'quais';
 import { TIMING } from '../config/contracts';
 
 export function NewTransaction() {
@@ -47,6 +47,7 @@ export function NewTransaction() {
   const {
     isContract: isRecipientContract,
     isDetecting: isDetectingContract,
+    detectError: detectContractError,
     abi: contractAbi,
     abiSource,
     isFetchingAbi,
@@ -55,7 +56,7 @@ export function NewTransaction() {
     contractType,
     tokenMetadata,
     setManualAbi,
-  } = useContractInteraction(isQuaiAddress(to) ? to : undefined);
+  } = useContractInteraction(isAddress(to) ? to : undefined);
 
   // Clean up navigate timeout on unmount
   useEffect(() => {
@@ -356,8 +357,8 @@ export function NewTransaction() {
       }) || '';
 
       onProgress({ step: 'waiting', txHash, message: 'Executing transaction via whitelist...' });
-    } else if (useDailyLimit && (!normalizedData || normalizedData === '0x')) {
-      // User chose daily limit mode - verify it's still valid
+    } else if (effectiveDailyLimit) {
+      // User chose daily limit mode - verify it's still valid (canUseDailyLimit was true at form load)
       const canExecuteDailyLimit = await multisigService.canExecuteViaDailyLimit(
         walletAddress,
         parsedValue
@@ -502,7 +503,7 @@ export function NewTransaction() {
             className="input-field w-full"
           />
           {/* Contract detection badge */}
-          {isQuaiAddress(to) && (
+          {isAddress(to) && (
             isDetectingContract ? (
               <p className="mt-2 text-sm font-mono text-dark-400 flex items-center gap-2">
                 <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -525,6 +526,10 @@ export function NewTransaction() {
                   : contractType === 'erc721'
                   ? 'ERC-721 NFT Contract'
                   : 'Smart Contract Detected'}
+              </p>
+            ) : detectContractError ? (
+              <p className="mt-2 text-sm font-mono text-red-500 flex items-center gap-2">
+                Detection failed — check console for details
               </p>
             ) : null
           )}

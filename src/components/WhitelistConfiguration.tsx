@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
 import { notificationManager } from './NotificationContainer';
 import { EmptyState } from './EmptyState';
@@ -15,6 +16,7 @@ interface WhitelistConfigurationProps {
 
 export function WhitelistConfiguration({ walletAddress, onUpdate }: WhitelistConfigurationProps) {
   const queryClient = useQueryClient();
+  const isPageVisible = usePageVisibility();
   const [newAddress, setNewAddress] = useState('');
   const [newLimit, setNewLimit] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
@@ -28,7 +30,8 @@ export function WhitelistConfiguration({ walletAddress, onUpdate }: WhitelistCon
       return await multisigService.getWhitelistedAddresses(walletAddress);
     },
     enabled: !!walletAddress,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Propose add to whitelist mutation (now creates a multisig proposal)

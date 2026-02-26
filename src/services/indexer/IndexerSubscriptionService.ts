@@ -11,6 +11,8 @@ import {
   SocialRecoverySchema,
   RecoveryApprovalSchema,
   TokenTransferSchema,
+  IndexerStateSchema,
+  ModuleTransactionSchema,
   type IndexerTransaction,
   type Deposit,
   type Confirmation,
@@ -21,6 +23,8 @@ import {
   type SocialRecovery,
   type RecoveryApproval,
   type TokenTransfer,
+  type IndexerState,
+  type ModuleTransaction,
 } from '../../types/database';
 
 export interface SubscriptionCallbacks<T> {
@@ -916,6 +920,134 @@ export class IndexerSubscriptionService {
               callbacks.onInsert?.(parsed.data);
             } else {
               callbacks.onError?.(new Error(`Invalid token transfer payload: ${parsed.error.message}`));
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (this.isReconnecting.get(channelName)) {
+              this.isReconnecting.set(channelName, false);
+              callbacks.onReconnect?.();
+            }
+            this.reconnectAttempts.set(channelName, 0);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            this.handleReconnect(channelName, subscribe, callbacks.onError);
+          } else if (status === 'CLOSED') {
+            this.channels.delete(channelName);
+            this.reconnectAttempts.delete(channelName);
+            this.isReconnecting.delete(channelName);
+          }
+        });
+
+      this.channels.set(channelName, channel);
+    };
+
+    subscribe();
+
+    return () => {
+      const timeout = this.reconnectTimeouts.get(channelName);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.reconnectTimeouts.delete(channelName);
+      }
+
+      const channel = this.channels.get(channelName);
+      if (channel) {
+        this.ensureClient().removeChannel(channel);
+        this.channels.delete(channelName);
+        this.reconnectAttempts.delete(channelName);
+        this.isReconnecting.delete(channelName);
+      }
+    };
+  }
+
+  subscribeToIndexerState(
+    callbacks: SubscriptionCallbacks<IndexerState>
+  ): () => void {
+    const client = this.ensureClient();
+    const channelName = 'indexer_state:main';
+
+    const subscribe = () => {
+      const channel = client
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: INDEXER_CONFIG.SCHEMA,
+            table: 'indexer_state',
+          },
+          (payload) => {
+            const parsed = IndexerStateSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onUpdate?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid indexer state payload: ${parsed.error.message}`));
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (this.isReconnecting.get(channelName)) {
+              this.isReconnecting.set(channelName, false);
+              callbacks.onReconnect?.();
+            }
+            this.reconnectAttempts.set(channelName, 0);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            this.handleReconnect(channelName, subscribe, callbacks.onError);
+          } else if (status === 'CLOSED') {
+            this.channels.delete(channelName);
+            this.reconnectAttempts.delete(channelName);
+            this.isReconnecting.delete(channelName);
+          }
+        });
+
+      this.channels.set(channelName, channel);
+    };
+
+    subscribe();
+
+    return () => {
+      const timeout = this.reconnectTimeouts.get(channelName);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.reconnectTimeouts.delete(channelName);
+      }
+
+      const channel = this.channels.get(channelName);
+      if (channel) {
+        this.ensureClient().removeChannel(channel);
+        this.channels.delete(channelName);
+        this.reconnectAttempts.delete(channelName);
+        this.isReconnecting.delete(channelName);
+      }
+    };
+  }
+
+  subscribeToModuleTransactions(
+    walletAddress: string,
+    callbacks: SubscriptionCallbacks<ModuleTransaction>
+  ): () => void {
+    const client = this.ensureClient();
+    const channelName = `module_transactions:${walletAddress.toLowerCase()}`;
+
+    const subscribe = () => {
+      const channel = client
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: INDEXER_CONFIG.SCHEMA,
+            table: 'module_transactions',
+            filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
+          },
+          (payload) => {
+            const parsed = ModuleTransactionSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onInsert?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid module transaction payload: ${parsed.error.message}`));
             }
           }
         )

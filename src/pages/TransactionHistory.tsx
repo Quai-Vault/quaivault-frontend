@@ -95,7 +95,7 @@ export function TransactionHistory() {
   }, [executedTransactions, cancelledTransactions, walletAddress]);
 
   const { data: tokenMetaMap } = useQuery<Map<string, TokenMetadata>>({
-    queryKey: ['txHistoryTokenMeta', ...tokenTargetAddresses],
+    queryKey: ['txHistoryTokenMeta', tokenTargetAddresses.join(',')],
     queryFn: async () => {
       if (tokenTargetAddresses.length === 0) return new Map<string, TokenMetadata>();
       const tokens = await indexerService.token.getTokensByAddresses(tokenTargetAddresses);

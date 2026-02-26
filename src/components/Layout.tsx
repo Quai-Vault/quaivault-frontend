@@ -1,12 +1,49 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, Component } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useWalletStore } from '../store/walletStore';
+import { indexerService } from '../services/indexer';
+import { INDEXER_CONFIG } from '../config/supabase';
 import { Sidebar } from './Sidebar';
 import { NotificationContainer } from './NotificationContainer';
 import { SyncStatusBadge } from './SyncStatusBadge';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationToggle } from './NotificationToggle';
+
+/**
+ * Isolates Sidebar failures so the main content area remains usable.
+ * Shows a minimal collapsed-sidebar placeholder instead of crashing the app.
+ */
+class SidebarErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Sidebar error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <aside className="fixed top-14 left-0 bottom-0 w-16 z-20 vault-panel border-r-2 border-dark-200 dark:border-dark-700 flex flex-col items-center pt-4 gap-4">
+          <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center" title="Sidebar unavailable">
+            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
+            </svg>
+          </div>
+        </aside>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,6 +53,7 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export function Layout({ children }: LayoutProps) {
   const { error, setError } = useWalletStore();
+  const queryClient = useQueryClient();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
@@ -27,6 +65,18 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Single mount point for indexer_state subscription — placed here rather than in
+  // useIndexerConnection (which is called from multiple components) to avoid duplicate channels.
+  useEffect(() => {
+    if (!INDEXER_CONFIG.ENABLED) return;
+    const unsubscribe = indexerService.subscription.subscribeToIndexerState({
+      onUpdate: () => {
+        queryClient.invalidateQueries({ queryKey: ['indexerHealth'] });
+      },
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   const toggleSidebar = () => setSidebarCollapsed((prev) => !prev);
 
@@ -107,7 +157,9 @@ export function Layout({ children }: LayoutProps) {
       </header>
 
       {/* Sidebar - Below top bar, collapsible */}
-      <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+      <SidebarErrorBoundary>
+        <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+      </SidebarErrorBoundary>
 
       {/* Error Banner - Fixed below navbar */}
       {error && (

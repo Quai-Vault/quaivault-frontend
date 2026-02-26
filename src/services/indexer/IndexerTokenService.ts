@@ -26,15 +26,13 @@ export class IndexerTokenService {
     const client = this.ensureClient();
     const validatedWallet = validateAddress(walletAddress);
 
-    // Get distinct token_addresses from token_transfers for this wallet
-    const { data: transfers, error: transferError } = await client
-      .from('token_transfers')
-      .select('token_address')
-      .eq('wallet_address', validatedWallet.toLowerCase());
+    // Use server-side DISTINCT via RPC to avoid fetching all transfer rows.
+    const { data: rows, error: transferError } = await client
+      .rpc('get_wallet_token_addresses', { p_wallet_address: validatedWallet.toLowerCase() });
 
     if (transferError) throw new Error(`Indexer query failed: ${transferError.message}`);
 
-    const uniqueAddresses = [...new Set((transfers ?? []).map(t => t.token_address.toLowerCase()))];
+    const uniqueAddresses = (rows ?? []).map((r: { token_address: string }) => r.token_address.toLowerCase());
     if (uniqueAddresses.length === 0) return [];
 
     // Fetch token metadata for those addresses

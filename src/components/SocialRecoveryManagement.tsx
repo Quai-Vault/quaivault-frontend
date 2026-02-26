@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { multisigService } from '../services/MultisigService';
 import { notificationManager } from './NotificationContainer';
 import { useWalletStore } from '../store/walletStore';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { Modal } from './Modal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
@@ -29,6 +30,7 @@ function generateOwnerId(): string {
 export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpdate }: SocialRecoveryManagementProps) {
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useWalletStore();
+  const isPageVisible = usePageVisibility();
 
   // Recovery initiation form state with stable IDs for list items
   const [showInitiateRecovery, setShowInitiateRecovery] = useState(false);
@@ -48,7 +50,8 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
       return await multisigService.getRecoveryConfig(walletAddress);
     },
     enabled: !!walletAddress && isOpen,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Query pending recoveries
@@ -58,7 +61,8 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
       return await multisigService.getPendingRecoveries(walletAddress);
     },
     enabled: !!walletAddress && !!recoveryConfig && recoveryConfig.guardians.length > 0 && isOpen,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Query approval statuses for all recoveries
@@ -88,7 +92,8 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
       return statusMap;
     },
     enabled: !!connectedAddress && !!pendingRecoveries && pendingRecoveries.length > 0 && isOpen,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
     retry: 1,
   });
 
@@ -100,6 +105,8 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
       return await multisigService.isGuardian(walletAddress, connectedAddress);
     },
     enabled: !!walletAddress && !!connectedAddress && isOpen,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   // Initiate recovery mutation

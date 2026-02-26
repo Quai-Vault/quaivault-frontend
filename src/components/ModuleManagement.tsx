@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { Modal } from './Modal';
@@ -58,6 +59,7 @@ interface ModuleManagementProps {
 }
 
 export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementProps) {
+  const isPageVisible = usePageVisibility();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddModule, setShowAddModule] = useState(false);
   const [showWhitelistConfig, setShowWhitelistConfig] = useState(false);
@@ -89,7 +91,8 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
       return statuses;
     },
     enabled: !!walletAddress,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   const enabledModules = MODULES.filter(
@@ -109,7 +112,8 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
       return await multisigService.getRecoveryConfig(walletAddress);
     },
     enabled: !!walletAddress && moduleStatuses?.[CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE] === true,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: isPageVisible ? 30000 : false,
   });
 
   const isRecoveryConfigured = recoveryConfig && recoveryConfig.guardians && recoveryConfig.guardians.length > 0;

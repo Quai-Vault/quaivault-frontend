@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { wagmiConfig } from './config/wagmi';
@@ -11,27 +11,22 @@ import { NewTransaction } from './pages/NewTransaction';
 import { TransactionHistory } from './pages/TransactionHistory';
 import { LookupTransaction } from './pages/LookupTransaction';
 
-/**
- * Error Boundary to catch and display errors gracefully
- * Prevents full app crash when a component throws
- */
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/**
+ * App-level error boundary — catches errors that escape all route boundaries.
+ * Does not expose raw error details to users; logs to console for debugging.
+ */
+class ErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boolean }> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -52,15 +47,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               Something went wrong
             </h1>
             <p className="text-dark-600 dark:text-dark-400 mb-6">
-              An unexpected error occurred. Please try refreshing the page.
+              An unexpected error occurred. Error details have been logged to console.
             </p>
-            {this.state.error && (
-              <div className="bg-dark-100 dark:bg-vault-dark-4 rounded p-4 mb-6 text-left">
-                <p className="text-sm font-mono text-dark-500 break-all">
-                  {this.state.error.message}
-                </p>
-              </div>
-            )}
             <button
               onClick={() => window.location.reload()}
               className="btn-primary"
@@ -68,6 +56,50 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               Refresh Page
             </button>
           </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+/**
+ * Per-route error boundary — isolates page-level errors so the sidebar and
+ * other routes remain functional when one page component throws.
+ */
+class RouteErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boolean }> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('RouteErrorBoundary caught a page error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+          <div className="w-12 h-12 mb-4 rounded-full bg-red-900/30 flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-dark-800 dark:text-dark-100 mb-2">
+            Page Error
+          </h2>
+          <p className="text-dark-500 dark:text-dark-400 mb-6 max-w-sm">
+            This page encountered an unexpected error. Error details have been logged to console.
+          </p>
+          <Link to="/" className="btn-secondary text-sm">
+            Return to Dashboard
+          </Link>
         </div>
       );
     }
@@ -92,19 +124,19 @@ function App() {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <Layout>
-            <ErrorBoundary>
+          <ErrorBoundary>
+            <Layout>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/create" element={<CreateWallet />} />
-                <Route path="/wallet/:address" element={<WalletDetail />} />
-                <Route path="/wallet/:address/transaction/new" element={<NewTransaction />} />
-                <Route path="/wallet/:address/history" element={<TransactionHistory />} />
-                <Route path="/wallet/:address/lookup" element={<LookupTransaction />} />
+                <Route path="/" element={<RouteErrorBoundary><Dashboard /></RouteErrorBoundary>} />
+                <Route path="/create" element={<RouteErrorBoundary><CreateWallet /></RouteErrorBoundary>} />
+                <Route path="/wallet/:address" element={<RouteErrorBoundary><WalletDetail /></RouteErrorBoundary>} />
+                <Route path="/wallet/:address/transaction/new" element={<RouteErrorBoundary><NewTransaction /></RouteErrorBoundary>} />
+                <Route path="/wallet/:address/history" element={<RouteErrorBoundary><TransactionHistory /></RouteErrorBoundary>} />
+                <Route path="/wallet/:address/lookup" element={<RouteErrorBoundary><LookupTransaction /></RouteErrorBoundary>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </ErrorBoundary>
-          </Layout>
+            </Layout>
+          </ErrorBoundary>
         </Router>
       </QueryClientProvider>
     </WagmiProvider>
