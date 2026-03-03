@@ -144,7 +144,7 @@ export class WalletService extends BaseService {
         message: 'Please approve the transaction in your wallet',
       });
 
-      const tx = await this.factoryContract.createWallet(owners, threshold, salt, minDelay);
+      const tx = await this.factoryContract['createWallet(address[],uint256,bytes32,uint32)'](owners, threshold, salt, minDelay);
       const txHash = tx.hash;
 
       onProgress?.({
