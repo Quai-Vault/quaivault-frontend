@@ -63,7 +63,7 @@ export interface TransactionData {
   executionDelay?: number;  // seconds, 0 = immediate
 }
 
-export type TransactionMode = 'send-quai' | 'send-token' | 'send-nft' | 'send-erc1155' | 'contract-call';
+export type TransactionMode = 'send-quai' | 'send-token' | 'send-nft' | 'send-erc1155' | 'contract-call' | 'sign-message';
 
 export interface SendTokenMeta {
   symbol: string;

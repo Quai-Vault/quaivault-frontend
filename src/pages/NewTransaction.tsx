@@ -20,12 +20,13 @@ import { useContractInteraction } from '../hooks/useContractInteraction';
 import { isQuaiAddress, isHexString, isAddress } from 'quais';
 import { TIMING } from '../config/contracts';
 import { SendErc1155Form } from '../components/transaction/SendErc1155Form';
+import { SignMessageForm } from '../components/transaction/SignMessageForm';
 import { AdvancedOptions } from '../components/transaction/AdvancedOptions';
 import { expirationToTimestamp, delayToSeconds } from '../utils/timeConversions';
 import type { DelayUnit } from '../utils/timeConversions';
 import type { TransactionMode, SendTokenMeta, SendNftMeta, SendErc1155Meta } from '../types';
 
-const VALID_MODES: TransactionMode[] = ['send-quai', 'send-token', 'send-nft', 'send-erc1155', 'contract-call'];
+const VALID_MODES: TransactionMode[] = ['send-quai', 'send-token', 'send-nft', 'send-erc1155', 'contract-call', 'sign-message'];
 
 export function NewTransaction() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -133,6 +134,7 @@ export function NewTransaction() {
       case 'send-nft': return 'Transfer an NFT from this vault';
       case 'send-erc1155': return 'Send ERC1155 tokens from this vault';
       case 'contract-call': return 'Interact with a smart contract';
+      case 'sign-message': return 'Sign or unsign a message on behalf of this vault (EIP-1271)';
     }
   }, [mode]);
 
@@ -144,6 +146,7 @@ export function NewTransaction() {
       case 'send-nft': return 'Propose NFT Transfer';
       case 'send-erc1155': return 'Propose ERC1155 Transfer';
       case 'contract-call': return 'Propose Transaction';
+      case 'sign-message': return 'Propose Message Signing';
     }
   }, [mode]);
 
@@ -214,6 +217,14 @@ export function NewTransaction() {
         } catch {
           newErrors.push('Could not verify ERC1155 balance');
         }
+      }
+    } else if (mode === 'sign-message') {
+      // Sign-message validation: self-call with encoded data
+      if (to.toLowerCase() !== walletAddress.toLowerCase()) {
+        newErrors.push('Message signing must target this vault (self-call)');
+      }
+      if (data === '0x') {
+        newErrors.push('Please enter a message to sign');
       }
     } else {
       // send-quai and contract-call validation (existing logic)
@@ -519,6 +530,16 @@ export function NewTransaction() {
           />
         )}
 
+        {/* Sign Message mode */}
+        {mode === 'sign-message' && walletAddress && (
+          <SignMessageForm
+            walletAddress={walletAddress}
+            onToChange={setTo}
+            onValueChange={setValue}
+            onDataChange={setData}
+          />
+        )}
+
         {/* Contract Call mode */}
         {mode === 'contract-call' && (
           <>
@@ -743,6 +764,7 @@ export function NewTransaction() {
                   {mode === 'send-token' ? 'Token Transfer'
                     : mode === 'send-nft' ? 'NFT Transfer'
                     : mode === 'send-erc1155' ? 'ERC1155 Transfer'
+                    : mode === 'sign-message' ? 'Message Signing'
                     : !data || data === '0x' ? 'Simple Transfer' : 'Contract Call'}
                 </span>
               </div>
@@ -817,6 +839,11 @@ export function NewTransaction() {
                     </span>
                   </div>
                 </>
+              ) : mode === 'sign-message' ? (
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Target:</span>
+                  <span className="text-dark-700 dark:text-dark-200 font-semibold">Self-call (this vault)</span>
+                </div>
               ) : (
                 <>
                   <div className="flex justify-between items-center">
@@ -832,7 +859,7 @@ export function NewTransaction() {
                 </>
               )}
 
-              {data && data !== '0x' && mode !== 'send-token' && mode !== 'send-nft' && mode !== 'send-erc1155' && (
+              {data && data !== '0x' && mode !== 'send-token' && mode !== 'send-nft' && mode !== 'send-erc1155' && mode !== 'sign-message' && (
                 <div className="flex justify-between items-start">
                   <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Data:</span>
                   <span className="text-dark-500 dark:text-dark-400 font-mono text-base break-all text-right max-w-xs">
@@ -852,6 +879,8 @@ export function NewTransaction() {
                 ? `Proposing NFT #${nftMeta.tokenId} transfer to ${nftRecipient.substring(0, 10)}...`
                 : mode === 'send-erc1155' && erc1155Meta
                 ? `Proposing ERC1155 #${erc1155Meta.tokenId} (x${erc1155Quantity}) transfer to ${erc1155Recipient.substring(0, 10)}...`
+                : mode === 'sign-message'
+                ? 'Proposing message signing operation...'
                 : `Proposing transaction to ${to.substring(0, 10)}...`
             }
             onExecute={handleProposeTransaction}

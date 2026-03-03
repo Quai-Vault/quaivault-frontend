@@ -116,10 +116,12 @@ export class WalletService extends BaseService {
       onProgress?.({ step: 'mining', message: 'Mining for a valid wallet address...' });
 
       const signerAddress = await signer.getAddress();
+      const minDelay = config.minExecutionDelay ?? 0;
       const { salt, expectedAddress } = await this.mineSalt(
         signerAddress,
         owners,
         threshold,
+        minDelay,
         (attempts) => {
           onProgress?.({
             step: 'mining',
@@ -142,7 +144,6 @@ export class WalletService extends BaseService {
         message: 'Please approve the transaction in your wallet',
       });
 
-      const minDelay = config.minExecutionDelay ?? 0;
       const tx = minDelay > 0
         ? await this.factoryContract.createWallet(owners, threshold, salt, minDelay)
         : await this.factoryContract.createWallet(owners, threshold, salt);
@@ -194,6 +195,7 @@ export class WalletService extends BaseService {
     senderAddress: string,
     owners: string[],
     threshold: number,
+    minExecutionDelay: number,
     onProgress?: (attempts: number) => void
   ): Promise<{ salt: string; expectedAddress: string }> {
     const MAX_ATTEMPTS = 100_000;
@@ -205,7 +207,7 @@ export class WalletService extends BaseService {
 
     // Compute initData exactly as the factory does
     const vaultIface = new Interface(QuaiVaultABI.abi);
-    const initData = vaultIface.encodeFunctionData('initialize', [owners, threshold]);
+    const initData = vaultIface.encodeFunctionData('initialize', [owners, threshold, minExecutionDelay]);
 
     // Compute the full bytecode hash (proxy creation code + constructor args)
     const encodedArgs = AbiCoder.defaultAbiCoder().encode(

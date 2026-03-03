@@ -28,6 +28,8 @@ function getTransactionTypeLabel(mode: TransactionMode, data: string): string {
       return 'ERC1155 Transfer';
     case 'contract-call':
       return !data || data === '0x' ? 'Simple Transfer' : 'Contract Call';
+    case 'sign-message':
+      return 'Message Signing';
   }
 }
 
@@ -138,6 +140,21 @@ export function TransactionSummaryPanel({
               <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Contract:</span>
               <span className="text-dark-500 font-mono text-sm">{formatAddress(erc1155Meta.tokenAddress)}</span>
             </div>
+          </>
+        ) : mode === 'sign-message' ? (
+          <>
+            <div className="flex justify-between items-center">
+              <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Target:</span>
+              <span className="text-dark-700 dark:text-dark-200 font-semibold">Self-call (this vault)</span>
+            </div>
+            {data && data !== '0x' && (
+              <div className="flex justify-between items-start">
+                <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Data:</span>
+                <span className="text-dark-500 font-mono text-sm break-all text-right max-w-xs">
+                  {data.length > 20 ? `${data.slice(0, 20)}...` : data}
+                </span>
+              </div>
+            )}
           </>
         ) : (
           <>
