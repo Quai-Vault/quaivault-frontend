@@ -1,4 +1,8 @@
-import { formatQuai, parseQuai } from 'quais';
+import { formatQuai, parseQuai, Interface } from 'quais';
+import QuaiVaultABI from '../config/abi/QuaiVault.json';
+
+// Hoisted — reuse across calls
+const quaiVaultInterface = new Interface(QuaiVaultABI.abi);
 
 export class TransactionBuilderService {
   /**
@@ -22,6 +26,37 @@ export class TransactionBuilderService {
    */
   formatValue(value: bigint, decimals: number = 4): string {
     return parseFloat(formatQuai(value)).toFixed(decimals);
+  }
+
+  /**
+   * Build calldata for cancelByConsensus self-call (post-approval consensus cancel)
+   */
+  buildCancelByConsensus(txHash: string): string {
+    return quaiVaultInterface.encodeFunctionData('cancelByConsensus', [txHash]);
+  }
+
+  /**
+   * Build calldata for setMinExecutionDelay self-call
+   */
+  buildSetMinExecutionDelay(delaySeconds: number): string {
+    if (!Number.isFinite(delaySeconds) || delaySeconds < 0 || delaySeconds > 4294967295) {
+      throw new Error(`Invalid delay: must be 0–4294967295 seconds (got ${delaySeconds})`);
+    }
+    return quaiVaultInterface.encodeFunctionData('setMinExecutionDelay', [Math.floor(delaySeconds)]);
+  }
+
+  /**
+   * Build calldata for signMessage self-call (EIP-1271)
+   */
+  buildSignMessage(data: string): string {
+    return quaiVaultInterface.encodeFunctionData('signMessage', [data]);
+  }
+
+  /**
+   * Build calldata for unsignMessage self-call (EIP-1271)
+   */
+  buildUnsignMessage(data: string): string {
+    return quaiVaultInterface.encodeFunctionData('unsignMessage', [data]);
   }
 }
 

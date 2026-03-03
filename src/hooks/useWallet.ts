@@ -5,7 +5,8 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
 import { providerToQuaisSigner } from '../config/walletBridge';
-import type { Signer } from '../types';
+import { setWalletProvider } from '../config/provider';
+import type { Signer, Provider } from '../types';
 
 export function useWallet() {
   const {
@@ -34,6 +35,7 @@ export function useWallet() {
     } else if (!isConnected) {
       signerRef.current = null;
       multisigService.setSigner(null);
+      setWalletProvider(null);
       indexerService.cleanup();
       setConnected(false, null);
     }
@@ -60,6 +62,7 @@ export function useWallet() {
       .then((signer) => {
         if (!isActive || !signer) return;
         signerRef.current = signer;
+        setWalletProvider(signer.provider as Provider);
         multisigService.setSigner(signer);
       })
       .catch((err) => {
@@ -91,6 +94,7 @@ export function useWallet() {
     wagmiDisconnect();
     signerRef.current = null;
     multisigService.setSigner(null);
+    setWalletProvider(null);
     indexerService.cleanup();
     setConnected(false, null);
   }, [wagmiDisconnect, setConnected]);

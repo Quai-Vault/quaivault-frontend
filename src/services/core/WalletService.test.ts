@@ -16,6 +16,7 @@ vi.mock('quais', () => {
     this.threshold = vi.fn();
     this.isOwner = vi.fn();
     this.isModuleEnabled = vi.fn();
+    this.minExecutionDelay = vi.fn().mockResolvedValue(0n);
   });
 
   const MockJsonRpcProvider = vi.fn().mockImplementation(function(this: any) {
@@ -231,6 +232,7 @@ describe('WalletService', () => {
       const mockWallet = {
         getOwners: vi.fn().mockResolvedValue(mockOwners),
         threshold: vi.fn().mockResolvedValue(mockThreshold),
+        minExecutionDelay: vi.fn().mockResolvedValue(0n),
       };
 
       // Mock getWalletContract to return our mock
@@ -244,6 +246,7 @@ describe('WalletService', () => {
         owners: mockOwners,
         threshold: 2,
         balance: mockBalance.toString(),
+        minExecutionDelay: 0,
       });
     });
 
@@ -252,6 +255,7 @@ describe('WalletService', () => {
       const mockWallet = {
         getOwners: vi.fn().mockRejectedValue(new Error('Contract error')),
         threshold: vi.fn(),
+        minExecutionDelay: vi.fn(),
       };
 
       vi.spyOn(service as any, 'getWalletContract').mockReturnValue(mockWallet);

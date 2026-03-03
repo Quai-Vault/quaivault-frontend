@@ -9,10 +9,8 @@ export {
 export {
   IndexerModuleService,
   type ModuleStatus,
-  type DailyLimitConfig,
   type RecoveryConfig,
   type PendingRecovery,
-  type ModuleTransactionRecord,
 } from './IndexerModuleService';
 export {
   IndexerSubscriptionService,

@@ -54,3 +54,46 @@ export function formatDateString(isoString: string): string {
   }
   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
+
+/**
+ * Format a duration in seconds to a human-readable string.
+ * Examples: "2h 30m", "7 days", "30s", "1d 6h"
+ */
+export function formatDuration(seconds: number): string {
+  if (seconds <= 0) return '0s';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 && days === 0) parts.push(`${secs}s`); // skip seconds for multi-day durations
+
+  return parts.join(' ') || '0s';
+}
+
+/**
+ * Format a unix timestamp as a relative expiration string.
+ * Examples: "Expires in 2h 15m", "Expired 5m ago"
+ */
+export function formatExpiration(timestamp: number): string {
+  if (timestamp === 0) return 'No expiration';
+  const now = Date.now() / 1000;
+  const diff = timestamp - now;
+  if (diff <= 0) {
+    return `Expired ${formatDuration(Math.abs(Math.ceil(diff)))} ago`;
+  }
+  return `Expires in ${formatDuration(Math.ceil(diff))}`;
+}
+
+/**
+ * Format a wallet's timelock setting for display.
+ * Examples: "No timelock", "1h minimum delay", "7d minimum delay"
+ */
+export function formatTimelockSetting(seconds: number): string {
+  if (seconds <= 0) return 'No timelock';
+  return `${formatDuration(seconds)} minimum delay`;
+}

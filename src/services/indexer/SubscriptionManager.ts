@@ -2,9 +2,8 @@ import { INDEXER_CONFIG } from '../../config/supabase';
 import { IndexerSubscriptionService, type SubscriptionCallbacks } from './IndexerSubscriptionService';
 import type {
   IndexerTransaction,
+  Confirmation,
   Deposit,
-  DailyLimitState,
-  WhitelistEntry,
   WalletModule,
   WalletOwner,
   SocialRecovery,
@@ -16,15 +15,11 @@ export interface WalletSubscriptionCallbacks {
   // Transaction subscriptions
   onTransactionInsert?: (tx: IndexerTransaction) => void;
   onTransactionUpdate?: (tx: IndexerTransaction) => void;
+  // Confirmation subscriptions
+  onConfirmationInsert?: (confirmation: Confirmation) => void;
+  onConfirmationUpdate?: (confirmation: Confirmation) => void;
   // Deposit subscriptions
   onDepositInsert?: (deposit: Deposit) => void;
-  // Daily limit state subscriptions
-  onDailyLimitStateInsert?: (state: DailyLimitState) => void;
-  onDailyLimitStateUpdate?: (state: DailyLimitState) => void;
-  // Whitelist entry subscriptions
-  onWhitelistEntryInsert?: (entry: WhitelistEntry) => void;
-  onWhitelistEntryUpdate?: (entry: WhitelistEntry) => void;
-  onWhitelistEntryDelete?: (entry: WhitelistEntry) => void;
   // Wallet module subscriptions
   onWalletModuleInsert?: (module: WalletModule) => void;
   onWalletModuleUpdate?: (module: WalletModule) => void;
@@ -43,6 +38,8 @@ export interface WalletSubscriptionCallbacks {
   onTokenTransferInsert?: (transfer: TokenTransfer) => void;
   // Error handling
   onError?: (error: Error) => void;
+  /** Called when any subscription channel reconnects after a disconnection */
+  onReconnect?: () => void;
   /** Called when this wallet is evicted due to subscription limit */
   onEvicted?: (walletAddress: string) => void;
 }
@@ -86,105 +83,111 @@ export class SubscriptionManager {
 
     const unsubscribers: (() => void)[] = [];
 
-    // Subscribe to transactions
-    if (callbacks.onTransactionInsert || callbacks.onTransactionUpdate) {
-      const unsubTx = this.subscriptionService.subscribeToTransactions(normalizedAddress, {
-        onInsert: callbacks.onTransactionInsert,
-        onUpdate: callbacks.onTransactionUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubTx);
-    }
+    // Helper to build per-channel callbacks with shared error/reconnect handling
+    const withShared = <T>(channelCallbacks: SubscriptionCallbacks<T>): SubscriptionCallbacks<T> => ({
+      ...channelCallbacks,
+      onError: callbacks.onError,
+      onReconnect: callbacks.onReconnect,
+    });
 
-    // Subscribe to deposits
-    if (callbacks.onDepositInsert) {
-      const unsubDeposit = this.subscriptionService.subscribeToDeposits(normalizedAddress, {
-        onInsert: callbacks.onDepositInsert,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubDeposit);
-    }
+    try {
+      // Subscribe to transactions
+      if (callbacks.onTransactionInsert || callbacks.onTransactionUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToTransactions(normalizedAddress, withShared({
+            onInsert: callbacks.onTransactionInsert,
+            onUpdate: callbacks.onTransactionUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to daily limit state
-    if (callbacks.onDailyLimitStateInsert || callbacks.onDailyLimitStateUpdate) {
-      const unsubDailyLimit = this.subscriptionService.subscribeToDailyLimitState(normalizedAddress, {
-        onInsert: callbacks.onDailyLimitStateInsert,
-        onUpdate: callbacks.onDailyLimitStateUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubDailyLimit);
-    }
+      // Subscribe to confirmations
+      if (callbacks.onConfirmationInsert || callbacks.onConfirmationUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToConfirmations(normalizedAddress, withShared({
+            onInsert: callbacks.onConfirmationInsert,
+            onUpdate: callbacks.onConfirmationUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to whitelist entries
-    if (callbacks.onWhitelistEntryInsert || callbacks.onWhitelistEntryUpdate || callbacks.onWhitelistEntryDelete) {
-      const unsubWhitelist = this.subscriptionService.subscribeToWhitelistEntries(normalizedAddress, {
-        onInsert: callbacks.onWhitelistEntryInsert,
-        onUpdate: callbacks.onWhitelistEntryUpdate,
-        onDelete: callbacks.onWhitelistEntryDelete,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubWhitelist);
-    }
+      // Subscribe to deposits
+      if (callbacks.onDepositInsert) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToDeposits(normalizedAddress, withShared({
+            onInsert: callbacks.onDepositInsert,
+          }))
+        );
+      }
 
-    // Subscribe to wallet modules
-    if (callbacks.onWalletModuleInsert || callbacks.onWalletModuleUpdate) {
-      const unsubModules = this.subscriptionService.subscribeToWalletModules(normalizedAddress, {
-        onInsert: callbacks.onWalletModuleInsert,
-        onUpdate: callbacks.onWalletModuleUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubModules);
-    }
+      // Subscribe to wallet modules
+      if (callbacks.onWalletModuleInsert || callbacks.onWalletModuleUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToWalletModules(normalizedAddress, withShared({
+            onInsert: callbacks.onWalletModuleInsert,
+            onUpdate: callbacks.onWalletModuleUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to wallet owners
-    if (callbacks.onWalletOwnerInsert || callbacks.onWalletOwnerUpdate) {
-      const unsubOwners = this.subscriptionService.subscribeToWalletOwners(normalizedAddress, {
-        onInsert: callbacks.onWalletOwnerInsert,
-        onUpdate: callbacks.onWalletOwnerUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubOwners);
-    }
+      // Subscribe to wallet owners
+      if (callbacks.onWalletOwnerInsert || callbacks.onWalletOwnerUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToWalletOwners(normalizedAddress, withShared({
+            onInsert: callbacks.onWalletOwnerInsert,
+            onUpdate: callbacks.onWalletOwnerUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to recovery config changes (social_recovery_configs + social_recovery_guardians)
-    if (callbacks.onRecoveryConfigChange) {
-      const configChangeCallback = callbacks.onRecoveryConfigChange;
-      const unsubRecoveryConfig = this.subscriptionService.subscribeToRecoveryConfig(normalizedAddress, {
-        onInsert: () => configChangeCallback(),
-        onUpdate: () => configChangeCallback(),
-        onReconnect: () => configChangeCallback(),
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubRecoveryConfig);
-    }
+      // Subscribe to recovery config changes (social_recovery_configs + social_recovery_guardians)
+      if (callbacks.onRecoveryConfigChange) {
+        const configChangeCallback = callbacks.onRecoveryConfigChange;
+        unsubscribers.push(
+          this.subscriptionService.subscribeToRecoveryConfig(normalizedAddress, {
+            onInsert: () => configChangeCallback(),
+            onUpdate: () => configChangeCallback(),
+            onReconnect: callbacks.onReconnect || (() => configChangeCallback()),
+            onError: callbacks.onError,
+          })
+        );
+      }
 
-    // Subscribe to social recoveries
-    if (callbacks.onSocialRecoveryInsert || callbacks.onSocialRecoveryUpdate) {
-      const unsubRecoveries = this.subscriptionService.subscribeToSocialRecoveries(normalizedAddress, {
-        onInsert: callbacks.onSocialRecoveryInsert,
-        onUpdate: callbacks.onSocialRecoveryUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubRecoveries);
-    }
+      // Subscribe to social recoveries
+      if (callbacks.onSocialRecoveryInsert || callbacks.onSocialRecoveryUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToSocialRecoveries(normalizedAddress, withShared({
+            onInsert: callbacks.onSocialRecoveryInsert,
+            onUpdate: callbacks.onSocialRecoveryUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to recovery approvals
-    if (callbacks.onRecoveryApprovalInsert || callbacks.onRecoveryApprovalUpdate) {
-      const unsubApprovals = this.subscriptionService.subscribeToRecoveryApprovals(normalizedAddress, {
-        onInsert: callbacks.onRecoveryApprovalInsert,
-        onUpdate: callbacks.onRecoveryApprovalUpdate,
-        onError: callbacks.onError,
-      });
-      unsubscribers.push(unsubApprovals);
-    }
+      // Subscribe to recovery approvals
+      if (callbacks.onRecoveryApprovalInsert || callbacks.onRecoveryApprovalUpdate) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToRecoveryApprovals(normalizedAddress, withShared({
+            onInsert: callbacks.onRecoveryApprovalInsert,
+            onUpdate: callbacks.onRecoveryApprovalUpdate,
+          }))
+        );
+      }
 
-    // Subscribe to token transfers
-    if (callbacks.onTokenTransferInsert) {
-      const unsubTokenTransfers = this.subscriptionService.subscribeToTokenTransfers(normalizedAddress, {
-        onInsert: callbacks.onTokenTransferInsert,
-        onError: callbacks.onError,
+      // Subscribe to token transfers
+      if (callbacks.onTokenTransferInsert) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToTokenTransfers(normalizedAddress, withShared({
+            onInsert: callbacks.onTokenTransferInsert,
+          }))
+        );
+      }
+    } catch (error) {
+      // Cleanup any partial subscriptions on failure
+      unsubscribers.forEach((unsub) => {
+        try { unsub(); } catch { /* ignore cleanup errors */ }
       });
-      unsubscribers.push(unsubTokenTransfers);
+      callbacks.onError?.(error instanceof Error ? error : new Error('Subscription setup failed'));
+      return;
     }
 
     this.activeWallets.add(normalizedAddress);
@@ -203,6 +206,12 @@ export class SubscriptionManager {
     const unsubscribers = this.unsubscribeFns.get(normalizedAddress);
 
     if (unsubscribers) {
+      // Remove from tracking maps BEFORE calling unsubscribe to prevent
+      // callbacks from being processed during async teardown (M22)
+      this.unsubscribeFns.delete(normalizedAddress);
+      this.evictionCallbacks.delete(normalizedAddress);
+      this.activeWallets.delete(normalizedAddress);
+
       unsubscribers.forEach((unsub) => {
         try {
           unsub();
@@ -211,9 +220,6 @@ export class SubscriptionManager {
             error instanceof Error ? error.message : 'Unknown error');
         }
       });
-      this.unsubscribeFns.delete(normalizedAddress);
-      this.evictionCallbacks.delete(normalizedAddress);
-      this.activeWallets.delete(normalizedAddress);
     }
   }
 

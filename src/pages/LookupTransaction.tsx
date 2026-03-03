@@ -4,14 +4,27 @@ import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
 import { multisigService } from '../services/MultisigService';
 import { decodeTransaction } from '../utils/transactionDecoder';
-import { formatAddress, formatTimestamp } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatExpiration } from '../utils/formatting';
+import {
+  canApprove,
+  canExecute as computeCanExecute,
+  canRevoke,
+  canProposerCancel,
+  canConsensusCancel,
+  canExpire,
+  isTimelocked,
+  getDisplayStatus,
+} from '../utils/transactionState';
 import {
   ApproveTransactionModal,
   ExecuteTransactionModal,
   CancelTransactionModal,
   RevokeApprovalModal,
+  ExpireTransactionModal,
 } from '../components/transactionModals';
 import { CopyButton } from '../components/CopyButton';
+import { TimelockCountdown } from '../components/TimelockCountdown';
+import { extractErrorMessage } from '../services/utils/TransactionErrorHandler';
 import { formatQuai } from 'quais';
 import type { PendingTransaction } from '../types';
 
@@ -27,6 +40,7 @@ export function LookupTransaction() {
   const [executeModalTx, setExecuteModalTx] = useState<PendingTransaction | null>(null);
   const [cancelModalTx, setCancelModalTx] = useState<PendingTransaction | null>(null);
   const [revokeModalTx, setRevokeModalTx] = useState<PendingTransaction | null>(null);
+  const [expireModalTx, setExpireModalTx] = useState<PendingTransaction | null>(null);
 
   const handleLookup = async () => {
     if (!walletAddress || !txHash.trim()) {
@@ -45,9 +59,9 @@ export function LookupTransaction() {
       } else {
         setTransaction(tx);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error looking up transaction:', err);
-      setError(err.message || 'Failed to lookup transaction. Please try again.');
+      setError(extractErrorMessage(err) || 'Failed to lookup transaction. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -93,37 +107,50 @@ export function LookupTransaction() {
     [transaction, walletAddress]
   );
 
-  const hasApproved = useMemo(() =>
-    transaction && connectedAddress
-      ? Object.entries(transaction.approvals).some(
-          ([owner, approved]) =>
-            approved && owner.toLowerCase() === connectedAddress.toLowerCase()
-        )
-      : false,
+  const approvalPercentage = useMemo(() => {
+    if (!transaction) return 0;
+    const count = Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals;
+    return transaction.threshold > 0 ? (count / transaction.threshold) * 100 : 100;
+  }, [transaction]);
+
+  const txCanApprove = useMemo(() =>
+    transaction ? canApprove(transaction, connectedAddress || '') : false,
     [transaction, connectedAddress]
   );
 
-  const canExecute = useMemo(() =>
-    transaction ? transaction.numApprovals >= transaction.threshold : false,
-    [transaction?.numApprovals, transaction?.threshold]
+  const txCanRevoke = useMemo(() =>
+    transaction ? canRevoke(transaction, connectedAddress || '') : false,
+    [transaction, connectedAddress]
   );
 
-  const approvalPercentage = useMemo(() =>
-    transaction
-      ? (Number(transaction.numApprovals) / Number(transaction.threshold)) * 100
-      : 0,
-    [transaction?.numApprovals, transaction?.threshold]
+  const txCanExecute = useMemo(() =>
+    transaction ? computeCanExecute(transaction) : false,
+    [transaction]
   );
 
-  const isProposer = useMemo(() =>
-    connectedAddress && transaction?.proposer &&
-      transaction.proposer.toLowerCase() === connectedAddress.toLowerCase(),
-    [connectedAddress, transaction?.proposer]
+  const txCanProposerCancel = useMemo(() =>
+    transaction ? canProposerCancel(transaction, connectedAddress || '') : false,
+    [transaction, connectedAddress]
   );
 
-  const canCancel = useMemo(() =>
-    isProposer || (transaction ? transaction.numApprovals >= transaction.threshold : false),
-    [isProposer, transaction?.numApprovals, transaction?.threshold]
+  const txCanConsensusCancel = useMemo(() =>
+    transaction ? canConsensusCancel(transaction) : false,
+    [transaction]
+  );
+
+  const txCanExpire = useMemo(() =>
+    transaction ? canExpire(transaction) : false,
+    [transaction]
+  );
+
+  const txIsTimelocked = useMemo(() =>
+    transaction ? isTimelocked(transaction) : false,
+    [transaction]
+  );
+
+  const txDisplayStatus = useMemo(() =>
+    transaction ? getDisplayStatus(transaction) : '',
+    [transaction]
   );
 
   return (
@@ -205,7 +232,7 @@ export function LookupTransaction() {
           <div className="mb-6">
             <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-1">Transaction Details</h2>
             <p className="text-base font-mono text-dark-500 uppercase tracking-wider">
-              {transaction.executed ? 'Executed' : transaction.cancelled ? 'Cancelled' : 'Pending'}
+              {txDisplayStatus}
             </p>
           </div>
 
@@ -217,22 +244,44 @@ export function LookupTransaction() {
                   <span className="mr-1.5">{decoded.icon}</span>
                   {decoded.description}
                 </span>
-                {transaction.executed && (
+                {txDisplayStatus === 'Executed' && (
                   <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-primary-900/50 text-primary-600 dark:text-primary-300 border border-primary-700/50">
                     ✓ Executed
                   </span>
                 )}
-                {transaction.cancelled && (
+                {txDisplayStatus === 'Cancelled' && (
                   <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500">
                     ✕ Cancelled
                   </span>
                 )}
-                {!transaction.executed && !transaction.cancelled && canExecute && (
+                {txDisplayStatus === 'Expired' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-orange-900/50 text-orange-400 border border-orange-700/50">
+                    ⧖ Expired
+                  </span>
+                )}
+                {txDisplayStatus === 'Failed' && (
+                  <span
+                    className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-red-900/50 text-red-400 border border-red-700/50"
+                    title={transaction.failedReturnData || 'Execution failed'}
+                  >
+                    ✕ Failed
+                  </span>
+                )}
+                {txDisplayStatus === 'Timelocked' && (
+                  <TimelockCountdown executableAfter={transaction.executableAfter} />
+                )}
+                {txDisplayStatus === 'Ready to Execute' && (
                   <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-semibold bg-gradient-to-r from-primary-700 to-primary-800 text-primary-200 border border-primary-600 shadow-red-glow animate-pulse-slow">
                     Ready to execute
                   </span>
                 )}
               </div>
+              {/* Expiration info */}
+              {transaction.status === 'pending' && transaction.expiration > 0 && (
+                <p className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">
+                  {formatExpiration(transaction.expiration)}
+                </p>
+              )}
               {decoded.details && (
                 <p className="text-lg text-dark-600 dark:text-dark-300 font-medium mt-2 mb-1">{decoded.details}</p>
               )}
@@ -283,13 +332,13 @@ export function LookupTransaction() {
           )}
 
           {/* Approval Progress */}
-          {!transaction.executed && !transaction.cancelled && (
+          {transaction.status === 'pending' && (
             <>
               <div className="mb-5">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Approvals</span>
                   <span className="text-base font-semibold text-dark-700 dark:text-dark-200">
-                    <span className="text-primary-600 dark:text-primary-400">{transaction.numApprovals.toString()}</span>
+                    <span className="text-primary-600 dark:text-primary-400">{Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals}</span>
                     <span className="text-dark-500 mx-1">/</span>
                     <span className="text-dark-600 dark:text-dark-300">{transaction.threshold.toString()}</span>
                   </span>
@@ -297,7 +346,7 @@ export function LookupTransaction() {
                 <div className="w-full bg-dark-100 dark:bg-vault-dark-4 rounded-full h-2 border border-dark-300 dark:border-dark-600 shadow-vault-inner overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      canExecute
+                      txCanExecute
                         ? 'bg-gradient-to-r from-primary-500 to-primary-600 shadow-red-glow'
                         : 'bg-gradient-to-r from-primary-700 to-primary-800'
                     }`}
@@ -305,6 +354,13 @@ export function LookupTransaction() {
                   ></div>
                 </div>
               </div>
+
+              {/* Timelock Info */}
+              {txIsTimelocked && (
+                <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-md p-4 mb-5">
+                  <TimelockCountdown executableAfter={transaction.executableAfter} />
+                </div>
+              )}
 
               {/* Approvals List */}
               <div className="mb-5">
@@ -334,7 +390,7 @@ export function LookupTransaction() {
               {isOwner && (
                 <div className="pt-5 border-t border-dark-200 dark:border-dark-700">
                   <div className="flex flex-wrap gap-4">
-                    {!hasApproved ? (
+                    {txCanApprove && (
                       <button
                         onClick={() => handleApprove(transaction)}
                         className="btn-primary inline-flex items-center gap-4"
@@ -344,7 +400,8 @@ export function LookupTransaction() {
                         </svg>
                         Approve
                       </button>
-                    ) : (
+                    )}
+                    {txCanRevoke && (
                       <button
                         onClick={() => handleRevoke(transaction)}
                         className="btn-secondary inline-flex items-center gap-4"
@@ -355,7 +412,7 @@ export function LookupTransaction() {
                         Revoke Approval
                       </button>
                     )}
-                    {canExecute && (
+                    {txCanExecute && (
                       <button
                         onClick={() => handleExecute(transaction)}
                         className="btn-primary inline-flex items-center gap-4 bg-gradient-to-r from-primary-500 to-primary-600"
@@ -366,7 +423,7 @@ export function LookupTransaction() {
                         Execute
                       </button>
                     )}
-                    {canCancel && (
+                    {txCanProposerCancel && (
                       <button
                         onClick={() => handleCancel(transaction)}
                         className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
@@ -375,6 +432,28 @@ export function LookupTransaction() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                         Cancel
+                      </button>
+                    )}
+                    {txCanConsensusCancel && (
+                      <button
+                        onClick={() => handleCancel(transaction)}
+                        className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel by Consensus
+                      </button>
+                    )}
+                    {txCanExpire && (
+                      <button
+                        onClick={() => setExpireModalTx(transaction)}
+                        className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg border border-orange-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Expire
                       </button>
                     )}
                   </div>
@@ -444,6 +523,20 @@ export function LookupTransaction() {
           }}
           walletAddress={walletAddress}
           transaction={revokeModalTx}
+        />
+      )}
+      {expireModalTx && (
+        <ExpireTransactionModal
+          isOpen={!!expireModalTx}
+          onClose={() => {
+            setExpireModalTx(null);
+            refreshTransactions();
+            if (txHash.trim()) {
+              handleLookup();
+            }
+          }}
+          walletAddress={walletAddress}
+          transaction={expireModalTx}
         />
       )}
     </div>

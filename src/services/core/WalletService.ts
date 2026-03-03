@@ -142,7 +142,10 @@ export class WalletService extends BaseService {
         message: 'Please approve the transaction in your wallet',
       });
 
-      const tx = await this.factoryContract.createWallet(owners, threshold, salt);
+      const minDelay = config.minExecutionDelay ?? 0;
+      const tx = minDelay > 0
+        ? await this.factoryContract.createWallet(owners, threshold, salt, minDelay)
+        : await this.factoryContract.createWallet(owners, threshold, salt);
       const txHash = tx.hash;
 
       onProgress?.({
@@ -212,26 +215,36 @@ export class WalletService extends BaseService {
     const fullBytecode = QuaiVaultProxyABI.bytecode + encodedArgs.slice(2);
     const bytecodeHash = keccak256(fullBytecode);
 
+    const WORKER_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
     return new Promise((resolve, reject) => {
       const worker = new Worker(
         new URL('./saltMiner.worker.ts', import.meta.url),
         { type: 'module' }
       );
 
+      const timeoutId = setTimeout(() => {
+        worker.terminate();
+        reject(new Error('Salt mining timed out after 2 minutes'));
+      }, WORKER_TIMEOUT_MS);
+
       worker.onmessage = (e: MessageEvent) => {
         const msg = e.data;
         if (msg.type === 'progress') {
           onProgress?.(msg.attempts);
         } else if (msg.type === 'result') {
+          clearTimeout(timeoutId);
           worker.terminate();
           resolve({ salt: msg.salt, expectedAddress: msg.expectedAddress });
         } else if (msg.type === 'error') {
+          clearTimeout(timeoutId);
           worker.terminate();
           reject(new Error(msg.message));
         }
       };
 
       worker.onerror = (error) => {
+        clearTimeout(timeoutId);
         worker.terminate();
         reject(new Error(`Salt mining worker error: ${error.message}`));
       };
@@ -252,10 +265,11 @@ export class WalletService extends BaseService {
   async getWalletInfo(walletAddress: string): Promise<WalletInfo> {
     const wallet = this.getWalletContract(walletAddress);
 
-    const [owners, threshold, balance] = await Promise.all([
+    const [owners, threshold, balance, minExecutionDelay] = await Promise.all([
       wallet.getOwners(),
       wallet.threshold(),
       this.provider.getBalance(walletAddress),
+      wallet.minExecutionDelay().catch(() => 0n),
     ]);
 
     return {
@@ -263,6 +277,7 @@ export class WalletService extends BaseService {
       owners: Array.from(owners).map(address => String(address)),
       threshold: Number(threshold),
       balance: balance.toString(),
+      minExecutionDelay: Number(minExecutionDelay),
     };
   }
 

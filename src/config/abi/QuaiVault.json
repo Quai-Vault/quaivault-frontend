@@ -17,12 +17,33 @@
     },
     {
       "inputs": [],
+      "name": "CalldataTooShort",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CannotCancelApprovedTransaction",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "CannotRemoveOwnerWouldFallBelowThreshold",
       "type": "error"
     },
     {
       "inputs": [],
       "name": "DuplicateOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "minimumExpiration",
+          "type": "uint256"
+        }
+      ],
+      "name": "ExpirationTooSoon",
       "type": "error"
     },
     {
@@ -48,11 +69,6 @@
     },
     {
       "inputs": [],
-      "name": "InvalidModuleAddress",
-      "type": "error"
-    },
-    {
-      "inputs": [],
       "name": "InvalidOwnerAddress",
       "type": "error"
     },
@@ -74,17 +90,22 @@
     },
     {
       "inputs": [],
+      "name": "MaxModulesReached",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "MaxOwnersReached",
       "type": "error"
     },
     {
       "inputs": [],
-      "name": "ModuleAlreadyEnabled",
+      "name": "MessageNotSigned",
       "type": "error"
     },
     {
       "inputs": [],
-      "name": "ModuleCannotModifyModulePermissions",
+      "name": "ModuleAlreadyEnabled",
       "type": "error"
     },
     {
@@ -119,7 +140,7 @@
     },
     {
       "inputs": [],
-      "name": "NotProposerAndNotEnoughApprovalsToCancel",
+      "name": "NotProposer",
       "type": "error"
     },
     {
@@ -135,6 +156,22 @@
     {
       "inputs": [],
       "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SelfCallCannotHaveValue",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "executableAfter",
+          "type": "uint256"
+        }
+      ],
+      "name": "TimelockNotElapsed",
       "type": "error"
     },
     {
@@ -164,12 +201,23 @@
     },
     {
       "inputs": [],
-      "name": "TransactionExecutionFailed",
+      "name": "TransactionIsExpired",
       "type": "error"
     },
     {
       "inputs": [],
-      "name": "TransactionHasBeenCancelled",
+      "name": "TransactionNotExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        }
+      ],
+      "name": "UnrecognizedSelfCall",
       "type": "error"
     },
     {
@@ -228,6 +276,63 @@
         }
       ],
       "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "msgHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "MessageSigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "msgHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "MessageUnsigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "oldDelay",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "newDelay",
+          "type": "uint32"
+        }
+      ],
+      "name": "MinExecutionDelayChanged",
       "type": "event"
     },
     {
@@ -324,6 +429,31 @@
           "type": "bytes32"
         },
         {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "approvedAt",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "executableAfter",
+          "type": "uint256"
+        }
+      ],
+      "name": "ThresholdReached",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "txHash",
+          "type": "bytes32"
+        },
+        {
           "indexed": true,
           "internalType": "address",
           "name": "approver",
@@ -379,6 +509,44 @@
           "internalType": "bytes32",
           "name": "txHash",
           "type": "bytes32"
+        }
+      ],
+      "name": "TransactionExpired",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "txHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "executor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "returnData",
+          "type": "bytes"
+        }
+      ],
+      "name": "TransactionFailed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "txHash",
+          "type": "bytes32"
         },
         {
           "indexed": true,
@@ -403,6 +571,18 @@
           "internalType": "bytes",
           "name": "data",
           "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "expiration",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "executionDelay",
+          "type": "uint32"
         }
       ],
       "name": "TransactionProposed",
@@ -411,6 +591,19 @@
     {
       "stateMutability": "payable",
       "type": "fallback"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_MODULES",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "inputs": [],
@@ -442,30 +635,6 @@
       "inputs": [
         {
           "internalType": "bytes32",
-          "name": "",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "approvals",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
           "name": "txHash",
           "type": "bytes32"
         }
@@ -490,6 +659,19 @@
         }
       ],
       "name": "approveTransaction",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "txHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "cancelByConsensus",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -539,6 +721,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "domainSeparator",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -549,6 +744,25 @@
       "name": "enableModule",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "message",
+          "type": "bytes"
+        }
+      ],
+      "name": "encodeMessageData",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -667,6 +881,57 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "txHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "expireTransaction",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "expiredTxs",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "message",
+          "type": "bytes"
+        }
+      ],
+      "name": "getMessageHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "getModules",
       "outputs": [
@@ -752,14 +1017,19 @@
               "type": "address"
             },
             {
-              "internalType": "uint256",
-              "name": "value",
-              "type": "uint256"
+              "internalType": "uint48",
+              "name": "timestamp",
+              "type": "uint48"
             },
             {
-              "internalType": "bytes",
-              "name": "data",
-              "type": "bytes"
+              "internalType": "uint48",
+              "name": "expiration",
+              "type": "uint48"
+            },
+            {
+              "internalType": "address",
+              "name": "proposer",
+              "type": "address"
             },
             {
               "internalType": "bool",
@@ -772,19 +1042,24 @@
               "type": "bool"
             },
             {
-              "internalType": "uint256",
-              "name": "numApprovals",
-              "type": "uint256"
+              "internalType": "uint48",
+              "name": "approvedAt",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint32",
+              "name": "executionDelay",
+              "type": "uint32"
             },
             {
               "internalType": "uint256",
-              "name": "timestamp",
+              "name": "value",
               "type": "uint256"
             },
             {
-              "internalType": "address",
-              "name": "proposer",
-              "type": "address"
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
             }
           ],
           "internalType": "struct QuaiVault.Transaction",
@@ -864,6 +1139,11 @@
           "internalType": "uint256",
           "name": "_threshold",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_minExecutionDelay",
+          "type": "uint32"
         }
       ],
       "name": "initialize",
@@ -910,8 +1190,189 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_dataHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "isValidSignature",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "minExecutionDelay",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "moduleCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "nonce",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC1155BatchReceived",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC1155Received",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC721Received",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "ownerVersions",
       "outputs": [
         {
           "internalType": "uint256",
@@ -939,6 +1400,79 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint48",
+          "name": "expiration",
+          "type": "uint48"
+        }
+      ],
+      "name": "proposeTransaction",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint48",
+          "name": "expiration",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint32",
+          "name": "requestedDelay",
+          "type": "uint32"
+        }
+      ],
+      "name": "proposeTransaction",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -997,6 +1531,70 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "delay",
+          "type": "uint32"
+        }
+      ],
+      "name": "setMinExecutionDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "signMessage",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "signedMessages",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "threshold",
       "outputs": [
@@ -1025,14 +1623,19 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "value",
-          "type": "uint256"
+          "internalType": "uint48",
+          "name": "timestamp",
+          "type": "uint48"
         },
         {
-          "internalType": "bytes",
-          "name": "data",
-          "type": "bytes"
+          "internalType": "uint48",
+          "name": "expiration",
+          "type": "uint48"
+        },
+        {
+          "internalType": "address",
+          "name": "proposer",
+          "type": "address"
         },
         {
           "internalType": "bool",
@@ -1045,22 +1648,40 @@
           "type": "bool"
         },
         {
-          "internalType": "uint256",
-          "name": "numApprovals",
-          "type": "uint256"
+          "internalType": "uint48",
+          "name": "approvedAt",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint32",
+          "name": "executionDelay",
+          "type": "uint32"
         },
         {
           "internalType": "uint256",
-          "name": "timestamp",
+          "name": "value",
           "type": "uint256"
         },
         {
-          "internalType": "address",
-          "name": "proposer",
-          "type": "address"
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "unsignMessage",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {

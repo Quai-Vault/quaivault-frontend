@@ -73,6 +73,11 @@ export function decodeErrorData(contract: Contract, errorData: string): string |
       if (decoded.name === 'Error' && decoded.args && decoded.args.length > 0) {
         return decoded.args[0].toString();
       }
+      // Check if we have a user-friendly message for this custom error
+      const friendlyMessage = CONTRACT_ERROR_MAP[decoded.name];
+      if (friendlyMessage) {
+        return friendlyMessage;
+      }
       let message = decoded.name;
       if (decoded.args && decoded.args.length > 0) {
         message += ` - ${decoded.args.map((arg: unknown) => String(arg)).join(', ')}`;
@@ -165,6 +170,8 @@ export const TransactionErrors = {
   TX_NOT_FOUND: 'Transaction does not exist',
   TX_ALREADY_EXECUTED: 'Transaction has already been executed',
   TX_CANCELLED: 'Transaction has been cancelled',
+  TX_EXPIRED: 'Transaction has expired and can no longer be executed',
+  TX_FAILED: 'Transaction execution failed on-chain',
   NOT_ENOUGH_APPROVALS: (current: number, required: number) =>
     `Not enough approvals: ${current} / ${required} required`,
   ALREADY_APPROVED: 'You have already approved this transaction',
@@ -173,7 +180,37 @@ export const TransactionErrors = {
   INVALID_ADDRESS: (addr: string) => `Invalid address format: ${addr}`,
   INVALID_HASH_LENGTH: (length: number) =>
     `Invalid transaction hash length: ${length} (expected 66)`,
+  // Contract-specific custom errors
+  CANNOT_CANCEL_APPROVED: 'Cannot cancel a transaction after it has been approved. Use "Cancel by Consensus" to propose a cancellation vote.',
+  TIMELOCK_NOT_ELAPSED: 'Timelock period has not elapsed yet. The transaction cannot be executed until the delay expires.',
+  TX_IS_EXPIRED: 'This transaction has expired and cannot be acted upon.',
+  TX_NOT_EXPIRED: 'This transaction has not expired yet and cannot be marked as expired.',
+  EXPIRATION_TOO_SOON: 'The expiration time is too soon. It must be far enough in the future to allow for approvals.',
+  SELF_CALL_CANNOT_HAVE_VALUE: 'Self-calls (wallet management operations) cannot include a QUAI value.',
+  NOT_PROPOSER: 'Only the original proposer can cancel this transaction before approval.',
+  UNRECOGNIZED_SELF_CALL: 'The wallet does not recognize this self-call function.',
+  MAX_MODULES_REACHED: 'Maximum number of modules has been reached.',
+  CALLDATA_TOO_SHORT: 'Transaction calldata is too short to contain a valid function selector.',
+  MESSAGE_NOT_SIGNED: 'This message has not been signed by the wallet.',
 } as const;
+
+/**
+ * Map of contract custom error names to user-friendly messages.
+ * Used by extractErrorMessage when decoding revert data.
+ */
+export const CONTRACT_ERROR_MAP: Record<string, string> = {
+  CannotCancelApprovedTransaction: TransactionErrors.CANNOT_CANCEL_APPROVED,
+  TimelockNotElapsed: TransactionErrors.TIMELOCK_NOT_ELAPSED,
+  TransactionIsExpired: TransactionErrors.TX_IS_EXPIRED,
+  TransactionNotExpired: TransactionErrors.TX_NOT_EXPIRED,
+  ExpirationTooSoon: TransactionErrors.EXPIRATION_TOO_SOON,
+  SelfCallCannotHaveValue: TransactionErrors.SELF_CALL_CANNOT_HAVE_VALUE,
+  NotProposer: TransactionErrors.NOT_PROPOSER,
+  UnrecognizedSelfCall: TransactionErrors.UNRECOGNIZED_SELF_CALL,
+  MaxModulesReached: TransactionErrors.MAX_MODULES_REACHED,
+  CalldataTooShort: TransactionErrors.CALLDATA_TOO_SHORT,
+  MessageNotSigned: TransactionErrors.MESSAGE_NOT_SIGNED,
+};
 
 /**
  * Validate transaction hash format

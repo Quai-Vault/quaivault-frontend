@@ -45,6 +45,17 @@ describe('TransactionService', () => {
       getAddress: vi.fn().mockResolvedValue(ADDR.SIGNER),
     };
 
+    const proposeTxResult = Object.assign(
+      vi.fn().mockResolvedValue({
+        hash: '0xproposetxhash',
+        wait: vi.fn().mockResolvedValue({
+          status: 1,
+          logs: [{ fragment: { name: 'TransactionProposed' }, args: { txHash: '0xnewtxhash' } }],
+        }),
+      }),
+      { estimateGas: vi.fn().mockResolvedValue(100000n) }
+    );
+
     mockWallet = {
       isOwner: vi.fn().mockResolvedValue(true),
       nonce: vi.fn().mockResolvedValue(1n),
@@ -58,23 +69,28 @@ describe('TransactionService', () => {
         numApprovals: 0n,
         timestamp: 0n,
         proposer: '0x',
+        expiration: 0n,
+        approvedAt: 0n,
+        executionDelay: 0n,
       }),
-      proposeTransaction: Object.assign(
-        vi.fn().mockResolvedValue({
-          hash: '0xproposetxhash',
-          wait: vi.fn().mockResolvedValue({
-            status: 1,
-            logs: [{ fragment: { name: 'TransactionProposed' }, args: { txHash: '0xnewtxhash' } }],
-          }),
-        }),
-        { estimateGas: vi.fn().mockResolvedValue(100000n) }
-      ),
+      // Direct name and overloaded bracket-notation signatures used by the service
+      proposeTransaction: proposeTxResult,
+      'proposeTransaction(address,uint256,bytes)': proposeTxResult,
+      'proposeTransaction(address,uint256,bytes,uint48)': proposeTxResult,
+      'proposeTransaction(address,uint256,bytes,uint48,uint32)': proposeTxResult,
       approveTransaction: Object.assign(
         vi.fn().mockResolvedValue({
           hash: '0xapprovetxhash',
           wait: vi.fn().mockResolvedValue({ status: 1 }),
         }),
         { estimateGas: vi.fn().mockResolvedValue(100000n) }
+      ),
+      approveAndExecute: Object.assign(
+        vi.fn().mockResolvedValue({
+          hash: '0xapproveexecutetxhash',
+          wait: vi.fn().mockResolvedValue({ status: 1, logs: [] }),
+        }),
+        { estimateGas: vi.fn().mockResolvedValue(300000n) }
       ),
       revokeApproval: Object.assign(
         vi.fn().mockResolvedValue({
@@ -97,7 +113,7 @@ describe('TransactionService', () => {
         }),
         { estimateGas: vi.fn().mockResolvedValue(200000n) }
       ),
-      approvals: vi.fn().mockResolvedValue(true),
+      hasApproved: vi.fn().mockResolvedValue(true),
       threshold: vi.fn().mockResolvedValue(2n),
       getOwners: vi.fn().mockResolvedValue([ADDR.OWNER1, ADDR.OWNER2]),
       interface: {
@@ -206,7 +222,7 @@ describe('TransactionService', () => {
         executed: false,
         cancelled: false,
       });
-      mockWallet.approvals
+      mockWallet.hasApproved
         .mockResolvedValueOnce(true)  // First call: has approved
         .mockResolvedValueOnce(false); // After revoke: no longer approved
 
@@ -231,7 +247,7 @@ describe('TransactionService', () => {
         executed: false,
         cancelled: false,
       });
-      mockWallet.approvals.mockResolvedValue(false);
+      mockWallet.hasApproved.mockResolvedValue(false);
 
       await expect(
         service.revokeApproval(ADDR.WALLET, '0x' + 'a'.repeat(64))
@@ -369,6 +385,8 @@ describe('TransactionService', () => {
         cancelled: false,
         numApprovals: 1n,
       });
+      // Neither owner has approved — threshold of 2 not met
+      mockWallet.hasApproved.mockResolvedValue(false);
 
       await expect(
         service.executeTransaction(ADDR.WALLET, '0x' + 'a'.repeat(64))
@@ -383,8 +401,13 @@ describe('TransactionService', () => {
         value: 1000n,
         data: '0x',
         executed: false,
+        cancelled: false,
         numApprovals: 1n,
         timestamp: 1234567890n,
+        proposer: ADDR.PROPOSER,
+        expiration: 0n,
+        approvedAt: 0n,
+        executionDelay: 0n,
       };
       mockWallet.transactions.mockResolvedValue(mockTx);
 
@@ -395,8 +418,12 @@ describe('TransactionService', () => {
         value: 1000n,
         data: '0x',
         executed: false,
-        numApprovals: 1n,
+        cancelled: false,
         timestamp: 1234567890n,
+        proposer: ADDR.PROPOSER,
+        expiration: 0n,
+        approvedAt: 0n,
+        executionDelay: 0,
       });
     });
   });
@@ -419,17 +446,21 @@ describe('TransactionService', () => {
         data: '0x',
         executed: false,
         cancelled: false,
-        numApprovals: 1n,
+        numApprovals: 2n,
         timestamp: 1234567890n,
         proposer: ADDR.PROPOSER,
+        expiration: 0n,
+        approvedAt: 0n,
+        executionDelay: 0n,
       });
-      mockWallet.approvals.mockResolvedValue(true);
+      mockWallet.hasApproved.mockResolvedValue(true);
 
       const result = await service.getTransactionByHash(ADDR.WALLET, '0xtxhash');
 
       expect(result).not.toBeNull();
       expect(result?.to).toBe(ADDR.RECIPIENT);
-      expect(result?.numApprovals).toBe(1);
+      // Both owners approved (hasApproved returns true for both)
+      expect(result?.numApprovals).toBe(2);
       expect(result?.approvals).toBeDefined();
     });
   });

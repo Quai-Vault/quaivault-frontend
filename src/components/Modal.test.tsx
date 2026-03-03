@@ -48,28 +48,29 @@ describe('Modal', () => {
   });
 
   describe('size variants', () => {
+    // Modal uses createPortal — content renders into document.body, not the container
     it('should apply sm size class', () => {
-      const { container } = render(<Modal {...defaultProps} size="sm" />);
+      render(<Modal {...defaultProps} size="sm" />);
 
-      expect(container.querySelector('.max-w-sm')).toBeInTheDocument();
+      expect(document.body.querySelector('.max-w-sm')).toBeInTheDocument();
     });
 
     it('should apply md size class by default', () => {
-      const { container } = render(<Modal {...defaultProps} />);
+      render(<Modal {...defaultProps} />);
 
-      expect(container.querySelector('.max-w-md')).toBeInTheDocument();
+      expect(document.body.querySelector('.max-w-md')).toBeInTheDocument();
     });
 
     it('should apply lg size class', () => {
-      const { container } = render(<Modal {...defaultProps} size="lg" />);
+      render(<Modal {...defaultProps} size="lg" />);
 
-      expect(container.querySelector('.max-w-2xl')).toBeInTheDocument();
+      expect(document.body.querySelector('.max-w-2xl')).toBeInTheDocument();
     });
 
     it('should apply xl size class', () => {
-      const { container } = render(<Modal {...defaultProps} size="xl" />);
+      render(<Modal {...defaultProps} size="xl" />);
 
-      expect(container.querySelector('.max-w-4xl')).toBeInTheDocument();
+      expect(document.body.querySelector('.max-w-4xl')).toBeInTheDocument();
     });
   });
 

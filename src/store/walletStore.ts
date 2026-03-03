@@ -16,10 +16,10 @@ interface WalletState {
 
   // User's wallets
   wallets: string[];
-  walletsInfo: Map<string, WalletInfo>;
+  walletsInfo: Record<string, WalletInfo>;
 
   // Pending transactions
-  pendingTransactions: Map<string, PendingTransaction[]>;
+  pendingTransactions: Record<string, PendingTransaction[]>;
 
   // UI state
   isLoading: boolean;
@@ -44,11 +44,22 @@ const initialState = {
   currentWallet: null,
   currentWalletInfo: null,
   wallets: [],
-  walletsInfo: new Map(),
-  pendingTransactions: new Map(),
+  walletsInfo: {} as Record<string, WalletInfo>,
+  pendingTransactions: {} as Record<string, PendingTransaction[]>,
   isLoading: false,
   error: null,
 };
+
+/** Enforce max size on a Record by removing oldest keys (FIFO by insertion order). */
+function enforceRecordLimit<T>(record: Record<string, T>, max: number): Record<string, T> {
+  const keys = Object.keys(record);
+  if (keys.length <= max) return record;
+  const trimmed = { ...record };
+  for (let i = 0; i < keys.length - max; i++) {
+    delete trimmed[keys[i]];
+  }
+  return trimmed;
+}
 
 export const useWalletStore = create<WalletState>()(
   persist(
@@ -65,45 +76,29 @@ export const useWalletStore = create<WalletState>()(
         set({ currentWalletInfo: info }),
 
       addWallet: (walletAddress) =>
-        set((state) => ({
-          wallets: state.wallets.some(w => w.toLowerCase() === walletAddress.toLowerCase())
-            ? state.wallets
-            : [...state.wallets, walletAddress],
-        })),
+        set((state) => {
+          if (state.wallets.some(w => w.toLowerCase() === walletAddress.toLowerCase())) {
+            return { wallets: state.wallets };
+          }
+          const updated = [...state.wallets, walletAddress].slice(-MAX_STORED_WALLETS);
+          return { wallets: updated };
+        }),
 
       setWallets: (wallets) =>
         set({ wallets }),
 
       setWalletInfo: (walletAddress, info) =>
         set((state) => {
-          const newMap = new Map(state.walletsInfo);
-          newMap.set(walletAddress.toLowerCase(), info);
-          // Enforce max size by removing oldest entries (FIFO)
-          while (newMap.size > MAX_STORED_WALLETS) {
-            const oldestKey = newMap.keys().next().value;
-            if (oldestKey !== undefined) {
-              newMap.delete(oldestKey);
-            } else {
-              break;
-            }
-          }
-          return { walletsInfo: newMap };
+          const key = walletAddress.toLowerCase();
+          const updated = { ...state.walletsInfo, [key]: info };
+          return { walletsInfo: enforceRecordLimit(updated, MAX_STORED_WALLETS) };
         }),
 
       setPendingTransactions: (walletAddress, txs) =>
         set((state) => {
-          const newMap = new Map(state.pendingTransactions);
-          newMap.set(walletAddress.toLowerCase(), txs);
-          // Enforce max size by removing oldest entries (FIFO)
-          while (newMap.size > MAX_STORED_WALLETS) {
-            const oldestKey = newMap.keys().next().value;
-            if (oldestKey !== undefined) {
-              newMap.delete(oldestKey);
-            } else {
-              break;
-            }
-          }
-          return { pendingTransactions: newMap };
+          const key = walletAddress.toLowerCase();
+          const updated = { ...state.pendingTransactions, [key]: txs };
+          return { pendingTransactions: enforceRecordLimit(updated, MAX_STORED_WALLETS) };
         }),
 
       setLoading: (loading) =>
@@ -117,6 +112,9 @@ export const useWalletStore = create<WalletState>()(
     }),
     {
       name: 'wallet-storage',
+      // Only wallets list and current wallet are persisted.
+      // BigInt fields (balance, etc.) live in walletsInfo which is NOT persisted,
+      // so JSON serialization of BigInt is not an issue.
       partialize: (state) => ({
         wallets: state.wallets,
         currentWallet: state.currentWallet,

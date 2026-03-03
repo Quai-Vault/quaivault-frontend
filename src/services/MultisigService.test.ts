@@ -5,9 +5,41 @@ import { MultisigService } from './MultisigService';
 vi.mock('./core/WalletService');
 vi.mock('./core/TransactionService');
 vi.mock('./core/OwnerService');
-vi.mock('./modules/WhitelistModuleService');
-vi.mock('./modules/DailyLimitModuleService');
 vi.mock('./modules/SocialRecoveryModuleService');
+
+// Mock TransactionBuilderService (uses quais Interface at module level)
+vi.mock('./TransactionBuilderService', () => ({
+  TransactionBuilderService: vi.fn().mockImplementation(() => ({
+    buildChangeThreshold: vi.fn().mockReturnValue('0xencoded'),
+    buildAddOwner: vi.fn().mockReturnValue('0xencoded'),
+    buildRemoveOwner: vi.fn().mockReturnValue('0xencoded'),
+    buildSwapOwner: vi.fn().mockReturnValue('0xencoded'),
+    buildSetMinExecutionDelay: vi.fn().mockReturnValue('0xencoded'),
+    buildCancelByConsensus: vi.fn().mockReturnValue('0xencoded'),
+    buildEnableModule: vi.fn().mockReturnValue('0xencoded'),
+    buildDisableModule: vi.fn().mockReturnValue('0xencoded'),
+  })),
+}));
+
+vi.mock('quais', () => ({
+  getAddress: vi.fn((addr: string) => addr),
+  isAddress: vi.fn((addr: string) => /^0x[a-fA-F0-9]{40}$/.test(addr)),
+  isQuaiAddress: vi.fn().mockReturnValue(true),
+  Interface: vi.fn().mockImplementation(function(this: any) {
+    this.encodeFunctionData = vi.fn().mockReturnValue('0xencoded');
+    this.parseTransaction = vi.fn();
+  }),
+  JsonRpcProvider: vi.fn().mockImplementation(function(this: any) {
+    this.getNetwork = vi.fn();
+    this.getBalance = vi.fn();
+    this.getBlock = vi.fn();
+  }),
+  Contract: vi.fn().mockImplementation(function(this: any) {
+    this.connect = vi.fn().mockReturnValue(this);
+  }),
+  formatQuai: vi.fn((v: any) => String(v)),
+  parseQuai: vi.fn((v: string) => BigInt(v || '0')),
+}));
 
 vi.mock('./indexer', () => ({
   indexerService: {
@@ -27,8 +59,6 @@ vi.mock('./indexer', () => ({
     },
     module: {
       isModuleEnabled: vi.fn(),
-      getWhitelistEntries: vi.fn(),
-      getDailyLimitConfig: vi.fn(),
       getRecoveryConfig: vi.fn(),
       getPendingRecoveries: vi.fn(),
     },
@@ -76,8 +106,6 @@ describe('MultisigService', () => {
       expect(service.wallet).toBeDefined();
       expect(service.transaction).toBeDefined();
       expect(service.owner).toBeDefined();
-      expect(service.whitelist).toBeDefined();
-      expect(service.dailyLimit).toBeDefined();
       expect(service.socialRecovery).toBeDefined();
     });
   });
@@ -90,8 +118,6 @@ describe('MultisigService', () => {
       expect(service.wallet.setSigner).toHaveBeenCalledWith(mockSigner);
       expect(service.transaction.setSigner).toHaveBeenCalledWith(mockSigner);
       expect(service.owner.setSigner).toHaveBeenCalledWith(mockSigner);
-      expect(service.whitelist.setSigner).toHaveBeenCalledWith(mockSigner);
-      expect(service.dailyLimit.setSigner).toHaveBeenCalledWith(mockSigner);
       expect(service.socialRecovery.setSigner).toHaveBeenCalledWith(mockSigner);
     });
 
@@ -143,6 +169,7 @@ describe('MultisigService', () => {
         owners: [OWNER],
         threshold: 2,
         balance: '5000',
+        minExecutionDelay: 0,
       });
 
       const result = await service.getWalletInfo(WALLET);
@@ -161,6 +188,7 @@ describe('MultisigService', () => {
         owners: [OWNER],
         threshold: 2,
         balance: '5000',
+        minExecutionDelay: 0,
       });
 
       const result = await service.getWalletInfo(WALLET);

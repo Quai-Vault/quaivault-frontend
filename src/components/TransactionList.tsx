@@ -10,11 +10,22 @@ import {
   ExecuteTransactionModal,
   CancelTransactionModal,
   RevokeApprovalModal,
+  ExpireTransactionModal,
 } from './transactionModals';
 import { decodeTransaction, type DecodedTransaction } from '../utils/transactionDecoder';
+import {
+  canApprove as computeCanApprove,
+  canExecute as computeCanExecute,
+  canRevoke as computeCanRevoke,
+  canProposerCancel as computeCanProposerCancel,
+  canConsensusCancel as computeCanConsensusCancel,
+  canExpire as computeCanExpire,
+  isTimelocked as computeIsTimelocked,
+} from '../utils/transactionState';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
-import { formatAddress, formatTimestamp } from '../utils/formatting';
+import { TimelockCountdown } from './TimelockCountdown';
+import { formatAddress, formatTimestamp, formatDuration, formatExpiration } from '../utils/formatting';
 import { indexerService } from '../services';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -39,6 +50,7 @@ interface TransactionItemProps {
   onRevoke: (tx: PendingTransaction) => void;
   onExecute: (tx: PendingTransaction) => void;
   onCancel: (tx: PendingTransaction) => void;
+  onExpire: (tx: PendingTransaction) => void;
 }
 
 /**
@@ -55,9 +67,23 @@ const TransactionItem = memo(function TransactionItem({
   onRevoke,
   onExecute,
   onCancel,
+  onExpire,
 }: TransactionItemProps) {
-  // Memoize approval-related computed values to avoid Object.entries iteration on every render
-  const { hasApproved, canExecute, approvalPercentage, canCancel } = useMemo(() => {
+  // Memoize approval-related computed values using centralized transaction state logic
+  const {
+    hasApproved,
+    approvalCount,
+    canExecuteIt,
+    approvalPercentage,
+    canProposerCancelIt,
+    canConsensusCancelIt,
+    canRevokeApproval,
+    canApproveIt,
+    timelocked,
+    canExpireIt,
+  } = useMemo(() => {
+    const addr = connectedAddress || '';
+
     // Check if current user has approved - handle case-insensitive matching
     const userHasApproved = connectedAddress
       ? Object.entries(tx.approvals).some(
@@ -66,24 +92,26 @@ const TransactionItem = memo(function TransactionItem({
         )
       : false;
 
-    const meetsThreshold = tx.numApprovals >= tx.threshold;
-
+    // Derive approval count from the approvals map (authoritative — kept in sync by subscription)
+    // Falls back to tx.numApprovals for edge cases where approvals map may be incomplete
+    const approvalCount = Object.values(tx.approvals).filter(Boolean).length || tx.numApprovals;
     // Prevent division by zero - default to 100% if threshold is 0 (shouldn't happen but defensive)
     const thresholdNum = Number(tx.threshold);
-    const percentage = thresholdNum > 0 ? (Number(tx.numApprovals) / thresholdNum) * 100 : 100;
-
-    // Check if user can cancel: proposer can always cancel, others need threshold approvals
-    const isProposer = connectedAddress && tx.proposer &&
-      tx.proposer.toLowerCase() === connectedAddress.toLowerCase();
-    const userCanCancel = isProposer || meetsThreshold;
+    const percentage = thresholdNum > 0 ? (approvalCount / thresholdNum) * 100 : 100;
 
     return {
       hasApproved: userHasApproved,
-      canExecute: meetsThreshold,
+      approvalCount,
+      canExecuteIt: computeCanExecute(tx),
       approvalPercentage: percentage,
-      canCancel: userCanCancel,
+      canProposerCancelIt: computeCanProposerCancel(tx, addr),
+      canConsensusCancelIt: computeCanConsensusCancel(tx),
+      canRevokeApproval: computeCanRevoke(tx, addr),
+      canApproveIt: computeCanApprove(tx, addr),
+      timelocked: computeIsTimelocked(tx),
+      canExpireIt: computeCanExpire(tx),
     };
-  }, [tx.approvals, tx.numApprovals, tx.threshold, tx.proposer, connectedAddress]);
+  }, [tx, connectedAddress]);
 
   return (
     <div className="vault-panel p-5 hover:border-primary-600/50 transition-all duration-300">
@@ -95,7 +123,34 @@ const TransactionItem = memo(function TransactionItem({
               <span className="mr-2">{decoded.icon}</span>
               {decoded.description}
             </span>
-            {canExecute && (
+            {/* Status badges based on 5-state lifecycle */}
+            {timelocked ? (
+              <TimelockCountdown executableAfter={tx.executableAfter} />
+            ) : tx.executionDelay > 0 && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-yellow-900 to-yellow-950 text-yellow-300 border border-yellow-700 shadow-vault-inner">
+                <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+                Execution Delay: {formatDuration(tx.executionDelay)}
+              </span>
+            )}
+            {(canExpireIt || tx.status === 'expired') && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-orange-700 to-orange-800 text-orange-200 border border-orange-600 shadow-vault-inner">
+                <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                Expired
+              </span>
+            )}
+            {tx.status === 'failed' && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-red-700 to-red-800 text-red-200 border border-red-600 shadow-vault-inner">
+                <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                Failed
+              </span>
+            )}
+            {canExecuteIt && (
               <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-primary-700 to-primary-800 text-primary-200 border border-primary-600 shadow-red-glow animate-pulse-slow">
                 <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -104,6 +159,14 @@ const TransactionItem = memo(function TransactionItem({
               </span>
             )}
           </div>
+          {/* Expiration metadata */}
+          {tx.expiration > 0 && tx.status === 'pending' && !canExpireIt && (
+            <div className="flex flex-wrap items-center gap-3 mt-1">
+              <span className="text-sm font-mono text-dark-500 dark:text-dark-400">
+                {formatExpiration(tx.expiration)}
+              </span>
+            </div>
+          )}
           {decoded.details && (
             <p className="text-base text-dark-600 dark:text-dark-300 font-medium mt-1 mb-0.5">{decoded.details}</p>
           )}
@@ -145,7 +208,7 @@ const TransactionItem = memo(function TransactionItem({
         <div className="flex justify-between items-center mb-1">
           <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Approvals</span>
           <span className="text-base font-semibold text-dark-700 dark:text-dark-200">
-            <span className="text-primary-600 dark:text-primary-400">{tx.numApprovals.toString()}</span>
+            <span className="text-primary-600 dark:text-primary-400">{approvalCount}</span>
             <span className="text-dark-500 mx-0.5">/</span>
             <span className="text-dark-600 dark:text-dark-300">{tx.threshold.toString()}</span>
           </span>
@@ -153,7 +216,7 @@ const TransactionItem = memo(function TransactionItem({
         <div className="w-full bg-dark-200 dark:bg-vault-dark-4 rounded-full h-1.5 border border-dark-300 dark:border-dark-600 shadow-vault-inner overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              canExecute
+              canExecuteIt
                 ? 'bg-gradient-to-r from-primary-500 to-primary-600 shadow-red-glow'
                 : 'bg-gradient-to-r from-primary-700 to-primary-800'
             }`}
@@ -190,10 +253,9 @@ const TransactionItem = memo(function TransactionItem({
       {isOwner && (
         <div className="pt-3 border-t border-dark-200 dark:border-dark-700">
           <div className="flex flex-wrap gap-4">
-            {!hasApproved ? (
+            {canApproveIt && (
               <button
                 onClick={() => onApprove(tx)}
-                disabled={hasApproved}
                 className="btn-primary inline-flex items-center gap-2 text-base"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -201,7 +263,8 @@ const TransactionItem = memo(function TransactionItem({
                 </svg>
                 Approve
               </button>
-            ) : (
+            )}
+            {canRevokeApproval && (
               <button
                 onClick={() => onRevoke(tx)}
                 className="btn-secondary inline-flex items-center gap-2 text-base"
@@ -212,7 +275,7 @@ const TransactionItem = memo(function TransactionItem({
                 Revoke
               </button>
             )}
-            {canExecute && (
+            {canExecuteIt && (
               <button
                 onClick={() => onExecute(tx)}
                 className="btn-primary inline-flex items-center gap-2 text-base bg-gradient-to-r from-primary-500 to-primary-600"
@@ -223,7 +286,7 @@ const TransactionItem = memo(function TransactionItem({
                 Execute
               </button>
             )}
-            {canCancel && (
+            {canProposerCancelIt && (
               <button
                 onClick={() => onCancel(tx)}
                 className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
@@ -233,6 +296,32 @@ const TransactionItem = memo(function TransactionItem({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   Cancel
+                </span>
+              </button>
+            )}
+            {canConsensusCancelIt && (
+              <button
+                onClick={() => onCancel(tx)}
+                className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Cancel by Consensus
+                </span>
+              </button>
+            )}
+            {canExpireIt && (
+              <button
+                onClick={() => onExpire(tx)}
+                className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded border border-orange-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Expire
                 </span>
               </button>
             )}
@@ -250,6 +339,7 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
   const [executeModalTx, setExecuteModalTx] = useState<PendingTransaction | null>(null);
   const [cancelModalTx, setCancelModalTx] = useState<PendingTransaction | null>(null);
   const [revokeModalTx, setRevokeModalTx] = useState<PendingTransaction | null>(null);
+  const [expireModalTx, setExpireModalTx] = useState<PendingTransaction | null>(null);
 
   // Ref for virtualizer scrolling container
   const parentRef = useRef<HTMLDivElement>(null);
@@ -269,6 +359,10 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
 
   const handleCancel = useCallback((tx: PendingTransaction) => {
     setCancelModalTx(tx);
+  }, []);
+
+  const handleExpire = useCallback((tx: PendingTransaction) => {
+    setExpireModalTx(tx);
   }, []);
 
   // Extract unique target addresses for token metadata lookup
@@ -334,8 +428,9 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
       onRevoke={handleRevoke}
       onExecute={handleExecute}
       onCancel={handleCancel}
+      onExpire={handleExpire}
     />
-  ), [walletAddress, connectedAddress, isOwner, decodedTransactions, handleApprove, handleRevoke, handleExecute, handleCancel]);
+  ), [walletAddress, connectedAddress, isOwner, decodedTransactions, handleApprove, handleRevoke, handleExecute, handleCancel, handleExpire]);
 
   // Render transaction list content based on mode
   const renderContent = () => {
@@ -455,6 +550,17 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
           }}
           walletAddress={walletAddress}
           transaction={revokeModalTx}
+        />
+      )}
+      {expireModalTx && (
+        <ExpireTransactionModal
+          isOpen={!!expireModalTx}
+          onClose={() => {
+            setExpireModalTx(null);
+            refreshTransactions();
+          }}
+          walletAddress={walletAddress}
+          transaction={expireModalTx}
         />
       )}
     </div>

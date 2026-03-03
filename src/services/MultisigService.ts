@@ -1,13 +1,11 @@
 import { getAddress } from 'quais';
-import type { Provider, Signer } from '../types';
+import type { Provider, Signer, TransactionStatus } from '../types';
 import type { WalletInfo, Transaction, PendingTransaction, DeploymentConfig } from '../types';
 
 // Import specialized services
 import { WalletService } from './core/WalletService';
 import { TransactionService } from './core/TransactionService';
 import { OwnerService } from './core/OwnerService';
-import { WhitelistModuleService } from './modules/WhitelistModuleService';
-import { DailyLimitModuleService } from './modules/DailyLimitModuleService';
 import { SocialRecoveryModuleService } from './modules/SocialRecoveryModuleService';
 
 // Import indexer service for faster reads
@@ -15,6 +13,7 @@ import { indexerService } from './indexer';
 import { convertIndexerTransaction } from './utils/TransactionConverter';
 import { INDEXER_CONFIG } from '../config/supabase';
 import { validateAddress, validateTxHash } from './utils/TransactionErrorHandler';
+import { transactionBuilderService } from './TransactionBuilderService';
 import type { SocialRecovery, RecoveryApproval } from '../types/database';
 
 // Re-export types from modules
@@ -45,8 +44,6 @@ export class MultisigService {
   public readonly wallet: WalletService;
   public readonly transaction: TransactionService;
   public readonly owner: OwnerService;
-  public readonly whitelist: WhitelistModuleService;
-  public readonly dailyLimit: DailyLimitModuleService;
   public readonly socialRecovery: SocialRecoveryModuleService;
 
   // Indexer availability cache
@@ -58,8 +55,6 @@ export class MultisigService {
     this.wallet = new WalletService(provider);
     this.transaction = new TransactionService(provider);
     this.owner = new OwnerService(provider, this.transaction);
-    this.whitelist = new WhitelistModuleService(provider, this.transaction);
-    this.dailyLimit = new DailyLimitModuleService(provider, this.transaction);
     this.socialRecovery = new SocialRecoveryModuleService(provider, this.transaction);
   }
 
@@ -114,8 +109,6 @@ export class MultisigService {
     this.wallet.setSigner(signer);
     this.transaction.setSigner(signer);
     this.owner.setSigner(signer);
-    this.whitelist.setSigner(signer);
-    this.dailyLimit.setSigner(signer);
     this.socialRecovery.setSigner(signer);
   }
 
@@ -166,10 +159,11 @@ export class MultisigService {
             owners: owners.map((o) => getAddress(o)),
             threshold: wallet.threshold,
             balance: balance.toString(),
+            minExecutionDelay: wallet.min_execution_delay ?? 0,
           };
         }
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] getWalletInfo indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -186,8 +180,8 @@ export class MultisigService {
         const wallets = await indexerService.wallet.getWalletsForOwner(ownerAddress);
         // Return checksummed addresses for display and blockchain compatibility
         return wallets.map((w) => getAddress(w.address));
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] getWalletsForOwner indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -204,8 +198,8 @@ export class MultisigService {
         const wallets = await indexerService.wallet.getWalletsForGuardian(guardianAddress);
         // Return checksummed addresses for display and blockchain compatibility
         return wallets.map((w) => getAddress(w.address));
-      } catch {
-        // Return empty array if indexer unavailable or query fails
+      } catch (err) {
+        console.warn('[MultisigService] getWalletsForGuardian indexer failed:', err instanceof Error ? err.message : err);
         return [];
       }
     }
@@ -221,8 +215,8 @@ export class MultisigService {
         const owners = await indexerService.wallet.getWalletOwners(walletAddress);
         const normalizedAddress = address.toLowerCase();
         return owners.some((o) => o.toLowerCase() === normalizedAddress);
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] isOwner indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -275,11 +269,13 @@ export class MultisigService {
     walletAddress: string,
     to: string,
     value: bigint,
-    data: string
+    data: string,
+    expiration?: number,
+    executionDelay?: number,
   ): Promise<string> {
     const validatedWallet = validateAddress(walletAddress);
     const validatedTo = validateAddress(to);
-    return this.transaction.proposeTransaction(validatedWallet, validatedTo, value, data);
+    return this.transaction.proposeTransaction(validatedWallet, validatedTo, value, data, expiration, executionDelay);
   }
 
   /**
@@ -348,6 +344,52 @@ export class MultisigService {
     return this.transaction.executeTransaction(validatedWallet, validatedHash);
   }
 
+  /**
+   * Approve and immediately execute a transaction in one call.
+   * Only works if this approval meets the threshold and timelock has elapsed (or is 0).
+   */
+  async approveAndExecute(walletAddress: string, txHash: string): Promise<boolean> {
+    const validatedWallet = validateAddress(walletAddress);
+    const validatedHash = validateTxHash(txHash);
+    return this.transaction.approveAndExecute(validatedWallet, validatedHash);
+  }
+
+  /**
+   * Mark an expired transaction as expired (permissionless — anyone can call).
+   */
+  async expireTransaction(walletAddress: string, txHash: string): Promise<void> {
+    const validatedWallet = validateAddress(walletAddress);
+    const validatedHash = validateTxHash(txHash);
+    return this.transaction.expireTransaction(validatedWallet, validatedHash);
+  }
+
+  /**
+   * Propose setting the wallet's minimum execution delay (self-call).
+   */
+  async proposeSetMinExecutionDelay(walletAddress: string, delaySeconds: number): Promise<string> {
+    const validatedWallet = validateAddress(walletAddress);
+    const data = transactionBuilderService.buildSetMinExecutionDelay(delaySeconds);
+    return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
+  /**
+   * Propose signing a message on behalf of the wallet (EIP-1271 self-call).
+   */
+  async proposeSignMessage(walletAddress: string, message: string): Promise<string> {
+    const validatedWallet = validateAddress(walletAddress);
+    const data = transactionBuilderService.buildSignMessage(message);
+    return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
+  /**
+   * Propose unsigning a previously signed message (self-call).
+   */
+  async proposeUnsignMessage(walletAddress: string, message: string): Promise<string> {
+    const validatedWallet = validateAddress(walletAddress);
+    const data = transactionBuilderService.buildUnsignMessage(message);
+    return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
   async getTransaction(walletAddress: string, txHash: string): Promise<Transaction> {
     // This returns the raw Transaction struct - always use blockchain for consistency
     return this.transaction.getTransaction(walletAddress, txHash);
@@ -373,8 +415,8 @@ export class MultisigService {
           return convertIndexerTransaction(tx, wallet.threshold, confirmations);
         }
         return null;
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] getTransactionByHash indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -411,8 +453,8 @@ export class MultisigService {
         });
 
         return converted;
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] getPendingTransactions indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -427,9 +469,17 @@ export class MultisigService {
     return this.getTransactionsByStatus(walletAddress, 'cancelled');
   }
 
+  async getExpiredTransactions(walletAddress: string): Promise<PendingTransaction[]> {
+    return this.getTransactionsByStatus(walletAddress, 'expired');
+  }
+
+  async getFailedTransactions(walletAddress: string): Promise<PendingTransaction[]> {
+    return this.getTransactionsByStatus(walletAddress, 'failed');
+  }
+
   private async getTransactionsByStatus(
     walletAddress: string,
-    status: 'executed' | 'cancelled'
+    status: TransactionStatus
   ): Promise<PendingTransaction[]> {
     const validatedWallet = validateAddress(walletAddress);
 
@@ -457,217 +507,22 @@ export class MultisigService {
           return convertIndexerTransaction(tx, wallet.threshold, confirmations);
         });
 
-        // For executed status, also include module bypass transactions (whitelist/daily limit)
-        if (status === 'executed') {
-          try {
-            const moduleTxs = await indexerService.module.getModuleTransactions(validatedWallet);
-            const convertedModuleTxs: PendingTransaction[] = moduleTxs.map((mtx) => ({
-              hash: mtx.executedAtTx,
-              to: mtx.toAddress,
-              value: mtx.value,
-              data: '0x',
-              numApprovals: 0,
-              threshold: 0,
-              executed: true,
-              cancelled: false,
-              timestamp: Math.floor(new Date(mtx.createdAt).getTime() / 1000),
-              proposer: '',
-              approvals: {},
-              transactionType: mtx.moduleType === 'whitelist' ? 'whitelist_execution' : 'daily_limit_execution',
-              decodedParams: null,
-            }));
-
-            // Merge and sort by timestamp descending
-            return [...multisigTxs, ...convertedModuleTxs].sort((a, b) => b.timestamp - a.timestamp);
-          } catch {
-            // module_transactions table may not exist - return multisig txs only
-          }
-        }
-
         return multisigTxs;
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn(`[MultisigService] getTransactionsByStatus(${status}) indexer failed, falling back to blockchain:`, err instanceof Error ? err.message : err);
       }
     }
 
-    return status === 'executed'
-      ? this.transaction.getExecutedTransactions(validatedWallet)
-      : this.transaction.getCancelledTransactions(validatedWallet);
-  }
-
-  // ============ Indexer-First Whitelist Methods ============
-  // For owner/module operations, use: multisigService.owner.method()
-
-  /**
-   * Propose adding an address to the whitelist (requires multisig approval)
-   * @param walletAddress Address of the multisig wallet
-   * @param address Address to add to whitelist
-   * @param limit Optional spending limit for this address (defaults to 0 = unlimited)
-   * @returns Transaction hash for the multisig proposal
-   */
-  async proposeAddToWhitelist(
-    walletAddress: string,
-    address: string,
-    limit: bigint = 0n
-  ): Promise<string> {
-    return this.whitelist.proposeAddToWhitelist(walletAddress, address, limit);
-  }
-
-  /**
-   * Propose removing an address from the whitelist (requires multisig approval)
-   * @param walletAddress Address of the multisig wallet
-   * @param address Address to remove from whitelist
-   * @returns Transaction hash for the multisig proposal
-   */
-  async proposeRemoveFromWhitelist(walletAddress: string, address: string): Promise<string> {
-    return this.whitelist.proposeRemoveFromWhitelist(walletAddress, address);
-  }
-
-  async isWhitelisted(walletAddress: string, address: string): Promise<boolean> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
-        const entries = await indexerService.module.getWhitelistEntries(walletAddress);
-        const normalizedAddress = address.toLowerCase();
-        return entries.some((e) => e.address.toLowerCase() === normalizedAddress);
-      } catch {
-        // Silently fall back to blockchain
-      }
+    // Blockchain fallback — expired/failed are only trackable via indexer
+    switch (status) {
+      case 'executed':
+        return this.transaction.getExecutedTransactions(validatedWallet);
+      case 'cancelled':
+        return this.transaction.getCancelledTransactions(validatedWallet);
+      default:
+        // expired/failed have no RPC-based fallback
+        return [];
     }
-
-    // Fallback to blockchain
-    return this.whitelist.isWhitelisted(walletAddress, address);
-  }
-
-  async getWhitelistLimit(walletAddress: string, address: string): Promise<bigint> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
-        const entries = await indexerService.module.getWhitelistEntries(walletAddress);
-        const normalizedAddress = address.toLowerCase();
-        const entry = entries.find((e) => e.address.toLowerCase() === normalizedAddress);
-        if (entry) {
-          return entry.limit ? BigInt(entry.limit) : 0n;
-        }
-        return 0n; // Not whitelisted
-      } catch {
-        // Silently fall back to blockchain
-      }
-    }
-
-    // Fallback to blockchain
-    return this.whitelist.getWhitelistLimit(walletAddress, address);
-  }
-
-  async getWhitelistedAddresses(walletAddress: string): Promise<Array<{ address: string; limit: bigint }>> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
-        const entries = await indexerService.module.getWhitelistEntries(walletAddress);
-        return entries.map((e) => ({
-          address: e.address,
-          limit: e.limit ? BigInt(e.limit) : 0n,
-        }));
-      } catch {
-        // Silently fall back to blockchain
-      }
-    }
-
-    // Fallback to blockchain
-    return this.whitelist.getWhitelistedAddresses(walletAddress);
-  }
-
-  /**
-   * Check if a transaction can bypass multisig approval via whitelist module
-   * @param walletAddress Address of the multisig wallet
-   * @param to Destination address
-   * @param value Amount to transfer in wei
-   * @returns Object with canExecute flag and optional reason if cannot execute
-   */
-  async canExecuteViaWhitelist(
-    walletAddress: string,
-    to: string,
-    value: bigint
-  ): Promise<{ canExecute: boolean; reason?: string }> {
-    return this.whitelist.canExecuteViaWhitelist(walletAddress, to, value);
-  }
-
-  // ============ Indexer-First Daily Limit Methods ============
-
-  /**
-   * Propose setting the daily spending limit (requires multisig approval)
-   * @param walletAddress Address of the multisig wallet
-   * @param limit Daily spending limit in wei
-   * @returns Transaction hash for the multisig proposal
-   */
-  async proposeSetDailyLimit(walletAddress: string, limit: bigint): Promise<string> {
-    return this.dailyLimit.proposeSetDailyLimit(walletAddress, limit);
-  }
-
-  /**
-   * Propose resetting the daily limit (requires multisig approval)
-   * @param walletAddress Address of the multisig wallet
-   * @returns Transaction hash for the multisig proposal
-   */
-  async proposeResetDailyLimit(walletAddress: string): Promise<string> {
-    return this.dailyLimit.proposeResetDailyLimit(walletAddress);
-  }
-
-  async getDailyLimit(walletAddress: string): Promise<{ limit: bigint; spent: bigint; lastReset: bigint }> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
-        const config = await indexerService.module.getDailyLimitConfig(walletAddress);
-        if (config) {
-          // lastResetDay is a DATE string (e.g. "2026-02-06") from Supabase
-          // Convert to Unix timestamp for consistency with the contract's uint256
-          const lastResetTimestamp = config.lastResetDay
-            ? BigInt(Math.floor(new Date(config.lastResetDay).getTime() / 1000))
-            : 0n;
-          return {
-            limit: BigInt(config.limit),
-            spent: BigInt(config.spent),
-            lastReset: lastResetTimestamp,
-          };
-        }
-      } catch (error) {
-        console.warn('Indexer getDailyLimit failed, falling back to blockchain:', error instanceof Error ? error.message : error);
-      }
-    }
-
-    // Fallback to blockchain
-    return this.dailyLimit.getDailyLimit(walletAddress);
-  }
-
-  /**
-   * Check if a transaction can bypass multisig approval via daily limit module
-   * @param walletAddress Address of the multisig wallet
-   * @param value Amount to transfer in wei
-   * @returns Object with canExecute flag and optional reason if cannot execute
-   */
-  async canExecuteViaDailyLimit(
-    walletAddress: string,
-    value: bigint
-  ): Promise<{ canExecute: boolean; reason?: string }> {
-    return this.dailyLimit.canExecuteViaDailyLimit(walletAddress, value);
-  }
-
-  /**
-   * Get remaining daily limit that can still be spent today
-   * @param walletAddress Address of the multisig wallet
-   * @returns Remaining limit in wei
-   */
-  async getRemainingLimit(walletAddress: string): Promise<bigint> {
-    return this.dailyLimit.getRemainingLimit(walletAddress);
-  }
-
-  /**
-   * Get time until the daily limit resets
-   * @param walletAddress Address of the multisig wallet
-   * @returns Time in seconds until reset
-   */
-  async getTimeUntilReset(walletAddress: string): Promise<bigint> {
-    return this.dailyLimit.getTimeUntilReset(walletAddress);
   }
 
   // ============ Indexer-First Social Recovery Methods ============
@@ -785,8 +640,8 @@ export class MultisigService {
           return config.guardians.some((g) => g.toLowerCase() === normalizedAddress);
         }
         // No config or empty guardians - fall through to blockchain
-      } catch {
-        // Silently fall back to blockchain - table may not exist
+      } catch (err) {
+        console.warn('[MultisigService] isGuardian indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -814,8 +669,8 @@ export class MultisigService {
           executionTime: Number(r.executionTime),
           executed: false, // Indexer only returns pending (non-executed) recoveries
         }));
-      } catch {
-        // Silently fall back to blockchain
+      } catch (err) {
+        console.warn('[MultisigService] getPendingRecoveries indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
@@ -836,8 +691,8 @@ export class MultisigService {
     if (await this.isIndexerAvailable()) {
       try {
         return await indexerService.module.getRecoveryHistory(walletAddress);
-      } catch {
-        // Indexer failed, return empty
+      } catch (err) {
+        console.warn('[MultisigService] getRecoveryHistory indexer failed:', err instanceof Error ? err.message : err);
       }
     }
     return [];
@@ -848,8 +703,8 @@ export class MultisigService {
     if (await this.isIndexerAvailable()) {
       try {
         return await indexerService.module.getRecoveryApprovals(walletAddress, recoveryHash);
-      } catch {
-        // Indexer failed, return empty
+      } catch (err) {
+        console.warn('[MultisigService] getRecoveryApprovals indexer failed:', err instanceof Error ? err.message : err);
       }
     }
     return [];

@@ -1,6 +1,6 @@
 import { formatQuai, formatUnits, Interface } from 'quais';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { formatAddress } from './formatting';
+import { formatAddress, formatDuration } from './formatting';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -8,6 +8,8 @@ export type TransactionType =
   | 'transfer'
   | 'erc20_transfer'
   | 'erc721_transfer'
+  | 'erc1155_transfer'
+  | 'erc1155_batch_transfer'
   | 'addOwner'
   | 'removeOwner'
   | 'changeThreshold'
@@ -38,12 +40,6 @@ export function getModuleName(address: string): string | null {
     if (CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE) {
       MODULE_NAMES[CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE.toLowerCase()] = 'Social Recovery';
     }
-    if (CONTRACT_ADDRESSES.DAILY_LIMIT_MODULE) {
-      MODULE_NAMES[CONTRACT_ADDRESSES.DAILY_LIMIT_MODULE.toLowerCase()] = 'Daily Limit';
-    }
-    if (CONTRACT_ADDRESSES.WHITELIST_MODULE) {
-      MODULE_NAMES[CONTRACT_ADDRESSES.WHITELIST_MODULE.toLowerCase()] = 'Whitelist';
-    }
   }
   return MODULE_NAMES[address.toLowerCase()] || null;
 }
@@ -51,11 +47,6 @@ export function getModuleName(address: string): string | null {
 // Module function ABIs for decoding calls to known modules
 const MODULE_FUNCTION_ABIS = [
   'function setupRecovery(address wallet, address[] guardians, uint256 threshold, uint256 recoveryPeriod)',
-  'function setDailyLimit(address wallet, uint256 limit)',
-  'function resetDailyLimit(address wallet)',
-  'function addToWhitelist(address wallet, address addr, uint256 limit)',
-  'function removeFromWhitelist(address wallet, address addr)',
-  'function batchAddToWhitelist(address wallet, address[] addrs, uint256[] limits)',
 ];
 
 // Module function descriptions
@@ -65,17 +56,6 @@ const MODULE_FUNCTION_DESCRIPTIONS: Record<string, (args: any[]) => string> = {
     const threshold = String(args[2] ?? '?');
     return `Configure recovery: ${guardianCount} guardians, ${threshold} required`;
   },
-  setDailyLimit: (args) => {
-    try {
-      return `Set daily limit to ${parseFloat(formatQuai(args[1])).toFixed(4)} QUAI`;
-    } catch {
-      return `Set daily limit`;
-    }
-  },
-  resetDailyLimit: () => 'Reset daily spending counter',
-  addToWhitelist: (args) => `Add ${formatAddress(String(args[1]))} to whitelist`,
-  removeFromWhitelist: (args) => `Remove ${formatAddress(String(args[1]))} from whitelist`,
-  batchAddToWhitelist: (args) => `Add ${args[1]?.length ?? '?'} addresses to whitelist`,
 };
 
 // Hoisted Interface instances (expensive to construct, ABIs are static)
@@ -94,6 +74,12 @@ const erc721Interface = new Interface([
   'function safeTransferFrom(address from, address to, uint256 tokenId)',
   'function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)',
   'function approve(address to, uint256 tokenId)',
+  'function setApprovalForAll(address operator, bool approved)',
+]);
+
+const erc1155Interface = new Interface([
+  'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
+  'function safeBatchTransferFrom(address from, address to, uint256[] ids, uint256[] amounts, bytes data)',
   'function setApprovalForAll(address operator, bool approved)',
 ]);
 
@@ -205,6 +191,27 @@ export function decodeTransaction(
     // Fall through to calldata decoding if no useful params
   }
 
+  // ERC1155 transfer (indexer-provided type)
+  if (tx.transactionType === 'erc1155_transfer' && tx.decodedParams) {
+    const params = tx.decodedParams;
+    const from = params.from ? formatAddress(String(params.from)) : null;
+    const to = params.to ? formatAddress(String(params.to)) : null;
+    const tokenId = params.tokenId ?? params.token_id;
+    const amount = params.amount ?? params.value;
+
+    if (from || to || tokenId != null) {
+      return {
+        type: 'erc1155_transfer',
+        description: 'ERC1155 Transfer',
+        details: `Transfer ${amount != null ? `${amount}x ` : ''}Token #${tokenId ?? '?'} from ${from ?? '?'} to ${to ?? '?'}`,
+        icon: '🎭',
+        bgColor: 'bg-violet-900',
+        borderColor: 'border-violet-700',
+        textColor: 'text-violet-200',
+      };
+    }
+  }
+
   // Plain transfer
   if (tx.data === '0x' || tx.data === '') {
     return {
@@ -236,6 +243,54 @@ export function decodeTransaction(
       }
 
       switch (decoded.name) {
+        case 'cancelByConsensus': {
+          const targetHash = decoded.args?.[0] ? String(decoded.args[0]) : '?';
+          return {
+            type: 'contractCall',
+            description: 'Cancel by Consensus',
+            details: `Cancel transaction ${targetHash.slice(0, 10)}...`,
+            icon: '🚫',
+            bgColor: 'bg-red-900',
+            borderColor: 'border-red-700',
+            textColor: 'text-red-200',
+          };
+        }
+        case 'setMinExecutionDelay': {
+          const delay = decoded.args?.[0] != null ? Number(decoded.args[0]) : 0;
+          return {
+            type: 'contractCall',
+            description: 'Set Timelock',
+            details: delay > 0
+              ? `Set minimum execution delay to ${formatDuration(delay)}`
+              : 'Remove minimum execution delay',
+            icon: '⏱️',
+            bgColor: 'bg-blue-900',
+            borderColor: 'border-blue-700',
+            textColor: 'text-blue-200',
+          };
+        }
+        case 'signMessage': {
+          return {
+            type: 'contractCall',
+            description: 'Sign Message',
+            details: 'Sign a message on behalf of the wallet (EIP-1271)',
+            icon: '✍️',
+            bgColor: 'bg-indigo-900',
+            borderColor: 'border-indigo-700',
+            textColor: 'text-indigo-200',
+          };
+        }
+        case 'unsignMessage': {
+          return {
+            type: 'contractCall',
+            description: 'Unsign Message',
+            details: 'Revoke a previously signed message',
+            icon: '✍️',
+            bgColor: 'bg-orange-900',
+            borderColor: 'border-orange-700',
+            textColor: 'text-orange-200',
+          };
+        }
         case 'addOwner': {
           if (!decoded.args || decoded.args.length < 1) {
             return {
@@ -507,6 +562,60 @@ export function decodeTransaction(
       }
     } catch {
       // Not an ERC721 call either
+    }
+
+    // Try to decode as ERC1155 call
+    try {
+      const decoded = erc1155Interface.parseTransaction({ data: tx.data });
+      if (decoded) {
+        if (decoded.name === 'safeTransferFrom') {
+          const from = formatAddress(String(decoded.args[0]));
+          const to = formatAddress(String(decoded.args[1]));
+          const tokenId = String(decoded.args[2]);
+          const amount = String(decoded.args[3]);
+          return {
+            type: 'erc1155_transfer',
+            description: 'ERC1155 Transfer',
+            details: `Transfer ${amount}x Token #${tokenId} from ${from} to ${to}`,
+            icon: '🎭',
+            bgColor: 'bg-violet-900',
+            borderColor: 'border-violet-700',
+            textColor: 'text-violet-200',
+          };
+        }
+        if (decoded.name === 'safeBatchTransferFrom') {
+          const from = formatAddress(String(decoded.args[0]));
+          const to = formatAddress(String(decoded.args[1]));
+          const ids: unknown[] = decoded.args[2];
+          const amounts: unknown[] = decoded.args[3];
+          const itemCount = ids.length;
+          const totalAmount = amounts.reduce((sum: bigint, a: unknown) => sum + BigInt(String(a)), 0n);
+          return {
+            type: 'erc1155_batch_transfer',
+            description: 'ERC1155 Batch Transfer',
+            details: `Transfer ${itemCount} token types (${totalAmount} total) from ${from} to ${to}`,
+            icon: '🎭',
+            bgColor: 'bg-violet-900',
+            borderColor: 'border-violet-700',
+            textColor: 'text-violet-200',
+          };
+        }
+        if (decoded.name === 'setApprovalForAll') {
+          const operator = formatAddress(String(decoded.args[0]));
+          const approved = decoded.args[1] ? 'approve' : 'revoke';
+          return {
+            type: 'erc1155_transfer',
+            description: 'ERC1155 Approval',
+            details: `${approved === 'approve' ? 'Approve' : 'Revoke'} ${operator} for all tokens`,
+            icon: '🔓',
+            bgColor: 'bg-amber-900',
+            borderColor: 'border-amber-700',
+            textColor: 'text-amber-200',
+          };
+        }
+      }
+    } catch {
+      // Not an ERC1155 call either
     }
   }
 

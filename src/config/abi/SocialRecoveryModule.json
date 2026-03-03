@@ -17,6 +17,11 @@
     },
     {
       "inputs": [],
+      "name": "DuplicateNewOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "GuardiansRequired",
       "type": "error"
     },
@@ -27,7 +32,17 @@
     },
     {
       "inputs": [],
+      "name": "InvalidNewOwnerAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "InvalidThreshold",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ModuleNotEnabled",
       "type": "error"
     },
     {
@@ -88,6 +103,31 @@
     {
       "inputs": [],
       "name": "RecoveryPeriodTooShort",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RecoveryStepFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TooManyGuardians",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TooManyNewOwners",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TooManyPendingRecoveries",
       "type": "error"
     },
     {
@@ -245,6 +285,19 @@
       ],
       "name": "RecoverySetup",
       "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_GUARDIANS",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "inputs": [
@@ -451,35 +504,6 @@
           "internalType": "address",
           "name": "wallet",
           "type": "address"
-        },
-        {
-          "internalType": "address[]",
-          "name": "newOwners",
-          "type": "address[]"
-        },
-        {
-          "internalType": "uint256",
-          "name": "newThreshold",
-          "type": "uint256"
-        }
-      ],
-      "name": "getRecoveryHashForCurrentNonce",
-      "outputs": [
-        {
-          "internalType": "bytes32",
-          "name": "",
-          "type": "bytes32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "wallet",
-          "type": "address"
         }
       ],
       "name": "hasPendingRecoveries",
@@ -560,6 +584,35 @@
         }
       ],
       "name": "pendingRecoveryHashes",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "internalType": "address[]",
+          "name": "newOwners",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "newThreshold",
+          "type": "uint256"
+        }
+      ],
+      "name": "predictNextRecoveryHash",
       "outputs": [
         {
           "internalType": "bytes32",

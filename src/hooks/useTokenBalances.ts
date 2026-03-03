@@ -34,7 +34,7 @@ export function useTokenBalances(walletAddress?: string) {
       if (!walletAddress) return [];
       return indexerService.token.getTokensForWallet(walletAddress);
     },
-    enabled: !!walletAddress && isIndexerConnected,
+    enabled: !!walletAddress && isIndexerEnabled,
     staleTime: TOKEN_POLLING_INTERVAL_MS,
     refetchInterval: pollingInterval,
   });
@@ -68,7 +68,7 @@ export function useTokenBalances(walletAddress?: string) {
       if (!walletAddress) return { data: [], total: 0, hasMore: false };
       return indexerService.token.getTokenTransfers(walletAddress, { limit: 50 });
     },
-    enabled: !!walletAddress && isIndexerConnected,
+    enabled: !!walletAddress && isIndexerEnabled,
     staleTime: TOKEN_POLLING_INTERVAL_MS,
     refetchInterval: pollingInterval,
   });
@@ -82,11 +82,14 @@ export function useTokenBalances(walletAddress?: string) {
         queryClient.invalidateQueries({ queryKey: ['walletTokens', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['erc20Balances', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['tokenTransfers', walletAddress] });
+        // NFT holdings — no-op if useNftHoldings isn't mounted
+        queryClient.invalidateQueries({ queryKey: ['nftHoldings', walletAddress] });
       },
       onReconnect: () => {
         queryClient.invalidateQueries({ queryKey: ['walletTokens', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['erc20Balances', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['tokenTransfers', walletAddress] });
+        queryClient.invalidateQueries({ queryKey: ['nftHoldings', walletAddress] });
       },
     });
 

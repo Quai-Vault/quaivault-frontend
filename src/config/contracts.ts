@@ -5,17 +5,24 @@ export const CONTRACT_ADDRESSES = {
   QUAIVAULT_IMPLEMENTATION: import.meta.env.VITE_QUAIVAULT_IMPLEMENTATION || '',
   QUAIVAULT_FACTORY: import.meta.env.VITE_QUAIVAULT_FACTORY || '',
   SOCIAL_RECOVERY_MODULE: import.meta.env.VITE_SOCIAL_RECOVERY_MODULE || '',
-  DAILY_LIMIT_MODULE: import.meta.env.VITE_DAILY_LIMIT_MODULE || '',
-  WHITELIST_MODULE: import.meta.env.VITE_WHITELIST_MODULE || '',
   MULTISEND: import.meta.env.VITE_MULTISEND || '',
 };
 
 // Network configuration
 export const NETWORK_CONFIG = {
   RPC_URL: import.meta.env.VITE_RPC_URL || 'https://rpc.orchard.quai.network',
-  CHAIN_ID: Number(import.meta.env.VITE_CHAIN_ID) || 15000,
+  CHAIN_ID: (() => {
+    const raw = import.meta.env.VITE_CHAIN_ID;
+    const parsed = Number(raw);
+    if (raw && (!Number.isFinite(parsed) || parsed <= 0)) {
+      console.error(`[Config] Invalid VITE_CHAIN_ID: "${raw}" — using default 15000`);
+      return 15000;
+    }
+    return parsed || 15000;
+  })(),
   BLOCK_EXPLORER_URL: import.meta.env.VITE_BLOCK_EXPLORER_URL || 'https://orchard.quaiscan.io',
   IPFS_GATEWAY: import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.qu.ai',
+  NFT_IPFS_GATEWAY: import.meta.env.VITE_NFT_IPFS_GATEWAY || 'https://ipfs.io',
 };
 
 // Block lookback ranges for event queries (blockchain fallback when indexer is offline).
@@ -64,8 +71,6 @@ export function validateContractConfig(): string[] {
   // Warn about optional module addresses (non-blocking)
   const optionalAddresses: Array<{ key: keyof typeof CONTRACT_ADDRESSES; name: string }> = [
     { key: 'SOCIAL_RECOVERY_MODULE', name: 'Social Recovery' },
-    { key: 'DAILY_LIMIT_MODULE', name: 'Daily Limit' },
-    { key: 'WHITELIST_MODULE', name: 'Whitelist' },
   ];
 
   for (const { key, name } of optionalAddresses) {

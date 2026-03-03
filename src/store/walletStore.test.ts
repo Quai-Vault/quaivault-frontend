@@ -20,8 +20,8 @@ describe('walletStore', () => {
       expect(state.currentWallet).toBeNull();
       expect(state.currentWalletInfo).toBeNull();
       expect(state.wallets).toEqual([]);
-      expect(state.walletsInfo.size).toBe(0);
-      expect(state.pendingTransactions.size).toBe(0);
+      expect(Object.keys(state.walletsInfo)).toHaveLength(0);
+      expect(Object.keys(state.pendingTransactions)).toHaveLength(0);
       expect(state.isLoading).toBe(false);
       expect(state.error).toBeNull();
     });
@@ -168,7 +168,7 @@ describe('walletStore', () => {
         setWalletInfo(walletAddress, info);
       });
 
-      const storedInfo = useWalletStore.getState().walletsInfo.get(walletAddress.toLowerCase());
+      const storedInfo = useWalletStore.getState().walletsInfo[walletAddress.toLowerCase()];
       expect(storedInfo).toEqual(info);
     });
 
@@ -195,7 +195,7 @@ describe('walletStore', () => {
         setWalletInfo(walletAddress, info2);
       });
 
-      const storedInfo = useWalletStore.getState().walletsInfo.get(walletAddress.toLowerCase());
+      const storedInfo = useWalletStore.getState().walletsInfo[walletAddress.toLowerCase()];
       expect(storedInfo).toEqual(info2);
     });
   });
@@ -224,7 +224,7 @@ describe('walletStore', () => {
         setPendingTransactions(walletAddress, transactions);
       });
 
-      const storedTxs = useWalletStore.getState().pendingTransactions.get(walletAddress.toLowerCase());
+      const storedTxs = useWalletStore.getState().pendingTransactions[walletAddress.toLowerCase()];
       expect(storedTxs).toEqual(transactions);
     });
 
@@ -237,7 +237,7 @@ describe('walletStore', () => {
         setPendingTransactions(walletAddress, [{ hash: '0xNew' } as PendingTransaction]);
       });
 
-      const storedTxs = useWalletStore.getState().pendingTransactions.get(walletAddress.toLowerCase());
+      const storedTxs = useWalletStore.getState().pendingTransactions[walletAddress.toLowerCase()];
       expect(storedTxs?.[0].hash).toBe('0xNew');
     });
   });

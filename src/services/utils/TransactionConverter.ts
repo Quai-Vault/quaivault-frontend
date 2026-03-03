@@ -1,6 +1,6 @@
 import { getAddress } from 'quais';
 import type { IndexerTransaction, Confirmation } from '../../types/database';
-import type { PendingTransaction } from '../../types';
+import type { PendingTransaction, TransactionStatus } from '../../types';
 
 /** Checksum an address, falling back to the raw string if malformed */
 export function safeGetAddress(address: string): string {
@@ -9,6 +9,16 @@ export function safeGetAddress(address: string): string {
   } catch {
     return address;
   }
+}
+
+const VALID_STATUSES: readonly TransactionStatus[] = ['pending', 'executed', 'cancelled', 'expired', 'failed'];
+
+/** Validate and normalize a status string, defaulting to 'pending' */
+function normalizeStatus(status: string | undefined | null): TransactionStatus {
+  if (status && (VALID_STATUSES as readonly string[]).includes(status)) {
+    return status as TransactionStatus;
+  }
+  return 'pending';
 }
 
 /**
@@ -36,21 +46,31 @@ export function convertIndexerTransaction(
     approvals[safeGetAddress(c.owner_address)] = true;
   });
 
+  const status = normalizeStatus(tx.status);
+
   return {
     hash: tx.tx_hash,
     to: safeGetAddress(tx.to_address),
     value: tx.value,
     data: tx.data ?? '0x',
-    numApprovals: tx.confirmation_count,
+    numApprovals: Number.isFinite(tx.confirmation_count) ? tx.confirmation_count : activeConfirmations.length,
     threshold: walletThreshold,
-    executed: tx.status === 'executed',
-    cancelled: tx.status === 'cancelled',
+    executed: status === 'executed',
+    cancelled: status === 'cancelled',
     timestamp: Number.isFinite(new Date(tx.created_at).getTime()) ? new Date(tx.created_at).getTime() / 1000 : 0,
     proposer: safeGetAddress(tx.submitted_by),
     approvals,
     executedBy: tx.executed_by ? safeGetAddress(tx.executed_by) : undefined,
     transactionType: tx.transaction_type,
     decodedParams: tx.decoded_params,
+    // 5-state lifecycle fields
+    status,
+    expiration: tx.expiration ?? 0,
+    executionDelay: tx.execution_delay ?? 0,
+    approvedAt: tx.approved_at ?? 0,
+    executableAfter: tx.executable_after ?? 0,
+    isExpired: tx.is_expired ?? false,
+    failedReturnData: tx.failed_return_data ?? null,
   };
 }
 

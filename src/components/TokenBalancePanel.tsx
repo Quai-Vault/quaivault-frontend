@@ -1,12 +1,15 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { formatAddress } from '../utils/formatting';
 import { ExplorerLink } from './ExplorerLink';
 
 interface TokenBalancePanelProps {
   walletAddress: string;
+  isOwner?: boolean;
 }
 
-export function TokenBalancePanel({ walletAddress }: TokenBalancePanelProps) {
+export function TokenBalancePanel({ walletAddress, isOwner }: TokenBalancePanelProps) {
   const {
     tokens,
     erc20Balances,
@@ -18,6 +21,8 @@ export function TokenBalancePanel({ walletAddress }: TokenBalancePanelProps) {
     error,
     refetchAll,
   } = useTokenBalances(walletAddress);
+
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (!isIndexerEnabled || !isIndexerConnected) {
     return null;
@@ -51,10 +56,25 @@ export function TokenBalancePanel({ walletAddress }: TokenBalancePanelProps) {
 
   return (
     <div className="col-span-2 mt-2">
-      <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider">Token Balances</h3>
+      <div className="flex items-center justify-between">
         <button
-          onClick={refetchAll}
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1.5 group"
+          type="button"
+        >
+          <svg
+            className={`w-3.5 h-3.5 text-dark-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider group-hover:text-dark-400 transition-colors">Token Balances</h3>
+          <span className="text-xs text-dark-500 ml-1">({erc20Tokens.length})</span>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); refetchAll(); }}
           disabled={isRefetching}
           className="text-xs text-primary-500 hover:text-primary-400 transition-colors disabled:opacity-50"
           title="Refresh token balances"
@@ -64,37 +84,50 @@ export function TokenBalancePanel({ walletAddress }: TokenBalancePanelProps) {
           </svg>
         </button>
       </div>
-      <div className="space-y-1.5">
-        {erc20Tokens.map((token) => {
-          const bal = balanceMap.get(token.address.toLowerCase());
-          return (
-            <div
-              key={token.address}
-              className="flex items-center justify-between p-2.5 bg-dark-100 dark:bg-vault-dark-4 rounded-md border border-dark-300 dark:border-dark-600"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-900/50 border border-yellow-700/50 flex items-center justify-center">
-                  <span className="text-xs text-yellow-300">T</span>
-                </div>
-                <div className="min-w-0 flex flex-col gap-0.5">
-                  <div className="flex items-baseline gap-1.5 min-w-0">
-                    <span className="text-sm font-semibold text-dark-700 dark:text-dark-200 flex-shrink-0">{bal?.symbol ?? token.symbol ?? 'Unknown'}</span>
-                    {token.name && (
-                      <span className="text-xs text-dark-500 dark:text-dark-400 truncate">{token.name}</span>
-                    )}
+      {isExpanded && (
+        <div className="space-y-1.5 mt-1.5">
+          {erc20Tokens.map((token) => {
+            const bal = balanceMap.get(token.address.toLowerCase());
+            return (
+              <div
+                key={token.address}
+                className="flex items-center justify-between p-2.5 bg-dark-100 dark:bg-vault-dark-4 rounded-md border border-dark-300 dark:border-dark-600"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-900/50 border border-yellow-700/50 flex items-center justify-center">
+                    <span className="text-xs text-yellow-300">T</span>
                   </div>
-                  <ExplorerLink type="address" value={token.address} showIcon={false} className="text-xs truncate">
-                    {formatAddress(token.address)}
-                  </ExplorerLink>
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-sm font-semibold text-dark-700 dark:text-dark-200 flex-shrink-0">{bal?.symbol ?? token.symbol ?? 'Unknown'}</span>
+                      {token.name && (
+                        <span className="text-xs text-dark-500 dark:text-dark-400 truncate">{token.name}</span>
+                      )}
+                    </div>
+                    <ExplorerLink type="address" value={token.address} showIcon={false} className="text-xs truncate">
+                      {formatAddress(token.address)}
+                    </ExplorerLink>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  <p className={`text-sm ${bal ? 'font-display font-bold text-dark-700 dark:text-dark-200' : 'font-mono text-dark-500'}`}>
+                    {bal ? bal.formatted : '0.0000'}
+                  </p>
+                  {isOwner && bal && BigInt(bal.balance) > 0n && (
+                    <Link
+                      to={`/wallet/${walletAddress}/transaction/new?mode=send-token&token=${token.address}`}
+                      className="text-xs font-mono text-primary-500 hover:text-primary-400 transition-colors px-1.5 py-0.5 rounded border border-primary-500/30 hover:border-primary-400/50"
+                      title={`Send ${bal.symbol}`}
+                    >
+                      Send
+                    </Link>
+                  )}
                 </div>
               </div>
-              <p className={`text-sm flex-shrink-0 ml-3 ${bal ? 'font-display font-bold text-dark-700 dark:text-dark-200' : 'font-mono text-dark-500'}`}>
-                {bal ? bal.formatted : '0.0000'}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

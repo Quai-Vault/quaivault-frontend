@@ -8,6 +8,7 @@ export const WalletSchema = z.object({
   name: z.string().nullable(),
   threshold: z.number(),
   owner_count: z.number(),
+  min_execution_delay: z.number().default(0), // seconds, 0 = no timelock
   created_at_block: z.number(),
   created_at_tx: z.string(),
   created_at: z.string(),
@@ -35,7 +36,7 @@ export const TransactionSchema = z.object({
   data: z.string().nullable(),
   transaction_type: z.string(),
   decoded_params: z.record(z.unknown()).nullable(),
-  status: z.enum(['pending', 'executed', 'cancelled']),
+  status: z.enum(['pending', 'executed', 'cancelled', 'expired', 'failed']),
   confirmation_count: z.number(),
   submitted_by: z.string(),
   submitted_at_block: z.number(),
@@ -45,6 +46,15 @@ export const TransactionSchema = z.object({
   executed_by: z.string().nullable(),
   cancelled_at_block: z.number().nullable(),
   cancelled_at_tx: z.string().nullable(),
+  // New fields for 5-state lifecycle
+  // Use .nullable() before .default() so both null and undefined map to the default.
+  // Supabase returns null for NULL columns; .default() alone only handles undefined.
+  expiration: z.number().nullable().default(0).transform(v => v ?? 0),
+  execution_delay: z.number().nullable().default(0).transform(v => v ?? 0),
+  approved_at: z.number().nullable().default(0).transform(v => v ?? 0),
+  executable_after: z.number().nullable().default(0).transform(v => v ?? 0),
+  is_expired: z.boolean().nullable().default(false).transform(v => v ?? false),
+  failed_return_data: z.string().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -215,7 +225,7 @@ export const IndexerStateSchema = z.object({
 export const TokenSchema = z.object({
   id: z.string(),
   address: z.string(),
-  standard: z.enum(['ERC20', 'ERC721']),
+  standard: z.enum(['ERC20', 'ERC721', 'ERC1155']),
   symbol: z.string().nullable(),
   name: z.string().nullable(),
   decimals: z.number().nullable(),

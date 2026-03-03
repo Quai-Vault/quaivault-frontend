@@ -1,28 +1,35 @@
-import { JsonRpcProvider, Contract as QuaisContract } from 'quais';
+import { Contract as QuaisContract } from 'quais';
 import type { Contract, Signer, Provider } from '../../types';
-import { NETWORK_CONFIG } from '../../config/contracts';
+import { sharedProvider } from '../../config/provider';
 import QuaiVaultABI from '../../config/abi/QuaiVault.json';
 
 /**
- * Base service class providing common functionality for all services
+ * Base service class providing common functionality for all services.
+ *
+ * Provider strategy:
+ * - When a signer is set, this.provider is updated to the signer's BrowserProvider
+ *   (routes reads through the wallet extension's own RPC, works even if the
+ *   public RPC is down).
+ * - When the signer is cleared, this.provider reverts to sharedProvider.
  */
 export class BaseService {
   protected provider: Provider;
   protected signer: Signer | null = null;
+  private readonly defaultProvider: Provider;
 
   constructor(provider?: Provider) {
-    this.provider = provider || new JsonRpcProvider(
-      NETWORK_CONFIG.RPC_URL,
-      undefined,
-      { usePathing: true }
-    );
+    this.defaultProvider = provider || sharedProvider;
+    this.provider = this.defaultProvider;
   }
 
   /**
-   * Set signer for signing transactions
+   * Set signer for signing transactions.
+   * Also updates this.provider to the signer's BrowserProvider so that
+   * read operations go through the wallet's RPC connection.
    */
   setSigner(signer: Signer | null): void {
     this.signer = signer;
+    this.provider = (signer?.provider as Provider) || this.defaultProvider;
   }
 
   /**

@@ -8,7 +8,7 @@ import { TransactionList } from '../components/TransactionList';
 import { OwnerManagement } from '../components/OwnerManagement';
 import { ModuleManagement } from '../components/ModuleManagement';
 import { SocialRecoveryManagement } from '../components/SocialRecoveryManagement';
-import { ChangeThresholdModal } from '../components/transactionModals';
+import { ChangeThresholdModal, ChangeTimelockModal } from '../components/transactionModals';
 import { EmptyState } from '../components/EmptyState';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
 import { multisigService } from '../services/MultisigService';
@@ -16,6 +16,10 @@ import { CONTRACT_ADDRESSES, TIMING } from '../config/contracts';
 import { formatQuai } from 'quais';
 import { ExplorerLink } from '../components/ExplorerLink';
 import { TokenBalancePanel } from '../components/TokenBalancePanel';
+import { NftHoldingsPanel } from '../components/NftHoldingsPanel';
+import { Erc1155HoldingsPanel } from '../components/Erc1155HoldingsPanel';
+import { IndexerStatusBanner } from '../components/IndexerStatusBanner';
+import { formatDuration } from '../utils/formatting';
 
 export function WalletDetail() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -33,6 +37,7 @@ export function WalletDetail() {
   const [copied, setCopied] = useState(false);
   const [showRecoveryManagement, setShowRecoveryManagement] = useState(false);
   const [showChangeThreshold, setShowChangeThreshold] = useState(false);
+  const [showChangeTimelock, setShowChangeTimelock] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Clean up copy feedback timeout on unmount
@@ -237,6 +242,32 @@ export function WalletDetail() {
               </div>
             </div>
             
+            {/* Timelock */}
+            <div>
+              <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Timelock</h3>
+              <div className="flex items-center gap-3">
+                <p className="text-lg font-semibold text-dark-700 dark:text-dark-200">
+                  {walletInfo.minExecutionDelay > 0 ? (
+                    <>
+                      {formatDuration(walletInfo.minExecutionDelay)}
+                      <span className="text-dark-500 text-sm ml-1">min delay</span>
+                    </>
+                  ) : (
+                    'None'
+                  )}
+                </p>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowChangeTimelock(true)}
+                    className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                    title="Change timelock"
+                  >
+                    Change
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Status */}
             <div className="col-span-2">
               <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Your Status</h3>
@@ -259,8 +290,19 @@ export function WalletDetail() {
               </div>
             </div>
 
+            {/* Indexer status warning */}
+            <div className="col-span-2">
+              <IndexerStatusBanner />
+            </div>
+
             {/* Token Balances */}
-            {walletAddress && <TokenBalancePanel walletAddress={walletAddress} />}
+            {walletAddress && <TokenBalancePanel walletAddress={walletAddress} isOwner={isOwner} />}
+
+            {/* NFT Holdings */}
+            {walletAddress && <NftHoldingsPanel walletAddress={walletAddress} isOwner={isOwner} />}
+
+            {/* ERC1155 Holdings */}
+            {walletAddress && <Erc1155HoldingsPanel walletAddress={walletAddress} isOwner={isOwner} />}
           </div>
         </div>
 
@@ -373,6 +415,17 @@ export function WalletDetail() {
         walletAddress={walletAddress}
         currentThreshold={walletInfo.threshold}
         ownerCount={walletInfo.owners.length}
+      />
+
+      {/* Change Timelock Modal */}
+      <ChangeTimelockModal
+        isOpen={showChangeTimelock}
+        onClose={() => {
+          setShowChangeTimelock(false);
+          refresh();
+        }}
+        walletAddress={walletAddress}
+        currentDelay={walletInfo.minExecutionDelay}
       />
 
       {/* Pending Transactions - Compact */}

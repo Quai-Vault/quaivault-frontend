@@ -11,6 +11,7 @@ import type { PaginationOptions, PaginatedResult } from './IndexerTransactionSer
 export class IndexerTokenService {
   private readonly DEFAULT_LIMIT = 50;
   private readonly MAX_LIMIT = 100;
+  private readonly NFT_TRANSFER_LIMIT = 500;
 
   private ensureClient() {
     if (!supabase) {
@@ -109,6 +110,62 @@ export class IndexerTokenService {
       result.set(token.address.toLowerCase(), token);
     }
     return result;
+  }
+
+  /**
+   * Get all ERC721 token transfers for a wallet, to derive current NFT holdings.
+   * Returns transfers ordered by block_number DESC so the first occurrence of each
+   * (token_address, token_id) pair represents the most recent transfer.
+   */
+  async getErc721TransfersForWallet(
+    walletAddress: string,
+    erc721TokenAddresses: string[]
+  ): Promise<TokenTransfer[]> {
+    if (erc721TokenAddresses.length === 0) return [];
+
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client
+      .from('token_transfers')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase())
+      .in('token_address', erc721TokenAddresses.map(a => a.toLowerCase()))
+      .not('token_id', 'is', null)
+      .order('block_number', { ascending: false })
+      .limit(this.NFT_TRANSFER_LIMIT);
+
+    if (error) throw new Error(`Indexer query failed: ${error.message}`);
+
+    return (data ?? []).map((t: unknown) => TokenTransferSchema.parse(t));
+  }
+
+  /**
+   * Get all ERC1155 token transfers for a wallet, to derive current holdings.
+   * The indexer fans out TransferBatch events into individual rows, so the
+   * query pattern is identical to ERC721.
+   */
+  async getErc1155TransfersForWallet(
+    walletAddress: string,
+    erc1155TokenAddresses: string[]
+  ): Promise<TokenTransfer[]> {
+    if (erc1155TokenAddresses.length === 0) return [];
+
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client
+      .from('token_transfers')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase())
+      .in('token_address', erc1155TokenAddresses.map(a => a.toLowerCase()))
+      .not('token_id', 'is', null)
+      .order('block_number', { ascending: false })
+      .limit(this.NFT_TRANSFER_LIMIT);
+
+    if (error) throw new Error(`Indexer query failed: ${error.message}`);
+
+    return (data ?? []).map((t: unknown) => TokenTransferSchema.parse(t));
   }
 
   /**

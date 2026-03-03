@@ -1,22 +1,43 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
+import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useNftHoldings } from '../hooks/useNftHoldings';
+import { useErc1155Holdings } from '../hooks/useErc1155Holdings';
 import { transactionBuilderService } from '../services/TransactionBuilderService';
-import { multisigService } from '../services/MultisigService';
+import { getNftOwner } from '../services/utils/ContractMetadataService';
+import { getERC1155Balance } from '../services/utils/TokenBalanceService';
 import { Modal } from '../components/Modal';
 import { TransactionFlow } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
 import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
+import { TransactionModeSelector } from '../components/transaction/TransactionModeSelector';
+import { SendTokenForm } from '../components/transaction/SendTokenForm';
+import { SendNftForm } from '../components/transaction/SendNftForm';
+import { TransactionSummaryPanel } from '../components/transaction/TransactionSummaryPanel';
 import { useContractInteraction } from '../hooks/useContractInteraction';
 import { isQuaiAddress, isHexString, isAddress } from 'quais';
 import { TIMING } from '../config/contracts';
+import { SendErc1155Form } from '../components/transaction/SendErc1155Form';
+import { AdvancedOptions } from '../components/transaction/AdvancedOptions';
+import { expirationToTimestamp, delayToSeconds } from '../utils/timeConversions';
+import type { DelayUnit } from '../utils/timeConversions';
+import type { TransactionMode, SendTokenMeta, SendNftMeta, SendErc1155Meta } from '../types';
+
+const VALID_MODES: TransactionMode[] = ['send-quai', 'send-token', 'send-nft', 'send-erc1155', 'contract-call'];
 
 export function NewTransaction() {
   const { address: walletAddress } = useParams<{ address: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { address: connectedAddress } = useWallet();
-  const { proposeTransactionAsync, executeToWhitelistAsync, executeBelowLimitAsync, walletInfo } = useMultisig(walletAddress);
+  const { proposeTransactionAsync, walletInfo } = useMultisig(walletAddress);
+
+  // Token/NFT data for mode selector and forms (React Query deduplicates with WalletDetail)
+  const { erc20Balances } = useTokenBalances(walletAddress);
+  const { holdings } = useNftHoldings(walletAddress);
+  const { holdings: erc1155Holdings } = useErc1155Holdings(walletAddress);
 
   const isOwner = useMemo(() =>
     walletInfo?.owners.some(
@@ -25,6 +46,22 @@ export function NewTransaction() {
     [walletInfo?.owners, connectedAddress]
   );
 
+  // Initialize mode from URL search params (synchronous — no flash)
+  const initialMode = useMemo(() => {
+    const param = searchParams.get('mode');
+    return param && VALID_MODES.includes(param as TransactionMode) ? param as TransactionMode : 'send-quai';
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — only read on mount
+
+  const [mode, setMode] = useState<TransactionMode>(initialMode);
+  const [tokenMeta, setTokenMeta] = useState<SendTokenMeta | null>(null);
+  const [nftMeta, setNftMeta] = useState<SendNftMeta | null>(null);
+  const [tokenRecipient, setTokenRecipient] = useState('');
+  const [tokenAmount, setTokenAmount] = useState('');
+  const [nftRecipient, setNftRecipient] = useState('');
+  const [erc1155Meta, setErc1155Meta] = useState<SendErc1155Meta | null>(null);
+  const [erc1155Recipient, setErc1155Recipient] = useState('');
+  const [erc1155Quantity, setErc1155Quantity] = useState('');
+
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
   const [data, setData] = useState('0x');
@@ -32,18 +69,41 @@ export function NewTransaction() {
   const [showPreview, setShowPreview] = useState(false);
   const [showFlow, setShowFlow] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const [isWhitelisted, setIsWhitelisted] = useState<boolean | null>(null);
-  const [whitelistLimit, setWhitelistLimit] = useState<bigint | null>(null);
-  const [canUseDailyLimit, setCanUseDailyLimit] = useState<boolean | null>(null);
-  const [useDailyLimit, setUseDailyLimit] = useState(true); // User's choice: use daily limit or propose
-  const [remainingDailyLimit, setRemainingDailyLimit] = useState<bigint | null>(null);
-  const [dailyLimitInfo, setDailyLimitInfo] = useState<{ limit: bigint; spent: bigint } | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [assetValidationBlocking, setAssetValidationBlocking] = useState(false);
+  const [expiration, setExpiration] = useState<string>(''); // datetime-local string
+  const [executionDelay, setExecutionDelay] = useState<string>(''); // numeric value in current unit
+  const [delayUnit, setDelayUnit] = useState<DelayUnit>('minutes');
   const [assetValidationWarning, setAssetValidationWarning] = useState<string | null>(null);
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Contract detection and ABI fetching
+  // Deep-link pre-selection props
+  const initialToken = useMemo(() => {
+    const token = searchParams.get('token');
+    return token && isAddress(token) ? token : undefined;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialTokenId = useMemo(() => searchParams.get('tokenId') ?? undefined, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mode change handler — resets all form state
+  const handleModeChange = useCallback((newMode: TransactionMode) => {
+    setMode(newMode);
+    setTo('');
+    setValue('');
+    setData('0x');
+    setErrors([]);
+    setTokenMeta(null);
+    setNftMeta(null);
+    setTokenRecipient('');
+    setTokenAmount('');
+    setNftRecipient('');
+    setErc1155Meta(null);
+    setErc1155Recipient('');
+    setErc1155Quantity('');
+    setExpiration('');
+    setExecutionDelay('');
+    setDelayUnit('minutes');
+    setAssetValidationWarning(null);
+  }, []);
+
+  // Contract detection and ABI fetching (only active in contract-call mode)
   const {
     isContract: isRecipientContract,
     isDetecting: isDetectingContract,
@@ -65,8 +125,27 @@ export function NewTransaction() {
     };
   }, []);
 
-  // Whether the user chose daily limit AND it's actually available
-  const effectiveDailyLimit = canUseDailyLimit === true && useDailyLimit && (!data || data === '0x');
+  // Mode-aware subtitle
+  const headerSubtitle = useMemo(() => {
+    switch (mode) {
+      case 'send-quai': return 'Propose a new QUAI transfer';
+      case 'send-token': return 'Send ERC-20 tokens from this vault';
+      case 'send-nft': return 'Transfer an NFT from this vault';
+      case 'send-erc1155': return 'Send ERC1155 tokens from this vault';
+      case 'contract-call': return 'Interact with a smart contract';
+    }
+  }, [mode]);
+
+  // Mode-aware submit button text
+  const submitButtonText = useMemo(() => {
+    switch (mode) {
+      case 'send-quai': return 'Propose Transaction';
+      case 'send-token': return 'Propose Token Transfer';
+      case 'send-nft': return 'Propose NFT Transfer';
+      case 'send-erc1155': return 'Propose ERC1155 Transfer';
+      case 'contract-call': return 'Propose Transaction';
+    }
+  }, [mode]);
 
   // Pre-compute whether value exceeds vault balance (avoids parseValue in render path)
   const exceedsBalance = useMemo(() => {
@@ -78,219 +157,120 @@ export function NewTransaction() {
     }
   }, [value, walletInfo]);
 
-  // Pre-compute whether value exceeds daily limit (avoids parseValue in render path)
-  const exceedsDailyLimit = useMemo(() => {
-    if (!value.trim() || remainingDailyLimit === null) return false;
-    try {
-      return transactionBuilderService.parseValue(value || '0') > remainingDailyLimit;
-    } catch {
-      return false;
-    }
-  }, [value, remainingDailyLimit]);
-
-  // Pre-compute daily limit display text (avoids IIFE + try/catch in render)
-  const dailyLimitText = useMemo(() => {
-    if (!dailyLimitInfo || dailyLimitInfo.limit <= 0n || remainingDailyLimit === null) return null;
-    try {
-      const txAmount = value.trim() ? transactionBuilderService.parseValue(value || '0') : 0n;
-      if (txAmount > remainingDailyLimit) {
-        return `Exceeds limit (Remaining: ${transactionBuilderService.formatValue(remainingDailyLimit)} QUAI)`;
-      }
-      const remainingAfter = remainingDailyLimit - txAmount;
-      return txAmount > 0n
-        ? `${transactionBuilderService.formatValue(remainingAfter)} / ${transactionBuilderService.formatValue(dailyLimitInfo.limit)} QUAI remaining`
-        : `${transactionBuilderService.formatValue(remainingDailyLimit)} / ${transactionBuilderService.formatValue(dailyLimitInfo.limit)} QUAI remaining`;
-    } catch {
-      return null;
-    }
-  }, [value, remainingDailyLimit, dailyLimitInfo]);
-
   const handleValidationChange = useCallback((validation: { warning: string | null; isBlocking: boolean }) => {
-    setAssetValidationBlocking(validation.isBlocking);
-    setAssetValidationWarning(validation.warning);
+    setAssetValidationWarning(validation.isBlocking ? validation.warning : null);
   }, []);
-
-  // Check whitelist status when address or value changes
-  useEffect(() => {
-    // Track if effect is still active (component mounted and this effect not cleaned up)
-    let isActive = true;
-
-    const checkWhitelist = async () => {
-      if (!walletAddress || !to.trim() || !isQuaiAddress(to)) {
-        if (isActive) {
-          setIsWhitelisted(null);
-          setWhitelistLimit(null);
-        }
-        return;
-      }
-
-      try {
-        const parsedValue = transactionBuilderService.parseValue(value || '0');
-        const trimmedTo = to.trim();
-
-        // Run whitelist check and limit fetch in parallel for efficiency
-        const [canExecute, limit] = await Promise.all([
-          multisigService.canExecuteViaWhitelist(walletAddress, trimmedTo, parsedValue),
-          multisigService.getWhitelistLimit(walletAddress, trimmedTo),
-        ]);
-
-        // Check if effect is still active before updating state
-        if (!isActive) return;
-
-        if (canExecute.canExecute) {
-          setIsWhitelisted(true);
-          setWhitelistLimit(limit);
-        } else {
-          setIsWhitelisted(false);
-          setWhitelistLimit(null);
-        }
-      } catch (error) {
-        if (isActive) {
-          setIsWhitelisted(false);
-          setWhitelistLimit(null);
-        }
-      }
-    };
-
-    // Debounce the check
-    const timeoutId = setTimeout(checkWhitelist, TIMING.INPUT_DEBOUNCE);
-    return () => {
-      isActive = false;
-      clearTimeout(timeoutId);
-    };
-  }, [walletAddress, to, value]);
-
-  // Check daily limit status when value changes (only for simple transfers, not contract calls)
-  useEffect(() => {
-    // Track if effect is still active (component mounted and this effect not cleaned up)
-    let isActive = true;
-
-    const checkDailyLimit = async () => {
-      if (!walletAddress || (data && data !== '0x')) {
-        if (isActive) {
-          setCanUseDailyLimit(null);
-          setRemainingDailyLimit(null);
-          setDailyLimitInfo(null);
-        }
-        return;
-      }
-
-      try {
-        // Fetch daily limit info and remaining in parallel for efficiency
-        const [dailyLimit, remaining] = await Promise.all([
-          multisigService.getDailyLimit(walletAddress),
-          multisigService.getRemainingLimit(walletAddress),
-        ]);
-        if (!isActive) return;
-
-        if (dailyLimit.limit === 0n) {
-          // No daily limit set
-          setCanUseDailyLimit(null);
-          setRemainingDailyLimit(null);
-          setDailyLimitInfo(null);
-          return;
-        }
-
-        setDailyLimitInfo({ limit: dailyLimit.limit, spent: dailyLimit.spent });
-        setRemainingDailyLimit(remaining);
-
-        // Check if we can execute via daily limit
-        if (value.trim()) {
-          const parsedValue = transactionBuilderService.parseValue(value || '0');
-          const canExecute = await multisigService.canExecuteViaDailyLimit(
-            walletAddress,
-            parsedValue
-          );
-          if (isActive) {
-            setCanUseDailyLimit(canExecute.canExecute);
-          }
-        } else {
-          if (isActive) {
-            setCanUseDailyLimit(null);
-          }
-        }
-      } catch (error) {
-        // Module might not be enabled or other error - don't enforce limit
-        if (isActive) {
-          setCanUseDailyLimit(null);
-          setRemainingDailyLimit(null);
-          setDailyLimitInfo(null);
-        }
-      }
-    };
-
-    // Debounce the check
-    const timeoutId = setTimeout(checkDailyLimit, TIMING.INPUT_DEBOUNCE);
-    return () => {
-      isActive = false;
-      clearTimeout(timeoutId);
-    };
-  }, [walletAddress, value, data]);
 
   const validateForm = async (): Promise<boolean> => {
     const newErrors: string[] = [];
 
-    if (!to.trim()) {
-      newErrors.push('Recipient address is required');
-    } else if (!isQuaiAddress(to)) {
-      newErrors.push('Invalid recipient address');
-    }
-
-    if (!value.trim()) {
-      newErrors.push('Value is required');
+    if (mode === 'send-token') {
+      // Token send validation
+      if (!tokenMeta) newErrors.push('Please select a token');
+      if (!tokenRecipient.trim()) {
+        newErrors.push('Recipient address is required');
+      } else if (!isQuaiAddress(tokenRecipient)) {
+        newErrors.push('Invalid recipient address');
+      }
+      if (!tokenAmount.trim()) newErrors.push('Token amount is required');
+      if (data === '0x') newErrors.push('Token transfer encoding failed — check amount format');
+    } else if (mode === 'send-nft') {
+      // NFT send validation
+      if (!nftMeta) newErrors.push('Please select an NFT');
+      if (!nftRecipient.trim()) {
+        newErrors.push('Recipient address is required');
+      } else if (!isQuaiAddress(nftRecipient)) {
+        newErrors.push('Invalid recipient address');
+      }
+      if (data === '0x') newErrors.push('NFT transfer encoding failed');
+      // Re-verify on-chain ownership as safety net
+      if (nftMeta && walletAddress) {
+        try {
+          const owner = await getNftOwner(nftMeta.tokenAddress, nftMeta.tokenId);
+          if (!owner || owner.toLowerCase() !== walletAddress.toLowerCase()) {
+            newErrors.push(`Vault no longer owns NFT #${nftMeta.tokenId}`);
+          }
+        } catch {
+          newErrors.push('Could not verify NFT ownership');
+        }
+      }
+    } else if (mode === 'send-erc1155') {
+      // ERC1155 send validation
+      if (!erc1155Meta) newErrors.push('Please select a token');
+      if (!erc1155Recipient.trim()) {
+        newErrors.push('Recipient address is required');
+      } else if (!isQuaiAddress(erc1155Recipient)) {
+        newErrors.push('Invalid recipient address');
+      }
+      if (data === '0x') newErrors.push('ERC1155 transfer encoding failed');
+      // Re-verify on-chain balance
+      if (erc1155Meta && walletAddress) {
+        try {
+          const balance = await getERC1155Balance(walletAddress, erc1155Meta.tokenAddress, erc1155Meta.tokenId);
+          const requested = BigInt(erc1155Quantity || '0');
+          if (balance < requested) {
+            newErrors.push(`Vault balance (${balance}) is less than requested quantity (${requested})`);
+          }
+        } catch {
+          newErrors.push('Could not verify ERC1155 balance');
+        }
+      }
     } else {
-      try {
-        const parsedValue = transactionBuilderService.parseValue(value);
-        if (parsedValue < 0n) {
-          newErrors.push('Value cannot be negative');
-        }
-        // Check vault balance
-        if (walletInfo && parsedValue > 0n) {
-          const vaultBalance = BigInt(walletInfo.balance);
-          if (parsedValue > vaultBalance) {
-            const formattedBalance = transactionBuilderService.formatValue(vaultBalance);
-            newErrors.push(`Amount exceeds vault balance of ${formattedBalance} QUAI`);
-          }
-        }
-        // Check whitelist limit if applicable
-        if (isWhitelisted && whitelistLimit !== null && whitelistLimit > 0n && parsedValue > whitelistLimit) {
-          const formattedLimit = transactionBuilderService.formatValue(whitelistLimit);
-          newErrors.push(`Value exceeds whitelist limit of ${formattedLimit} QUAI`);
-        }
-        
-        // Check daily limit for simple transfers only when user chose daily limit mode
-        if (walletAddress && useDailyLimit && canUseDailyLimit === true && (!data || data === '0x')) {
-          try {
-            // Always fetch fresh data at validation time to catch recently-changed limits
-            const [dailyLimit, remaining] = await Promise.all([
-              multisigService.getDailyLimit(walletAddress),
-              multisigService.getRemainingLimit(walletAddress),
-            ]);
+      // send-quai and contract-call validation (existing logic)
+      if (!to.trim()) {
+        newErrors.push('Recipient address is required');
+      } else if (!isQuaiAddress(to)) {
+        newErrors.push('Invalid recipient address');
+      }
 
-            if (dailyLimit.limit > 0n && parsedValue > remaining) {
-              const formattedLimit = transactionBuilderService.formatValue(dailyLimit.limit);
-              const formattedRemaining = transactionBuilderService.formatValue(remaining);
-              newErrors.push(`Transaction exceeds daily limit. Daily limit: ${formattedLimit} QUAI, Remaining: ${formattedRemaining} QUAI. Switch to "Propose Transaction" to submit for multisig approval instead.`);
+      if (!value.trim()) {
+        newErrors.push('Value is required');
+      } else {
+        try {
+          const parsedValue = transactionBuilderService.parseValue(value);
+          if (parsedValue < 0n) {
+            newErrors.push('Value cannot be negative');
+          }
+          // Check vault balance
+          if (walletInfo && parsedValue > 0n) {
+            const vaultBalance = BigInt(walletInfo.balance);
+            if (parsedValue > vaultBalance) {
+              const formattedBalance = transactionBuilderService.formatValue(vaultBalance);
+              newErrors.push(`Amount exceeds vault balance of ${formattedBalance} QUAI`);
             }
-          } catch (error) {
-            // If we can't check daily limit (e.g., module not enabled), don't block the transaction
-            console.warn('Could not check daily limit:', error instanceof Error ? error.message : 'Unknown error');
           }
+        } catch {
+          newErrors.push('Invalid value format');
         }
-      } catch {
-        newErrors.push('Invalid value format');
+      }
+
+      if (data && data !== '0x') {
+        if (!isHexString(data)) {
+          newErrors.push('Invalid data format (must be hex string)');
+        }
+      }
+
+      // Check asset validation (ERC20 balance / ERC721 ownership) for contract-call mode
+      if (assetValidationWarning) {
+        newErrors.push(assetValidationWarning);
       }
     }
 
-    if (data && data !== '0x') {
-      if (!isHexString(data)) {
-        newErrors.push('Invalid data format (must be hex string)');
-      }
-    }
+    // Cross-cutting: ensure expiration doesn't conflict with execution delay.
+    // The contract adds the user's requested delay ON TOP of the vault's minExecutionDelay.
+    const userDelay = delayToSeconds(executionDelay, delayUnit) ?? 0;
+    const vaultMinDelay = walletInfo?.minExecutionDelay ?? 0;
+    const effectiveDelay = vaultMinDelay + userDelay;
+    const expirationTs = expirationToTimestamp(expiration);
 
-    // Check asset validation (ERC20 balance / ERC721 ownership)
-    if (assetValidationWarning) {
-      newErrors.push(assetValidationWarning);
+    if (expirationTs && effectiveDelay > 0) {
+      const now = Math.floor(Date.now() / 1000);
+      const earliestExecutable = now + effectiveDelay;
+      if (expirationTs <= earliestExecutable) {
+        newErrors.push(
+          'Expiration must be after the execution delay elapses — the transaction would expire before it could be executed'
+        );
+      }
     }
 
     setErrors(newErrors);
@@ -335,73 +315,21 @@ export function NewTransaction() {
     const normalizedTo = to.trim();
     const normalizedData = (data || '0x').trim();
 
-    // Priority: Whitelist > Daily Limit > Normal Proposal
-    // Check if we can execute via whitelist first
-    const canExecuteWhitelist = await multisigService.canExecuteViaWhitelist(
+    const expirationTimestamp = expirationToTimestamp(expiration);
+    const delaySeconds = delayToSeconds(executionDelay, delayUnit);
+
+    onProgress({ step: 'signing', message: 'Please approve the transaction proposal in your wallet' });
+
+    const txHash = await proposeTransactionAsync({
       walletAddress,
-      normalizedTo,
-      parsedValue
-    );
+      to: normalizedTo,
+      value: parsedValue,
+      data: normalizedData,
+      expiration: expirationTimestamp,
+      executionDelay: delaySeconds,
+    }) || '';
 
-    let txHash = '';
-
-    if (canExecuteWhitelist.canExecute) {
-      // Execute directly via whitelist (no approvals needed)
-      onProgress({ step: 'signing', message: 'Please approve the transaction execution in your wallet (whitelisted address - no approvals needed)' });
-
-      txHash = await executeToWhitelistAsync({
-        walletAddress,
-        to: normalizedTo,
-        value: parsedValue,
-        data: normalizedData,
-      }) || '';
-
-      onProgress({ step: 'waiting', txHash, message: 'Executing transaction via whitelist...' });
-    } else if (effectiveDailyLimit) {
-      // User chose daily limit mode - verify it's still valid (canUseDailyLimit was true at form load)
-      const canExecuteDailyLimit = await multisigService.canExecuteViaDailyLimit(
-        walletAddress,
-        parsedValue
-      );
-
-      if (canExecuteDailyLimit.canExecute) {
-        // Execute directly via daily limit (no approvals needed)
-        onProgress({ step: 'signing', message: 'Please approve the transaction execution in your wallet (within daily limit - no approvals needed)' });
-
-        txHash = await executeBelowLimitAsync({
-          walletAddress,
-          to: normalizedTo,
-          value: parsedValue,
-          data: normalizedData,
-        }) || '';
-
-        onProgress({ step: 'waiting', txHash, message: 'Executing transaction via daily limit...' });
-      } else {
-        // Daily limit no longer valid (e.g., spent in another tab) - fall back to proposal
-        onProgress({ step: 'signing', message: 'Daily limit exceeded — falling back to proposal. Please approve in your wallet.' });
-
-        txHash = await proposeTransactionAsync({
-          walletAddress,
-          to: normalizedTo,
-          value: parsedValue,
-          data: normalizedData,
-        }) || '';
-
-        onProgress({ step: 'waiting', txHash, message: 'Waiting for transaction confirmation...' });
-      }
-    } else {
-      // Normal proposal flow (requires approvals)
-      onProgress({ step: 'signing', message: 'Please approve the transaction proposal in your wallet' });
-
-      txHash = await proposeTransactionAsync({
-        walletAddress,
-        to: normalizedTo,
-        value: parsedValue,
-        data: normalizedData,
-      }) || '';
-
-      onProgress({ step: 'waiting', txHash, message: 'Waiting for transaction confirmation...' });
-    }
+    onProgress({ step: 'waiting', txHash, message: 'Waiting for transaction confirmation...' });
 
     // Wait for transaction to be mined
     await new Promise(resolve => setTimeout(resolve, TIMING.TX_MINE_WAIT));
@@ -480,118 +408,205 @@ export function NewTransaction() {
         </button>
         <h1 className="text-4xl font-display font-bold text-gradient-red vault-text-glow">New Transaction</h1>
         <p className="text-lg font-mono text-dark-500 uppercase tracking-wider mt-2">
-          {isWhitelisted === true
-            ? 'Execute transaction to whitelisted address (no approvals needed)'
-            : effectiveDailyLimit
-            ? 'Execute within daily limit (bypasses approvals)'
-            : 'Propose a new multisig transaction'}
+          {headerSubtitle}
         </p>
       </div>
 
+      {/* Transaction Mode Selector */}
+      <TransactionModeSelector
+        mode={mode}
+        onModeChange={handleModeChange}
+        hasTokens={(erc20Balances?.length ?? 0) > 0}
+        hasNfts={(holdings?.length ?? 0) > 0}
+        hasErc1155s={(erc1155Holdings?.length ?? 0) > 0}
+      />
+
       <form onSubmit={handleSubmit} className="vault-panel p-8">
-        {/* Recipient Address */}
-        <div className="mb-8">
-          <label htmlFor="to" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
-            Recipient Address
-          </label>
-          <input
-            id="to"
-            type="text"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="0x..."
-            className="input-field w-full"
-          />
-          {/* Contract detection badge */}
-          {isAddress(to) && (
-            isDetectingContract ? (
-              <p className="mt-2 text-sm font-mono text-dark-400 flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Detecting...
+        {/* Send QUAI mode */}
+        {(mode === 'send-quai') && (
+          <>
+            <div className="mb-8">
+              <label htmlFor="to" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
+                Recipient Address
+              </label>
+              <input
+                id="to"
+                type="text"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="0x..."
+                className="input-field w-full"
+              />
+            </div>
+            <div className="mb-8">
+              <label htmlFor="value" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
+                Amount (QUAI)
+              </label>
+              <input
+                id="value"
+                type="text"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0.0"
+                className="input-field w-full"
+              />
+              <p className="mt-2 text-base font-mono text-dark-600">
+                Enter the amount in QUAI (e.g., 1.5 for 1.5 QUAI)
               </p>
-            ) : isRecipientContract ? (
-              <p className={`mt-2 text-sm font-mono flex items-center gap-2 ${
-                contractType === 'erc20' ? 'text-blue-600 dark:text-blue-400'
-                  : contractType === 'erc721' ? 'text-purple-600 dark:text-purple-400'
-                  : 'text-blue-600 dark:text-blue-400'
-              }`}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                {contractType === 'erc20'
-                  ? `ERC-20 Token${tokenMetadata?.symbol ? ` (${tokenMetadata.symbol})` : ''}`
-                  : contractType === 'erc721'
-                  ? 'ERC-721 NFT Contract'
-                  : 'Smart Contract Detected'}
-              </p>
-            ) : detectContractError ? (
-              <p className="mt-2 text-sm font-mono text-red-500 flex items-center gap-2">
-                Detection failed — check console for details
-              </p>
-            ) : null
-          )}
-        </div>
+              {walletInfo && (
+                <p className="mt-1 text-base font-mono text-dark-500 dark:text-dark-400">
+                  Vault balance: <span className={`font-semibold ${
+                    exceedsBalance ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
+                  }`}>{transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI</span>
+                </p>
+              )}
+            </div>
+            <AdvancedOptions
+              expiration={expiration}
+              onExpirationChange={setExpiration}
+              executionDelay={executionDelay}
+              onExecutionDelayChange={setExecutionDelay}
+              delayUnit={delayUnit}
+              onDelayUnitChange={setDelayUnit}
+              minExecutionDelay={walletInfo?.minExecutionDelay}
+              showData
+              data={data}
+              onDataChange={setData}
+            />
+          </>
+        )}
 
-        {/* Value */}
-        <div className="mb-8">
-          <label htmlFor="value" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
-            Amount (QUAI)
-          </label>
-          <input
-            id="value"
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="0.0"
-            className="input-field w-full"
-          />
-          <p className="mt-2 text-base font-mono text-dark-600">
-            Enter the amount in QUAI (e.g., 1.5 for 1.5 QUAI)
-          </p>
-          {walletInfo && (
-            <p className="mt-1 text-base font-mono text-dark-500 dark:text-dark-400">
-              Vault balance: <span className={`font-semibold ${
-                exceedsBalance ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
-              }`}>{transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI</span>
-            </p>
-          )}
-        </div>
-
-        {/* Contract Interaction or Advanced Data */}
-        {isRecipientContract === true ? (
-          <ContractInteractionBuilder
-            abi={contractAbi}
-            abiSource={abiSource}
-            isFetchingAbi={isFetchingAbi}
-            abiFetchError={abiFetchError}
-            functions={contractFunctions}
-            contractType={contractType}
-            tokenMetadata={tokenMetadata}
-            onDataChange={setData}
-            onValueChange={setValue}
-            currentValue={value}
-            setManualAbi={setManualAbi}
+        {/* Send Token mode */}
+        {mode === 'send-token' && walletAddress && (
+          <SendTokenForm
             walletAddress={walletAddress}
-            contractAddress={to}
-            onValidationChange={handleValidationChange}
+            onToChange={setTo}
+            onValueChange={setValue}
+            onDataChange={setData}
+            onTokenMetadataChange={setTokenMeta}
+            onRecipientChange={setTokenRecipient}
+            onAmountChange={setTokenAmount}
+            initialToken={initialToken}
           />
-        ) : (
-          <div className="mb-8">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm font-mono text-dark-400 hover:text-dark-600 dark:hover:text-dark-300 flex items-center gap-1 transition-colors"
-            >
-              Advanced Options
-              <svg className={`w-3 h-3 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showAdvanced && (
-              <div className="mt-3">
+        )}
+
+        {/* Send NFT mode */}
+        {mode === 'send-nft' && walletAddress && (
+          <SendNftForm
+            walletAddress={walletAddress}
+            onToChange={setTo}
+            onValueChange={setValue}
+            onDataChange={setData}
+            onNftMetadataChange={setNftMeta}
+            onRecipientChange={setNftRecipient}
+            initialToken={initialToken}
+            initialTokenId={initialTokenId}
+          />
+        )}
+
+        {/* Send ERC1155 mode */}
+        {mode === 'send-erc1155' && walletAddress && (
+          <SendErc1155Form
+            walletAddress={walletAddress}
+            onToChange={setTo}
+            onValueChange={setValue}
+            onDataChange={setData}
+            onErc1155MetadataChange={setErc1155Meta}
+            onRecipientChange={setErc1155Recipient}
+            onQuantityChange={setErc1155Quantity}
+            initialToken={initialToken}
+            initialTokenId={initialTokenId}
+          />
+        )}
+
+        {/* Contract Call mode */}
+        {mode === 'contract-call' && (
+          <>
+            <div className="mb-8">
+              <label htmlFor="to" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
+                Contract Address
+              </label>
+              <input
+                id="to"
+                type="text"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="0x..."
+                className="input-field w-full"
+              />
+              {isAddress(to) && (
+                isDetectingContract ? (
+                  <p className="mt-2 text-sm font-mono text-dark-400 flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Detecting...
+                  </p>
+                ) : isRecipientContract ? (
+                  <p className={`mt-2 text-sm font-mono flex items-center gap-2 ${
+                    contractType === 'erc20' ? 'text-blue-600 dark:text-blue-400'
+                      : contractType === 'erc721' ? 'text-purple-600 dark:text-purple-400'
+                      : contractType === 'erc1155' ? 'text-violet-600 dark:text-violet-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    {contractType === 'erc20'
+                      ? `ERC-20 Token${tokenMetadata?.symbol ? ` (${tokenMetadata.symbol})` : ''}`
+                      : contractType === 'erc721'
+                      ? 'ERC-721 NFT Contract'
+                      : contractType === 'erc1155'
+                      ? 'ERC-1155 Multi-Token Contract'
+                      : 'Smart Contract Detected'}
+                  </p>
+                ) : detectContractError ? (
+                  <p className="mt-2 text-sm font-mono text-red-500 flex items-center gap-2">
+                    Detection failed — check console for details
+                  </p>
+                ) : null
+              )}
+            </div>
+            <div className="mb-8">
+              <label htmlFor="value" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
+                Amount (QUAI)
+              </label>
+              <input
+                id="value"
+                type="text"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0.0"
+                className="input-field w-full"
+              />
+              {walletInfo && (
+                <p className="mt-1 text-base font-mono text-dark-500 dark:text-dark-400">
+                  Vault balance: <span className={`font-semibold ${
+                    exceedsBalance ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
+                  }`}>{transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI</span>
+                </p>
+              )}
+            </div>
+            {isRecipientContract === true ? (
+              <ContractInteractionBuilder
+                abi={contractAbi}
+                abiSource={abiSource}
+                isFetchingAbi={isFetchingAbi}
+                abiFetchError={abiFetchError}
+                functions={contractFunctions}
+                contractType={contractType}
+                tokenMetadata={tokenMetadata}
+                onDataChange={setData}
+                onValueChange={setValue}
+                currentValue={value}
+                setManualAbi={setManualAbi}
+                walletAddress={walletAddress}
+                contractAddress={to}
+                onValidationChange={handleValidationChange}
+              />
+            ) : (
+              <div className="mb-8">
                 <label htmlFor="data" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
                   Data (Optional)
                 </label>
@@ -603,121 +618,39 @@ export function NewTransaction() {
                   rows={4}
                   className="input-field w-full font-mono text-lg"
                 />
-                <p className="mt-2 text-base font-mono text-dark-600">
-                  Optional contract call data. Leave as "0x" for simple transfers.
-                </p>
               </div>
             )}
-          </div>
+          </>
         )}
 
-        {/* Transaction Mode Selector - shown when daily limit is available */}
-        {canUseDailyLimit === true && (!data || data === '0x') && !isWhitelisted && (
-          <div className="mb-8 bg-dark-100 dark:bg-vault-dark-4 rounded-md p-5 border border-dark-300 dark:border-dark-600">
-            <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-4">Transaction Method</h3>
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-4 rounded-md border-2 cursor-pointer transition-colors ${
-                useDailyLimit
-                  ? 'border-yellow-500 dark:border-yellow-600 bg-yellow-50/50 dark:bg-yellow-900/20'
-                  : 'border-dark-300 dark:border-dark-600 hover:border-dark-400 dark:hover:border-dark-500'
-              }`}>
-                <input
-                  type="radio"
-                  name="txMode"
-                  checked={useDailyLimit}
-                  onChange={() => setUseDailyLimit(true)}
-                  className="mt-1 accent-yellow-500"
-                />
-                <div>
-                  <span className="text-lg font-semibold text-dark-700 dark:text-dark-200">Execute via Daily Limit</span>
-                  <p className="text-sm text-dark-500 dark:text-dark-400 mt-1">
-                    Bypasses multisig approvals and executes immediately. Limited to your remaining daily allowance.
-                  </p>
-                </div>
-              </label>
-              <label className={`flex items-start gap-3 p-4 rounded-md border-2 cursor-pointer transition-colors ${
-                !useDailyLimit
-                  ? 'border-primary-500 dark:border-primary-600 bg-primary-50/50 dark:bg-primary-900/20'
-                  : 'border-dark-300 dark:border-dark-600 hover:border-dark-400 dark:hover:border-dark-500'
-              }`}>
-                <input
-                  type="radio"
-                  name="txMode"
-                  checked={!useDailyLimit}
-                  onChange={() => setUseDailyLimit(false)}
-                  className="mt-1 accent-primary-500"
-                />
-                <div>
-                  <span className="text-lg font-semibold text-dark-700 dark:text-dark-200">Propose Transaction</span>
-                  <p className="text-sm text-dark-500 dark:text-dark-400 mt-1">
-                    Submit for multisig approval. Requires the configured number of owner confirmations before execution.
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
+        {/* Advanced Options for non send-quai modes (send-quai has its own inline section) */}
+        {mode !== 'send-quai' && (
+          <AdvancedOptions
+            expiration={expiration}
+            onExpirationChange={setExpiration}
+            executionDelay={executionDelay}
+            onExecutionDelayChange={setExecutionDelay}
+            delayUnit={delayUnit}
+            onDelayUnitChange={setDelayUnit}
+            minExecutionDelay={walletInfo?.minExecutionDelay}
+          />
         )}
 
         {/* Transaction Summary */}
-        <div className="mb-8 bg-dark-100 dark:bg-vault-dark-4 rounded-md p-5 border border-dark-300 dark:border-dark-600">
-          <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-4">Transaction Summary</h3>
-          <div className="space-y-3 text-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Type:</span>
-              <span className="text-dark-700 dark:text-dark-200 font-semibold">
-                {!data || data === '0x' ? 'Simple Transfer' : 'Contract Call'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
-              <span className="text-primary-600 dark:text-primary-300 font-mono truncate max-w-xs text-right">
-                {to || '-'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Amount:</span>
-              <span className="text-dark-700 dark:text-dark-200 font-semibold">{value || '0'} <span className="text-primary-600 dark:text-primary-400">QUAI</span></span>
-            </div>
-            {isWhitelisted === true && (
-              <div className="flex justify-between items-center pt-2 border-t border-dark-300 dark:border-dark-600">
-                <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Status:</span>
-                <span className="text-primary-600 dark:text-primary-400 font-semibold inline-flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Whitelisted {whitelistLimit !== null && whitelistLimit > 0n && `(Limit: ${transactionBuilderService.formatValue(whitelistLimit)} QUAI)`}
-                </span>
-              </div>
-            )}
-            {dailyLimitInfo && dailyLimitInfo.limit > 0n && !isWhitelisted && effectiveDailyLimit && (
-              <div className="flex justify-between items-center pt-2 border-t border-dark-300 dark:border-dark-600">
-                <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Daily Limit:</span>
-                <span className={`font-semibold inline-flex items-center gap-2 ${
-                  exceedsDailyLimit
-                    ? 'text-primary-600 dark:text-primary-400'
-                    : canUseDailyLimit === true
-                    ? 'text-yellow-400'
-                    : 'text-dark-500 dark:text-dark-400'
-                }`}>
-                  {remainingDailyLimit !== null ? (
-                    <>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        {exceedsDailyLimit ? (
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        ) : (
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        )}
-                      </svg>
-                      {dailyLimitText}
-                    </>
-                  ) : (
-                    'Loading...'
-                  )}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        <TransactionSummaryPanel
+          mode={mode}
+          to={to}
+          value={value}
+          data={data}
+          tokenMeta={tokenMeta}
+          tokenRecipient={tokenRecipient}
+          tokenAmount={tokenAmount}
+          nftMeta={nftMeta}
+          nftRecipient={nftRecipient}
+          erc1155Meta={erc1155Meta}
+          erc1155Recipient={erc1155Recipient}
+          erc1155Quantity={erc1155Quantity}
+        />
 
         {/* Errors */}
         {errors.length > 0 && (
@@ -747,11 +680,7 @@ export function NewTransaction() {
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                {isWhitelisted === true
-                  ? 'Execute Transaction'
-                  : effectiveDailyLimit
-                  ? 'Execute Transaction (Daily Limit)'
-                  : 'Propose Transaction'}
+                {submitButtonText}
               </span>
             </button>
             <button
@@ -781,8 +710,18 @@ export function NewTransaction() {
           tokenMetadata={tokenMetadata}
           onConfirm={handlePreviewConfirm}
           onCancel={handlePreviewCancel}
-          isWhitelisted={isWhitelisted === true}
-          canUseDailyLimit={effectiveDailyLimit}
+          transactionMode={mode}
+          sendTokenMeta={tokenMeta}
+          sendNftMeta={nftMeta}
+          sendErc1155Meta={erc1155Meta}
+          tokenRecipient={tokenRecipient}
+          tokenAmount={tokenAmount}
+          nftRecipient={nftRecipient}
+          erc1155Recipient={erc1155Recipient}
+          erc1155Quantity={erc1155Quantity}
+          expiration={expirationToTimestamp(expiration)}
+          executionDelay={delayToSeconds(executionDelay, delayUnit)}
+          minExecutionDelay={walletInfo?.minExecutionDelay}
         />
       </Modal>
 
@@ -790,13 +729,7 @@ export function NewTransaction() {
       <Modal
         isOpen={showFlow}
         onClose={handleCancel}
-        title={
-          isWhitelisted === true
-            ? "Execute Transaction"
-            : effectiveDailyLimit
-            ? "Execute Transaction (Daily Limit)"
-            : "Propose Transaction"
-        }
+        title={submitButtonText}
         size="lg"
       >
         <div className="space-y-4">
@@ -807,42 +740,99 @@ export function NewTransaction() {
               <div className="flex justify-between items-center">
                 <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Type:</span>
                 <span className="text-dark-700 dark:text-dark-200 font-semibold">
-                  {!data || data === '0x' ? 'Simple Transfer' : 'Contract Call'}
+                  {mode === 'send-token' ? 'Token Transfer'
+                    : mode === 'send-nft' ? 'NFT Transfer'
+                    : mode === 'send-erc1155' ? 'ERC1155 Transfer'
+                    : !data || data === '0x' ? 'Simple Transfer' : 'Contract Call'}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
-                <span className="text-primary-600 dark:text-primary-300 font-mono break-all text-right max-w-xs">
-                  {to || '-'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Amount:</span>
-                <span className="text-dark-700 dark:text-dark-200 font-semibold">{value || '0'} <span className="text-primary-600 dark:text-primary-400">QUAI</span></span>
-              </div>
-              {isWhitelisted === true && (
-                <div className="flex justify-between items-center pt-2 border-t border-dark-300 dark:border-dark-600">
-                  <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Status:</span>
-                  <span className="text-primary-600 dark:text-primary-400 font-semibold inline-flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    Whitelisted - Executes immediately (no approvals needed)
-                  </span>
-                </div>
+
+              {/* Mode-specific details */}
+              {mode === 'send-token' && tokenMeta ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Token:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">
+                      {tokenMeta.symbol}{tokenMeta.name ? ` (${tokenMeta.name})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
+                    <span className="text-primary-600 dark:text-primary-300 font-mono break-all text-right max-w-xs">
+                      {tokenRecipient || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Amount:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">
+                      {tokenAmount || '0'} <span className="text-primary-600 dark:text-primary-400">{tokenMeta.symbol}</span>
+                    </span>
+                  </div>
+                </>
+              ) : mode === 'send-nft' && nftMeta ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Collection:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">
+                      {nftMeta.collectionName ?? 'Unknown'}{nftMeta.collectionSymbol ? ` (${nftMeta.collectionSymbol})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Token ID:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-sm font-semibold bg-purple-900 text-purple-200 border border-purple-700">
+                      #{nftMeta.tokenId}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
+                    <span className="text-primary-600 dark:text-primary-300 font-mono break-all text-right max-w-xs">
+                      {nftRecipient || '-'}
+                    </span>
+                  </div>
+                </>
+              ) : mode === 'send-erc1155' && erc1155Meta ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Collection:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">
+                      {erc1155Meta.collectionName ?? 'Unknown'}{erc1155Meta.collectionSymbol ? ` (${erc1155Meta.collectionSymbol})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Token ID:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-sm font-semibold bg-violet-900 text-violet-200 border border-violet-700">
+                      #{erc1155Meta.tokenId}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Quantity:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">
+                      {erc1155Quantity || '?'} <span className="text-dark-500">/ {erc1155Meta.balance} available</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
+                    <span className="text-primary-600 dark:text-primary-300 font-mono break-all text-right max-w-xs">
+                      {erc1155Recipient || '-'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Recipient:</span>
+                    <span className="text-primary-600 dark:text-primary-300 font-mono break-all text-right max-w-xs">
+                      {to || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Amount:</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">{value || '0'} <span className="text-primary-600 dark:text-primary-400">QUAI</span></span>
+                  </div>
+                </>
               )}
-              {effectiveDailyLimit && (
-                <div className="flex justify-between items-center pt-2 border-t border-dark-300 dark:border-dark-600">
-                  <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Status:</span>
-                  <span className="text-yellow-400 font-semibold inline-flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                    Daily Limit - Bypasses approvals, executes immediately
-                  </span>
-                </div>
-              )}
-              {data && data !== '0x' && (
+
+              {data && data !== '0x' && mode !== 'send-token' && mode !== 'send-nft' && mode !== 'send-erc1155' && (
                 <div className="flex justify-between items-start">
                   <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Data:</span>
                   <span className="text-dark-500 dark:text-dark-400 font-mono text-base break-all text-right max-w-xs">
@@ -854,30 +844,20 @@ export function NewTransaction() {
           </div>
 
           <TransactionFlow
-            title={
-              isWhitelisted === true
-                ? "Execute Transaction"
-                : effectiveDailyLimit
-                ? "Execute Transaction (Daily Limit)"
-                : "Propose Transaction"
-            }
+            title={submitButtonText}
             description={
-              isWhitelisted === true
-                ? `Executing transaction to whitelisted address ${to.substring(0, 10)}... (no approvals needed)`
-                : effectiveDailyLimit
-                ? `Executing within daily limit to ${to.substring(0, 10)}... (bypasses approvals)`
+              mode === 'send-token' && tokenMeta
+                ? `Proposing ${tokenMeta.symbol} transfer to ${tokenRecipient.substring(0, 10)}...`
+                : mode === 'send-nft' && nftMeta
+                ? `Proposing NFT #${nftMeta.tokenId} transfer to ${nftRecipient.substring(0, 10)}...`
+                : mode === 'send-erc1155' && erc1155Meta
+                ? `Proposing ERC1155 #${erc1155Meta.tokenId} (x${erc1155Quantity}) transfer to ${erc1155Recipient.substring(0, 10)}...`
                 : `Proposing transaction to ${to.substring(0, 10)}...`
             }
             onExecute={handleProposeTransaction}
             onComplete={handleComplete}
             onCancel={handleCancel}
-            successMessage={
-              isWhitelisted === true
-                ? "Transaction executed successfully!"
-                : effectiveDailyLimit
-                ? "Transaction executed successfully!"
-                : "Transaction proposed successfully!"
-            }
+            successMessage="Transaction proposed successfully!"
             resetKey={resetKey}
           />
         </div>

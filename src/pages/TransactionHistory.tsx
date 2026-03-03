@@ -10,10 +10,42 @@ import { getBlockRangeTimePeriod } from '../utils/blockTime';
 import { formatAddress, formatTimestamp, formatDateString } from '../utils/formatting';
 import { CopyButton } from '../components/CopyButton';
 import { EmptyState } from '../components/EmptyState';
+import { HistoricalTransactionTab, type HistoricalTabConfig } from '../components/HistoricalTransactionTab';
 import { formatQuai } from 'quais';
 import { TokenTransferHistory } from '../components/TokenTransferHistory';
 import type { RecoveryApproval } from '../types/database';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
+
+const CANCELLED_CONFIG: HistoricalTabConfig = {
+  title: 'Cancelled Transactions',
+  countLabel: 'Cancelled',
+  statusBadge: { text: '✕ Cancelled', className: 'bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500' },
+  emptyIcon: <svg className="w-8 h-8 text-dark-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  emptyTitle: 'No cancelled transactions',
+  emptyDescription: 'Cancelled transactions will appear here',
+  loadingText: 'Loading cancelled transactions...',
+};
+
+const EXPIRED_CONFIG: HistoricalTabConfig = {
+  title: 'Expired Transactions',
+  countLabel: 'Expired',
+  statusBadge: { text: 'Expired', className: 'bg-orange-900/50 text-orange-300 border border-orange-700/50' },
+  emptyIcon: <svg className="w-8 h-8 text-dark-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  emptyTitle: 'No expired transactions',
+  emptyDescription: 'Expired transactions will appear here',
+  loadingText: 'Loading expired transactions...',
+};
+
+const FAILED_CONFIG: HistoricalTabConfig = {
+  title: 'Failed Transactions',
+  countLabel: 'Failed',
+  statusBadge: { text: '✕ Failed', className: 'bg-red-900/50 text-red-400 border border-red-700/50' },
+  emptyIcon: <svg className="w-8 h-8 text-dark-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+  emptyTitle: 'No failed transactions',
+  emptyDescription: 'Failed transactions will appear here',
+  loadingText: 'Loading failed transactions...',
+  showFailedReturnData: true,
+};
 
 const PAGE_SIZE = 50;
 
@@ -21,9 +53,11 @@ export function TransactionHistory() {
   const { address: walletAddress } = useParams<{ address: string }>();
   const { isConnected: isIndexerConnected } = useIndexerConnection();
   const { executedTransactions, cancelledTransactions, recoveryHistory, isLoadingHistory, isLoadingCancelled, isLoadingRecoveryHistory, refreshHistory, refreshCancelled, refreshRecoveryHistory } = useMultisig(walletAddress);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'cancelled' | 'recovery' | 'tokens'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'cancelled' | 'expired' | 'failed' | 'recovery' | 'tokens'>('transactions');
   const [executedVisible, setExecutedVisible] = useState(PAGE_SIZE);
   const [cancelledVisible, setCancelledVisible] = useState(PAGE_SIZE);
+  const [expiredVisible, setExpiredVisible] = useState(PAGE_SIZE);
+  const [failedVisible, setFailedVisible] = useState(PAGE_SIZE);
   const [recoveryVisible, setRecoveryVisible] = useState(PAGE_SIZE);
   const [isRefreshingExecuted, setIsRefreshingExecuted] = useState(false);
   const [isRefreshingCancelled, setIsRefreshingCancelled] = useState(false);
@@ -83,16 +117,36 @@ export function TransactionHistory() {
     enabled: !!walletAddress && activeTab === 'recovery' && recoveryHashes.length > 0,
   });
 
-  // Collect unique contract addresses from both executed and cancelled tx lists for token metadata
+  const { data: expiredTransactions, isLoading: isLoadingExpired } = useQuery({
+    queryKey: ['expiredTransactions', walletAddress],
+    queryFn: async () => {
+      if (!walletAddress) return [];
+      return multisigService.getExpiredTransactions(walletAddress);
+    },
+    enabled: !!walletAddress && activeTab === 'expired',
+    staleTime: 60_000,
+  });
+
+  const { data: failedTransactions, isLoading: isLoadingFailed } = useQuery({
+    queryKey: ['failedTransactions', walletAddress],
+    queryFn: async () => {
+      if (!walletAddress) return [];
+      return multisigService.getFailedTransactions(walletAddress);
+    },
+    enabled: !!walletAddress && activeTab === 'failed',
+    staleTime: 60_000,
+  });
+
+  // Collect unique contract addresses from all tx lists for token metadata
   const tokenTargetAddresses = useMemo(() => {
     const addrs = new Set<string>();
-    for (const tx of [...(executedTransactions ?? []), ...(cancelledTransactions ?? [])]) {
+    for (const tx of [...(executedTransactions ?? []), ...(cancelledTransactions ?? []), ...(expiredTransactions ?? []), ...(failedTransactions ?? [])]) {
       if (tx.to && tx.to.toLowerCase() !== walletAddress?.toLowerCase() && tx.data && tx.data !== '0x') {
         addrs.add(tx.to);
       }
     }
     return [...addrs];
-  }, [executedTransactions, cancelledTransactions, walletAddress]);
+  }, [executedTransactions, cancelledTransactions, expiredTransactions, failedTransactions, walletAddress]);
 
   const { data: tokenMetaMap } = useQuery<Map<string, TokenMetadata>>({
     queryKey: ['txHistoryTokenMeta', tokenTargetAddresses.join(',')],
@@ -195,6 +249,32 @@ export function TransactionHistory() {
           Cancelled
           {cancelledTransactions && cancelledTransactions.length > 0 && (
             <span className="ml-2 text-base font-mono text-dark-500">({cancelledTransactions.length})</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('expired')}
+          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+            activeTab === 'expired'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
+          }`}
+        >
+          Expired
+          {expiredTransactions && expiredTransactions.length > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({expiredTransactions.length})</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('failed')}
+          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+            activeTab === 'failed'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
+          }`}
+        >
+          Failed
+          {failedTransactions && failedTransactions.length > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({failedTransactions.length})</span>
           )}
         </button>
         <button
@@ -308,16 +388,6 @@ export function TransactionHistory() {
                           <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-primary-900/50 text-primary-600 dark:text-primary-300 border border-primary-700/50">
                             ✓ Executed
                           </span>
-                          {tx.transactionType === 'whitelist_execution' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-semibold bg-emerald-900/50 text-emerald-300 border border-emerald-700/50">
-                              via Whitelist
-                            </span>
-                          )}
-                          {tx.transactionType === 'daily_limit_execution' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-semibold bg-blue-900/50 text-blue-300 border border-blue-700/50">
-                              via Daily Limit
-                            </span>
-                          )}
                         </div>
                         {decoded.details && (
                           <p className="text-lg text-dark-700 dark:text-dark-200 font-semibold mt-2">{decoded.details}</p>
@@ -412,177 +482,51 @@ export function TransactionHistory() {
       </div>}
 
       {/* Cancelled Transactions */}
-      {activeTab === 'cancelled' && <div className="vault-panel p-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-lg font-display font-bold text-dark-600 dark:text-dark-300 mb-1">Cancelled Transactions</h2>
-            <p className="text-base font-mono text-dark-500 uppercase tracking-wider">
-              {cancelledTransactions?.length || 0} Cancelled
-            </p>
-          </div>
-          <button
-            onClick={handleRefreshCancelled}
-            disabled={isRefreshingCancelled}
-            className="text-lg text-primary-600 dark:text-primary-400 hover:text-primary-600 dark:text-primary-300 transition-colors font-semibold flex items-center gap-4 disabled:opacity-50"
-          >
-            <svg className={`w-5 h-5 ${isRefreshingCancelled ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
-        </div>
+      {activeTab === 'cancelled' && (
+        <HistoricalTransactionTab
+          config={CANCELLED_CONFIG}
+          transactions={cancelledTransactions}
+          isLoading={isLoadingCancelled}
+          walletAddress={walletAddress}
+          tokenMetaMap={tokenMetaMap}
+          expandedItems={expandedItems}
+          toggleExpanded={toggleExpanded}
+          visible={cancelledVisible}
+          onShowMore={() => setCancelledVisible(v => v + PAGE_SIZE)}
+          onRefresh={handleRefreshCancelled}
+          isRefreshing={isRefreshingCancelled}
+        />
+      )}
 
-        {isLoadingCancelled ? (
-          <div className="text-center py-12">
-            <div className="relative inline-block">
-              <div className="absolute inset-0 bg-primary-600/20 blur-xl animate-pulse"></div>
-              <div className="relative inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-            </div>
-            <p className="mt-6 text-dark-500 dark:text-dark-400 font-semibold">Loading cancelled transactions...</p>
-            <p className="mt-2 text-base font-mono text-dark-600 uppercase tracking-wider">Accessing vault records</p>
-          </div>
-        ) : !cancelledTransactions || cancelledTransactions.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-100 dark:bg-vault-dark-4 border-2 border-dark-300 dark:border-dark-600 mb-4">
-              <svg
-                className="w-8 h-8 text-dark-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </div>
-            <p className="text-lg text-dark-500 font-semibold">No cancelled transactions</p>
-            <p className="text-base text-dark-600 mt-1 font-mono uppercase tracking-wider">
-              Cancelled transactions will appear here
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {cancelledTransactions.slice(0, cancelledVisible).map((tx) => {
-              const decoded = decodeTransaction(tx, walletAddress, tokenMetaMap?.get(tx.to.toLowerCase()) ?? null);
-              const isExpanded = expandedItems.has(tx.hash);
-              const hasDetails = tx.to.toLowerCase() !== walletAddress.toLowerCase() || (Object.keys(tx.approvals).length > 0 && Object.values(tx.approvals).some(v => v));
+      {/* Expired Transactions */}
+      {activeTab === 'expired' && (
+        <HistoricalTransactionTab
+          config={EXPIRED_CONFIG}
+          transactions={expiredTransactions}
+          isLoading={isLoadingExpired}
+          walletAddress={walletAddress}
+          tokenMetaMap={tokenMetaMap}
+          expandedItems={expandedItems}
+          toggleExpanded={toggleExpanded}
+          visible={expiredVisible}
+          onShowMore={() => setExpiredVisible(v => v + PAGE_SIZE)}
+        />
+      )}
 
-              return (
-                <div
-                  key={tx.hash}
-                  className="vault-panel p-5 hover:border-primary-600/30 transition-all opacity-80"
-                >
-                  {/* Transaction Header - Always visible, clickable */}
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(tx.hash)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-4 mb-2 flex-wrap">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-md text-base font-semibold ${decoded.bgColor} ${decoded.textColor} border ${decoded.borderColor} shadow-vault-inner opacity-75`}>
-                            <span className="mr-1.5">{decoded.icon}</span>
-                            {decoded.description}
-                          </span>
-                          <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500">
-                            ✕ Cancelled
-                          </span>
-                        </div>
-                        {decoded.details && (
-                          <p className="text-lg text-dark-600 dark:text-dark-300 font-semibold mt-2">{decoded.details}</p>
-                        )}
-                        <p className="text-base font-mono text-dark-600 mt-2 uppercase tracking-wider">{formatTimestamp(tx.timestamp)}</p>
-                      </div>
-                      <div className="flex items-start gap-3 ml-4 flex-shrink-0">
-                        <div className="text-right">
-                          {tx.value !== '0' && (
-                            <p className="text-base font-display font-bold text-dark-500 dark:text-dark-400">
-                              {parseFloat(formatQuai(tx.value)).toFixed(4)}
-                              <span className="text-lg text-dark-500 ml-1">QUAI</span>
-                            </p>
-                          )}
-                          <div className="flex items-center gap-4 justify-end mt-2">
-                            <p className="text-base font-mono text-dark-600">
-                              {formatAddress(tx.hash)}
-                            </p>
-                          </div>
-                        </div>
-                        {hasDetails && (
-                          <svg className={`w-5 h-5 text-dark-500 transition-transform mt-1 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Expandable Details */}
-                  {isExpanded && (
-                    <div className="mt-4">
-                      {/* Copy hash button row */}
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="text-base font-mono text-dark-600 uppercase tracking-wider">TX Hash:</span>
-                        <span className="text-sm font-mono text-dark-500 dark:text-dark-400">{formatAddress(tx.hash)}</span>
-                        <CopyButton text={tx.hash} size="sm" />
-                      </div>
-
-                      {/* Transaction Details - Only show if not a self-call */}
-                      {tx.to.toLowerCase() !== walletAddress.toLowerCase() && (
-                        <div className="bg-dark-100 dark:bg-vault-dark-4 rounded-md p-4 mb-4 border border-dark-300 dark:border-dark-600 space-y-3">
-                          <div className="flex justify-between text-lg">
-                            <span className="text-base font-mono text-dark-600 uppercase tracking-wider">To:</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-lg text-dark-500 dark:text-dark-400">{formatAddress(tx.to)}</span>
-                              <CopyButton text={tx.to} size="md" />
-                            </div>
-                          </div>
-                          {tx.data !== '0x' && decoded.type === 'contractCall' && (
-                            <div className="flex justify-between text-lg">
-                              <span className="text-base font-mono text-dark-600 uppercase tracking-wider">Data:</span>
-                              <span className="font-mono text-base text-dark-500 break-all max-w-xs text-right">
-                                {tx.data.length > 50 ? `${tx.data.slice(0, 50)}...` : tx.data}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Approvals List */}
-                      {Object.keys(tx.approvals).length > 0 && Object.values(tx.approvals).some(v => v) && (
-                        <div className="vault-divider pt-4 mt-4">
-                          <p className="text-base font-mono text-dark-600 uppercase tracking-wider mb-3">Was approved by:</p>
-                          <div className="space-y-2">
-                            {Object.entries(tx.approvals)
-                              .filter(([, approved]) => approved)
-                              .map(([owner]) => (
-                                <div key={owner} className="flex items-center justify-between p-2 bg-dark-50 dark:bg-vault-dark-3 rounded border border-dark-300 dark:border-dark-600 opacity-75">
-                                  <span className="text-sm font-mono text-dark-500 dark:text-dark-400">{formatAddress(owner)}</span>
-                                  <CopyButton text={owner} size="sm" />
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {cancelledTransactions.length > cancelledVisible && (
-              <button
-                onClick={() => setCancelledVisible(v => v + PAGE_SIZE)}
-                className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors"
-              >
-                Show more ({cancelledTransactions.length - cancelledVisible} remaining)
-              </button>
-            )}
-          </div>
-        )}
-      </div>}
+      {/* Failed Transactions */}
+      {activeTab === 'failed' && (
+        <HistoricalTransactionTab
+          config={FAILED_CONFIG}
+          transactions={failedTransactions}
+          isLoading={isLoadingFailed}
+          walletAddress={walletAddress}
+          tokenMetaMap={tokenMetaMap}
+          expandedItems={expandedItems}
+          toggleExpanded={toggleExpanded}
+          visible={failedVisible}
+          onShowMore={() => setFailedVisible(v => v + PAGE_SIZE)}
+        />
+      )}
 
       {/* Social Recovery Operations */}
       {activeTab === 'recovery' && <div className="vault-panel p-8">

@@ -1,5 +1,5 @@
 import type { Contract, Provider, Signer } from '../../types';
-import type { Transaction, PendingTransaction } from '../../types';
+import type { Transaction, PendingTransaction, TransactionStatus } from '../../types';
 import { BaseService } from './BaseService';
 import {
   formatTransactionError,
@@ -30,7 +30,9 @@ export class TransactionService extends BaseService {
     walletAddress: string,
     to: string,
     value: bigint,
-    data: string
+    data: string,
+    expiration?: number,
+    executionDelay?: number,
   ): Promise<string> {
     validateAddress(walletAddress);
     validateAddress(to);
@@ -62,12 +64,24 @@ export class TransactionService extends BaseService {
       await this.validateProposalGas(wallet, to, value, data);
     }
 
-    // Send transaction
+    // Send transaction — use appropriate overload based on optional params
     const txOptions = isSelfCall ? await this.buildSelfCallOptions(signer) : {};
 
     let tx;
     try {
-      tx = await wallet.proposeTransaction(to, value, data, txOptions);
+      if (expiration != null && executionDelay != null) {
+        // 5-param overload — explicit signature to avoid SDK ambiguity
+        tx = await wallet['proposeTransaction(address,uint256,bytes,uint48,uint32)'](to, value, data, expiration, executionDelay, txOptions);
+      } else if (executionDelay != null) {
+        // executionDelay without expiration — use 5-param overload with 0 expiration (no expiry)
+        tx = await wallet['proposeTransaction(address,uint256,bytes,uint48,uint32)'](to, value, data, 0, executionDelay, txOptions);
+      } else if (expiration != null) {
+        // 4-param overload
+        tx = await wallet['proposeTransaction(address,uint256,bytes,uint48)'](to, value, data, expiration, txOptions);
+      } else {
+        // 3-param overload (most common — no timelock)
+        tx = await wallet['proposeTransaction(address,uint256,bytes)'](to, value, data, txOptions);
+      }
     } catch (error) {
       throw formatTransactionError(error, 'Transaction proposal failed', wallet);
     }
@@ -123,7 +137,7 @@ export class TransactionService extends BaseService {
     }
 
     // Verify on-chain
-    const stillApproved = await wallet.approvals(normalizedHash, signerAddress);
+    const stillApproved = await wallet.hasApproved(normalizedHash, signerAddress);
     if (stillApproved) {
       throw new Error('Approval revocation may have failed - approval still exists on-chain');
     }
@@ -189,6 +203,34 @@ export class TransactionService extends BaseService {
   }
 
   /**
+   * Expire a transaction that has passed its expiration timestamp.
+   * This is a permissionless call — anyone can expire an overdue transaction.
+   */
+  async expireTransaction(walletAddress: string, txHash: string): Promise<void> {
+    validateAddress(walletAddress);
+    const signer = this.requireSigner();
+    const normalizedHash = validateTxHash(txHash);
+    const wallet = this.getWalletContract(walletAddress, signer);
+
+    let tx;
+    try {
+      tx = await wallet.expireTransaction(normalizedHash);
+    } catch (error) {
+      throw formatTransactionError(error, 'Transaction expiration failed', wallet);
+    }
+
+    const receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error('Transaction receipt not available — transaction may have been replaced');
+    }
+
+    if (receipt.status === 0) {
+      throw new Error('Expire transaction reverted');
+    }
+  }
+
+  /**
    * Approve and execute a transaction atomically
    * Prevents frontrunning by combining approval and execution in a single transaction.
    *
@@ -214,7 +256,7 @@ export class TransactionService extends BaseService {
       wallet.transactions(normalizedHash),
       wallet.threshold(),
       wallet.isOwner(signerAddress),
-      wallet.approvals(normalizedHash, signerAddress),
+      wallet.hasApproved(normalizedHash, signerAddress),
     ]);
 
     if (txDetails.to.toLowerCase() === ZERO_ADDRESS) {
@@ -278,16 +320,21 @@ export class TransactionService extends BaseService {
    * Get transaction details
    */
   async getTransaction(walletAddress: string, txHash: string): Promise<Transaction> {
+    validateAddress(walletAddress);
     const wallet = this.getWalletContract(walletAddress);
     const tx = await wallet.transactions(txHash);
 
     return {
       to: tx.to,
+      timestamp: tx.timestamp,
+      expiration: tx.expiration,
+      proposer: tx.proposer,
+      executed: tx.executed,
+      cancelled: tx.cancelled,
+      approvedAt: tx.approvedAt,
+      executionDelay: Number(tx.executionDelay),
       value: tx.value,
       data: tx.data,
-      executed: tx.executed,
-      numApprovals: tx.numApprovals,
-      timestamp: tx.timestamp,
     };
   }
 
@@ -296,6 +343,7 @@ export class TransactionService extends BaseService {
    */
   async getTransactionByHash(walletAddress: string, txHash: string): Promise<PendingTransaction | null> {
     try {
+      validateAddress(walletAddress);
       const wallet = this.getWalletContract(walletAddress);
       const [owners, threshold, tx] = await Promise.all([
         wallet.getOwners(),
@@ -308,19 +356,21 @@ export class TransactionService extends BaseService {
       }
 
       const approvals = await this.getApprovalsForTransaction(wallet, txHash, owners);
+      const derived = this.derivePendingTxFields(tx);
 
       return {
         hash: txHash,
         to: tx.to,
         value: tx.value.toString(),
         data: tx.data,
-        numApprovals: Number(tx.numApprovals),
+        numApprovals: Object.values(approvals).filter(Boolean).length,
         threshold: Number(threshold),
         executed: tx.executed,
         cancelled: tx.cancelled || false,
         timestamp: Number(tx.timestamp),
         proposer: tx.proposer || '',
         approvals,
+        ...derived,
       };
     } catch {
       return null;
@@ -379,13 +429,14 @@ export class TransactionService extends BaseService {
           );
         }
       }
-    } catch (error) {
-      if (error.message?.includes('already exists') || error.message?.includes('already executed')) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('already exists') || msg.includes('already executed')) {
         throw error;
       }
       // Transaction doesn't exist yet — log unexpected errors for diagnostics
-      if (error.message && !error.message.includes('revert') && !error.message.includes('missing revert data')) {
-        console.warn('checkExistingTransaction unexpected error:', error.message);
+      if (msg && !msg.includes('revert') && !msg.includes('missing revert data')) {
+        console.warn('checkExistingTransaction unexpected error:', msg);
       }
     }
     return false;
@@ -401,10 +452,11 @@ export class TransactionService extends BaseService {
     data: string,
   ): Promise<void> {
     try {
-      await wallet.proposeTransaction.estimateGas(to, value, data);
-    } catch (error) {
-      if (error.reason && !error.reason.includes('missing revert data')) {
-        throw new Error(`Transaction proposal would fail: ${error.reason}`);
+      await wallet['proposeTransaction(address,uint256,bytes)'].estimateGas(to, value, data);
+    } catch (error: unknown) {
+      const reason = (error as { reason?: string }).reason;
+      if (reason && !reason.includes('missing revert data')) {
+        throw new Error(`Transaction proposal would fail: ${reason}`);
       }
     }
   }
@@ -473,7 +525,7 @@ export class TransactionService extends BaseService {
       throw new Error('Cannot revoke approval for a cancelled transaction');
     }
 
-    const hasApproved = await wallet.approvals(txHash, signerAddress);
+    const hasApproved = await wallet.hasApproved(txHash, signerAddress);
     if (!hasApproved) {
       throw new Error(TransactionErrors.NOT_APPROVED);
     }
@@ -508,7 +560,9 @@ export class TransactionService extends BaseService {
 
     const isProposer = txDetails.proposer?.toLowerCase() === callerAddress.toLowerCase();
     if (!isProposer) {
-      const currentApprovals = Number(txDetails.numApprovals);
+      const owners = await wallet.getOwners();
+      const approvals = await this.getApprovalsForTransaction(wallet, txHash, owners);
+      const currentApprovals = Object.values(approvals).filter(Boolean).length;
       const requiredThreshold = Number(threshold);
       if (currentApprovals < requiredThreshold) {
         throw new Error(
@@ -540,9 +594,12 @@ export class TransactionService extends BaseService {
     if (txDetails.cancelled) {
       throw new Error('Transaction has been cancelled and cannot be executed');
     }
-    if (txDetails.numApprovals < threshold) {
+    const owners = await wallet.getOwners();
+    const approvals = await this.getApprovalsForTransaction(wallet, txHash, owners);
+    const currentApprovals = Object.values(approvals).filter(Boolean).length;
+    if (currentApprovals < Number(threshold)) {
       throw new Error(TransactionErrors.NOT_ENOUGH_APPROVALS(
-        Number(txDetails.numApprovals),
+        currentApprovals,
         Number(threshold)
       ));
     }
@@ -622,6 +679,47 @@ export class TransactionService extends BaseService {
   }
 
   /**
+   * Derive lifecycle fields for a PendingTransaction from raw contract data.
+   */
+  private derivePendingTxFields(tx: any): {
+    status: TransactionStatus;
+    expiration: number;
+    executionDelay: number;
+    approvedAt: number;
+    executableAfter: number;
+    isExpired: boolean;
+    failedReturnData: string | null;
+  } {
+    const expiration = Number(tx.expiration ?? 0);
+    const executionDelay = Number(tx.executionDelay ?? 0);
+    const approvedAt = Number(tx.approvedAt ?? 0);
+    const executableAfter = approvedAt > 0 ? approvedAt + executionDelay : 0;
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = expiration > 0 && now >= expiration;
+
+    let status: TransactionStatus;
+    if (tx.executed) {
+      status = 'executed';
+    } else if (tx.cancelled) {
+      status = 'cancelled';
+    } else if (isExpired) {
+      status = 'expired';
+    } else {
+      status = 'pending';
+    }
+
+    return {
+      status,
+      expiration,
+      executionDelay,
+      approvedAt,
+      executableAfter,
+      isExpired,
+      failedReturnData: null,
+    };
+  }
+
+  /**
    * Get approvals for each owner
    * Uses Promise.all for parallel fetching instead of sequential loop
    */
@@ -632,7 +730,7 @@ export class TransactionService extends BaseService {
   ): Promise<{ [owner: string]: boolean }> {
     const approvalResults = await Promise.all(
       owners.map(async (owner) => {
-        const approved = await wallet.approvals(txHash, owner);
+        const approved = await wallet.hasApproved(txHash, owner);
         return { owner: owner.toLowerCase(), approved };
       })
     );
@@ -652,6 +750,7 @@ export class TransactionService extends BaseService {
     eventName: string,
     filterFn: (tx: any) => boolean
   ): Promise<PendingTransaction[]> {
+    validateAddress(walletAddress);
     const wallet = this.getWalletContract(walletAddress);
     const [owners, threshold] = await Promise.all([
       wallet.getOwners(),
@@ -696,18 +795,20 @@ export class TransactionService extends BaseService {
           if (!filterFn(tx)) return null;
 
           const approvals = await this.getApprovalsForTransaction(wallet, txHash, owners);
+          const derived = this.derivePendingTxFields(tx);
           return {
             hash: txHash,
             to: tx.to,
             value: tx.value.toString(),
             data: tx.data,
-            numApprovals: Number(tx.numApprovals),
+            numApprovals: Object.values(approvals).filter(Boolean).length,
             threshold: Number(threshold),
             executed: tx.executed,
             cancelled: tx.cancelled || false,
             timestamp: Number(tx.timestamp),
             proposer: tx.proposer || proposer,
             approvals,
+            ...derived,
           } as PendingTransaction;
         })
       );

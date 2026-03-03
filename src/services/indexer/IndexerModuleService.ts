@@ -1,27 +1,16 @@
 import { supabase } from '../../config/supabase';
 import {
-  DailyLimitStateSchema,
-  WhitelistEntrySchema,
   SocialRecoveryConfigSchema,
   SocialRecoverySchema,
   RecoveryApprovalSchema,
-  type DailyLimitState,
-  type WhitelistEntry,
-  type SocialRecoveryConfig,
   type SocialRecovery,
   type RecoveryApproval,
 } from '../../types/database';
-import { validateAddress } from '../utils/TransactionErrorHandler';
+import { validateAddress, validateTxHash } from '../utils/TransactionErrorHandler';
 
 export interface ModuleStatus {
   address: string;
   isActive: boolean;
-}
-
-export interface DailyLimitConfig {
-  limit: string;
-  spent: string;
-  lastResetDay: string;
 }
 
 export interface RecoveryConfig {
@@ -38,16 +27,6 @@ export interface PendingRecovery {
   requiredThreshold: number;
   executionTime: number;
   status: string;
-}
-
-export interface ModuleTransactionRecord {
-  moduleType: string;
-  toAddress: string;
-  value: string;
-  remainingLimit: string | null;
-  executedAtBlock: number;
-  executedAtTx: string;
-  createdAt: string;
 }
 
 export class IndexerModuleService {
@@ -126,67 +105,6 @@ export class IndexerModuleService {
     }
 
     return data[0]?.is_active ?? false;
-  }
-
-  /**
-   * Get daily limit configuration from daily_limit_state table
-   */
-  async getDailyLimitConfig(walletAddress: string): Promise<DailyLimitConfig | null> {
-    const client = this.ensureClient();
-    const validatedWallet = validateAddress(walletAddress);
-
-    const { data, error } = await client
-      .from('daily_limit_state')
-      .select('*')
-      .eq('wallet_address', validatedWallet.toLowerCase())
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      if (this.isTableNotFoundError(error)) {
-        throw new Error('daily_limit_state table not available');
-      }
-      throw new Error(`Indexer query failed: ${error.message}`);
-    }
-
-    const validated = DailyLimitStateSchema.parse(data);
-    return {
-      limit: validated.daily_limit,
-      spent: validated.spent_today,
-      lastResetDay: validated.last_reset_day,
-    };
-  }
-
-  /**
-   * Get whitelist entries from whitelist_entries table
-   */
-  async getWhitelistEntries(walletAddress: string): Promise<Array<{
-    address: string;
-    limit: string | null;
-  }>> {
-    const client = this.ensureClient();
-    const validatedWallet = validateAddress(walletAddress);
-
-    const { data, error } = await client
-      .from('whitelist_entries')
-      .select('*')
-      .eq('wallet_address', validatedWallet.toLowerCase())
-      .eq('is_active', true);
-
-    if (error) {
-      if (this.isTableNotFoundError(error)) {
-        throw new Error('whitelist_entries table not available');
-      }
-      throw new Error(`Indexer query failed: ${error.message}`);
-    }
-
-    return (data ?? []).map((entry: unknown) => {
-      const validated = WhitelistEntrySchema.parse(entry);
-      return {
-        address: validated.whitelisted_address,
-        limit: validated.limit_amount,
-      };
-    });
   }
 
   /**
@@ -273,55 +191,6 @@ export class IndexerModuleService {
   }
 
   /**
-   * Get module transaction history (whitelist/daily limit bypass transactions)
-   */
-  async getModuleTransactions(
-    walletAddress: string,
-    moduleType?: 'whitelist' | 'daily_limit'
-  ): Promise<ModuleTransactionRecord[]> {
-    const client = this.ensureClient();
-    const validatedWallet = validateAddress(walletAddress);
-
-    let query = client
-      .from('module_transactions')
-      .select('*')
-      .eq('wallet_address', validatedWallet.toLowerCase())
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (moduleType) {
-      query = query.eq('module_type', moduleType);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      if (this.isTableNotFoundError(error)) {
-        throw new Error('module_transactions table not available');
-      }
-      throw new Error(`Indexer query failed: ${error.message}`);
-    }
-
-    return (data ?? []).map((tx: {
-      module_type: string;
-      to_address: string;
-      value: string;
-      remaining_limit: string | null;
-      executed_at_block: number;
-      executed_at_tx: string;
-      created_at: string;
-    }) => ({
-      moduleType: tx.module_type,
-      toAddress: tx.to_address,
-      value: tx.value,
-      remainingLimit: tx.remaining_limit,
-      executedAtBlock: tx.executed_at_block,
-      executedAtTx: tx.executed_at_tx,
-      createdAt: tx.created_at,
-    }));
-  }
-
-  /**
    * Get social recovery history (all statuses) for a wallet
    */
   async getRecoveryHistory(walletAddress: string): Promise<SocialRecovery[]> {
@@ -351,12 +220,13 @@ export class IndexerModuleService {
   async getRecoveryApprovals(walletAddress: string, recoveryHash: string): Promise<RecoveryApproval[]> {
     const client = this.ensureClient();
     const validatedWallet = validateAddress(walletAddress);
+    const validatedHash = validateTxHash(recoveryHash);
 
     const { data, error } = await client
       .from('social_recovery_approvals')
       .select('*')
       .eq('wallet_address', validatedWallet.toLowerCase())
-      .eq('recovery_hash', recoveryHash)
+      .eq('recovery_hash', validatedHash)
       .order('created_at', { ascending: true });
 
     if (error) {

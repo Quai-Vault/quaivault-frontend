@@ -13,6 +13,7 @@ export function CreateWallet() {
     { id: crypto.randomUUID(), value: '' },
   ]);
   const [threshold, setThreshold] = useState(1);
+  const [minExecutionDelay, setMinExecutionDelay] = useState<string>('');
   const [errors, setErrors] = useState<string[]>([]);
   const [showFlow, setShowFlow] = useState(false);
 
@@ -96,10 +97,12 @@ export function CreateWallet() {
   ): Promise<string> => {
     const validOwners = owners.filter(o => o.trim() !== '');
     
+    const delaySeconds = minExecutionDelay ? Number(minExecutionDelay) * 60 : 0;
     return await multisigService.deployWallet(
       {
         owners: validOwners,
         threshold,
+        minExecutionDelay: delaySeconds > 0 ? delaySeconds : undefined,
       },
       onProgress
     );
@@ -257,6 +260,32 @@ export function CreateWallet() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Timelock Section */}
+        <div className="mb-8">
+          <div className="mb-4">
+            <label className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-2">
+              Minimum Execution Delay (Optional)
+            </label>
+            <p className="text-lg text-dark-500 dark:text-dark-400">
+              Require a delay between threshold approval and execution. Set to 0 or leave empty for no timelock.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <input
+              type="number"
+              min={0}
+              value={minExecutionDelay}
+              onChange={(e) => setMinExecutionDelay(e.target.value)}
+              placeholder="0"
+              className="input-field w-24"
+            />
+            <span className="text-lg font-mono text-dark-500 dark:text-dark-400">
+              minutes
+            </span>
+          </div>
         </div>
 
         {/* Errors */}

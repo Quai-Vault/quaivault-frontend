@@ -172,13 +172,17 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
                 {!ownerVaultsCollapsed && (
                   <div className="space-y-3">
                     {userWallets.map((walletAddress) => {
-                      const isActive = location.pathname === `/wallet/${walletAddress}` || location.pathname.startsWith(`/wallet/${walletAddress}/`);
+                      const pathLower = location.pathname.toLowerCase();
+                      const walletLower = walletAddress.toLowerCase();
+                      const isActive = pathLower === `/wallet/${walletLower}` || pathLower.startsWith(`/wallet/${walletLower}/`);
                       const isDualRole = dualRoleAddresses.has(walletAddress.toLowerCase());
                       return (
                         <div
                           key={walletAddress}
-                          className={`vault-panel p-4 hover:border-primary-600/50 transition-all ${
-                            isActive ? 'border-primary-600/50 bg-dark-100 dark:bg-vault-dark-4' : ''
+                          className={`vault-panel p-4 transition-all ${
+                            isActive
+                              ? 'border-primary-500 dark:border-primary-500 ring-1 ring-primary-500/30 bg-primary-50 dark:bg-primary-900/20'
+                              : 'hover:border-primary-600/50'
                           }`}
                         >
                           <Link
@@ -228,12 +232,16 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
                 {!guardianVaultsCollapsed && (
                   <div className="space-y-3">
                     {guardianOnlyWallets.map((walletAddress) => {
-                      const isActive = location.pathname === `/wallet/${walletAddress}` || location.pathname.startsWith(`/wallet/${walletAddress}/`);
+                      const pathLower = location.pathname.toLowerCase();
+                      const walletLower = walletAddress.toLowerCase();
+                      const isActive = pathLower === `/wallet/${walletLower}` || pathLower.startsWith(`/wallet/${walletLower}/`);
                       return (
                         <div
                           key={walletAddress}
-                          className={`vault-panel p-4 border-l-2 border-l-blue-500 hover:border-blue-400/50 transition-all ${
-                            isActive ? 'border-blue-400/50 bg-dark-100 dark:bg-vault-dark-4' : ''
+                          className={`vault-panel p-4 border-l-2 border-l-blue-500 transition-all ${
+                            isActive
+                              ? 'border-blue-400 dark:border-blue-400 ring-1 ring-blue-400/30 bg-blue-50 dark:bg-blue-900/20'
+                              : 'hover:border-blue-400/50'
                           }`}
                         >
                           <Link

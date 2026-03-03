@@ -65,12 +65,17 @@ export function RevokeApprovalModal({
             <div className="flex justify-between items-center">
               <span className="text-base font-mono text-dark-500 dark:text-dark-400 uppercase tracking-wider">Approvals:</span>
               <span className="text-dark-700 dark:text-dark-200 font-semibold">
-                <span className="text-primary-500 dark:text-primary-400">{transaction.numApprovals}</span>
+                <span className="text-primary-500 dark:text-primary-400">{Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals}</span>
                 <span className="text-dark-500 mx-2">/</span>
                 <span className="text-dark-600 dark:text-dark-300">{transaction.threshold}</span>
               </span>
             </div>
           </div>
+          {transaction.approvedAt > 0 && (
+            <p className="mt-3 text-xs text-dark-500 dark:text-dark-400">
+              Note: This transaction has already reached threshold approval. Revoking your approval will reduce the approval count but the approval timestamp remains set by design.
+            </p>
+          )}
         </div>
 
         <TransactionFlow

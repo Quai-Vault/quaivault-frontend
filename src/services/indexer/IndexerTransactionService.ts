@@ -84,7 +84,7 @@ export class IndexerTransactionService {
       .from('transactions')
       .select('*', { count: 'exact' })
       .eq('wallet_address', validatedWallet.toLowerCase())
-      .in('status', ['executed', 'cancelled'])
+      .in('status', ['executed', 'cancelled', 'expired', 'failed'])
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -186,6 +186,40 @@ export class IndexerTransactionService {
     });
 
     return result;
+  }
+
+  async getExpiredTransactions(walletAddress: string): Promise<IndexerTransaction[]> {
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client
+      .from('transactions')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase())
+      .eq('status', 'expired')
+      .order('created_at', { ascending: false })
+      .limit(this.MAX_LIMIT);
+
+    if (error) throw new Error(`Indexer query failed: ${error.message}`);
+
+    return (data ?? []).map((tx: unknown) => TransactionSchema.parse(tx));
+  }
+
+  async getFailedTransactions(walletAddress: string): Promise<IndexerTransaction[]> {
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client
+      .from('transactions')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase())
+      .eq('status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(this.MAX_LIMIT);
+
+    if (error) throw new Error(`Indexer query failed: ${error.message}`);
+
+    return (data ?? []).map((tx: unknown) => TransactionSchema.parse(tx));
   }
 
   async getDeposits(

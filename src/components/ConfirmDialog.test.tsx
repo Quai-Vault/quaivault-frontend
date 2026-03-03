@@ -118,15 +118,16 @@ describe('ConfirmDialog', () => {
     });
 
     it('should show spinner when isLoading is true', () => {
-      const { container } = render(<ConfirmDialog {...defaultProps} isLoading={true} />);
+      render(<ConfirmDialog {...defaultProps} isLoading={true} />);
 
-      expect(container.querySelector('.animate-spin')).toBeInTheDocument();
+      // ConfirmDialog renders via Modal portal — query document.body
+      expect(document.body.querySelector('.animate-spin')).toBeInTheDocument();
     });
 
     it('should not show spinner when isLoading is false', () => {
-      const { container } = render(<ConfirmDialog {...defaultProps} isLoading={false} />);
+      render(<ConfirmDialog {...defaultProps} isLoading={false} />);
 
-      expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+      expect(document.body.querySelector('.animate-spin')).not.toBeInTheDocument();
     });
 
     it('should not trigger callbacks when disabled', () => {

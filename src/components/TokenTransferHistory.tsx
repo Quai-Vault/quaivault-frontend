@@ -13,8 +13,12 @@ interface TokenTransferHistoryProps {
   walletAddress: string;
 }
 
-function formatTokenAmount(value: string, decimals: number | null): string {
+function formatTokenAmount(value: string, decimals: number | null, hasTokenId: boolean): string {
   try {
+    // ERC721/ERC1155 transfers (have token_id) use raw integer quantities, not decimal-scaled amounts
+    if (hasTokenId) {
+      return value;
+    }
     return parseFloat(formatUnits(BigInt(value), decimals ?? 18)).toFixed(
       (decimals ?? 18) > 4 ? 4 : (decimals ?? 18)
     );
@@ -142,7 +146,7 @@ export function TokenTransferHistory({ walletAddress }: TokenTransferHistoryProp
                       </div>
                       {/* Amount */}
                       <p className="text-lg text-dark-700 dark:text-dark-200 font-semibold mt-2">
-                        {isInflow ? '+' : '-'}{formatTokenAmount(transfer.value, token?.decimals ?? null)} {token?.symbol ?? 'tokens'}
+                        {isInflow ? '+' : '-'}{formatTokenAmount(transfer.value, token?.decimals ?? null, !!transfer.token_id)} {token?.symbol ?? 'tokens'}
                       </p>
                       {/* Block number */}
                       <p className="text-base font-mono text-dark-500 mt-2 uppercase tracking-wider">

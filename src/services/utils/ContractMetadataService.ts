@@ -1,11 +1,10 @@
-import { JsonRpcProvider, Interface, Contract as QuaisContract, getAddress } from 'quais';
+import { Interface, Contract as QuaisContract, getAddress } from 'quais';
 import { decode, AuxdataStyle } from '@ethereum-sourcify/bytecode-utils';
 import { NETWORK_CONFIG, CONTRACT_ADDRESSES } from '../../config/contracts';
+import { getActiveProvider } from '../../config/provider';
 import QuaiVaultABI from '../../config/abi/QuaiVault.json';
 import QuaiVaultFactoryABI from '../../config/abi/QuaiVaultFactory.json';
 import SocialRecoveryModuleABI from '../../config/abi/SocialRecoveryModule.json';
-import DailyLimitModuleABI from '../../config/abi/DailyLimitModule.json';
-import WhitelistModuleABI from '../../config/abi/WhitelistModule.json';
 import MultiSendABI from '../../config/abi/MultiSend.json';
 
 const IPFS_GATEWAY = NETWORK_CONFIG.IPFS_GATEWAY;
@@ -27,8 +26,6 @@ function registerKnownAbi(address: string | undefined, abi: { abi: any[] }, name
 registerKnownAbi(CONTRACT_ADDRESSES.QUAIVAULT_IMPLEMENTATION, QuaiVaultABI, 'QuaiVault');
 registerKnownAbi(CONTRACT_ADDRESSES.QUAIVAULT_FACTORY, QuaiVaultFactoryABI, 'QuaiVault Factory');
 registerKnownAbi(CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE, SocialRecoveryModuleABI, 'Social Recovery');
-registerKnownAbi(CONTRACT_ADDRESSES.DAILY_LIMIT_MODULE, DailyLimitModuleABI, 'Daily Limit');
-registerKnownAbi(CONTRACT_ADDRESSES.WHITELIST_MODULE, WhitelistModuleABI, 'Whitelist');
 registerKnownAbi(CONTRACT_ADDRESSES.MULTISEND, MultiSendABI, 'MultiSend');
 
 export interface AbiResult {
@@ -42,13 +39,18 @@ interface CacheEntry {
   source: 'ipfs' | 'explorer' | 'known' | null;
 }
 
-const provider = new JsonRpcProvider(
-  NETWORK_CONFIG.RPC_URL,
-  undefined,
-  { usePathing: true }
-);
+const MAX_CACHE_ENTRIES = 200;
 
 const cache = new Map<string, CacheEntry>();
+
+/** Evict oldest entries when cache exceeds max size. */
+function enforceLimit(map: Map<string, unknown>, max: number) {
+  while (map.size > max) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+    else break;
+  }
+}
 
 /**
  * Check if an address is a deployed contract.
@@ -60,9 +62,10 @@ export async function isContract(address: string): Promise<boolean> {
 
   const checksummed = getAddress(address);
   try {
-    const code = await provider.getCode(checksummed);
+    const code = await getActiveProvider().getCode(checksummed);
     const result = code !== '0x' && code !== '0x0' && code.length > 2;
     cache.set(key, { isContract: result, abi: null, source: null });
+    enforceLimit(cache, MAX_CACHE_ENTRIES);
     return result;
   } catch (e) {
     console.error('[ContractMetadata] getCode failed for', checksummed, e);
@@ -111,6 +114,7 @@ function updateCache(key: string, abi: any[] | null, source: 'ipfs' | 'explorer'
     abi,
     source,
   });
+  enforceLimit(cache, MAX_CACHE_ENTRIES);
 }
 
 /**
@@ -122,7 +126,7 @@ async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | nul
 
   try {
     const checksummed = getAddress(address);
-    const bytecode = await provider.getCode(checksummed);
+    const bytecode = await getActiveProvider().getCode(checksummed);
     if (!bytecode || bytecode === '0x' || bytecode.length <= 2) return null;
 
     // Check for EIP-1167 minimal proxy
@@ -205,7 +209,7 @@ function looksLikeProxy(abi: any[]): boolean {
  */
 async function getEip1967Implementation(proxyAddress: string): Promise<string | null> {
   try {
-    const slot = await provider.getStorage(getAddress(proxyAddress), EIP_1967_IMPL_SLOT);
+    const slot = await getActiveProvider().getStorage(getAddress(proxyAddress), EIP_1967_IMPL_SLOT);
     if (!slot || slot === '0x' || slot === '0x' + '0'.repeat(64)) return null;
     // Address is in the last 20 bytes (40 hex chars) of the 32-byte slot
     return '0x' + slot.slice(-40);
@@ -216,10 +220,13 @@ async function getEip1967Implementation(proxyAddress: string): Promise<string | 
 
 // --- Contract type detection ---
 
-export type ContractType = 'erc20' | 'erc721' | 'generic';
+export type ContractType = 'erc20' | 'erc721' | 'erc1155' | 'generic';
 
 /**
- * Detect whether an ABI represents an ERC20 or ERC721 contract.
+ * Detect whether an ABI represents an ERC20, ERC721, or ERC1155 contract.
+ * Order matters: ERC1155 is checked before ERC721 because both share
+ * safeTransferFrom and setApprovalForAll. ERC1155 is distinguished by
+ * balanceOfBatch and safeBatchTransferFrom (unique to ERC1155).
  */
 export function detectContractType(abi: any[]): ContractType {
   const functionNames = new Set(
@@ -227,6 +234,12 @@ export function detectContractType(abi: any[]): ContractType {
       .filter((item: any) => item.type === 'function')
       .map((item: any) => item.name)
   );
+
+  // ERC1155: unique markers — balanceOfBatch + safeBatchTransferFrom
+  const erc1155Markers = ['balanceOfBatch', 'safeBatchTransferFrom', 'setApprovalForAll'];
+  if (erc1155Markers.every((m) => functionNames.has(m))) {
+    return 'erc1155';
+  }
 
   // ERC721: has ownerOf + safeTransferFrom (distinguishes from ERC20)
   const erc721Markers = ['ownerOf', 'safeTransferFrom', 'approve', 'setApprovalForAll'];
@@ -267,7 +280,7 @@ export async function fetchTokenMetadata(address: string): Promise<TokenMetadata
   const cached = tokenMetadataCache.get(key);
   if (cached) return cached;
 
-  const contract = new QuaisContract(getAddress(address), ERC20_METADATA_ABI, provider);
+  const contract = new QuaisContract(getAddress(address), ERC20_METADATA_ABI, getActiveProvider());
   const [name, symbol, decimals] = await Promise.allSettled([
     contract.name() as Promise<string>,
     contract.symbol() as Promise<string>,
@@ -281,6 +294,7 @@ export async function fetchTokenMetadata(address: string): Promise<TokenMetadata
   };
 
   tokenMetadataCache.set(key, result);
+  enforceLimit(tokenMetadataCache, MAX_CACHE_ENTRIES);
   return result;
 }
 
@@ -303,7 +317,7 @@ export async function getTokenBalance(
   walletAddress: string,
 ): Promise<bigint | null> {
   try {
-    const contract = new QuaisContract(getAddress(tokenAddress), ERC20_BALANCE_ABI, provider);
+    const contract = new QuaisContract(getAddress(tokenAddress), ERC20_BALANCE_ABI, getActiveProvider());
     const balance: bigint = await contract.balanceOf(getAddress(walletAddress));
     return balance;
   } catch (e) {
@@ -321,7 +335,7 @@ export async function getNftOwner(
   tokenId: string,
 ): Promise<string | null> {
   try {
-    const contract = new QuaisContract(getAddress(tokenAddress), ERC721_OWNER_ABI, provider);
+    const contract = new QuaisContract(getAddress(tokenAddress), ERC721_OWNER_ABI, getActiveProvider());
     const owner: string = await contract.ownerOf(tokenId);
     return owner;
   } catch (e) {

@@ -31,8 +31,6 @@ export type { RecoveryConfig, Recovery, PendingRecovery } from './modules/Social
 export { WalletService } from './core/WalletService';
 export { TransactionService } from './core/TransactionService';
 export { OwnerService } from './core/OwnerService';
-export { WhitelistModuleService } from './modules/WhitelistModuleService';
-export { DailyLimitModuleService } from './modules/DailyLimitModuleService';
 export { SocialRecoveryModuleService } from './modules/SocialRecoveryModuleService';
 
 // Re-export indexer service

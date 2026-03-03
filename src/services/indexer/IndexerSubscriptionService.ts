@@ -9,6 +9,8 @@ import {
   WalletModuleSchema,
   WalletOwnerSchema,
   SocialRecoverySchema,
+  SocialRecoveryConfigSchema,
+  SocialRecoveryGuardianSchema,
   RecoveryApprovalSchema,
   TokenTransferSchema,
   IndexerStateSchema,
@@ -106,6 +108,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -191,6 +199,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -258,6 +272,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -341,6 +361,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -440,6 +466,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -522,6 +554,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -604,6 +642,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -686,6 +730,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -737,7 +787,12 @@ export class IndexerSubscriptionService {
             filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
           },
           (payload) => {
-            callbacks.onInsert?.(payload.new);
+            const parsed = SocialRecoveryConfigSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onInsert?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid recovery config payload: ${parsed.error.message}`));
+            }
           }
         )
         .on(
@@ -749,7 +804,12 @@ export class IndexerSubscriptionService {
             filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
           },
           (payload) => {
-            callbacks.onUpdate?.(payload.new);
+            const parsed = SocialRecoveryConfigSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onUpdate?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid recovery config payload: ${parsed.error.message}`));
+            }
           }
         )
         .on(
@@ -761,7 +821,12 @@ export class IndexerSubscriptionService {
             filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
           },
           (payload) => {
-            callbacks.onInsert?.(payload.new);
+            const parsed = SocialRecoveryGuardianSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onInsert?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid guardian payload: ${parsed.error.message}`));
+            }
           }
         )
         .on(
@@ -773,7 +838,12 @@ export class IndexerSubscriptionService {
             filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
           },
           (payload) => {
-            callbacks.onUpdate?.(payload.new);
+            const parsed = SocialRecoveryGuardianSchema.safeParse(payload.new);
+            if (parsed.success) {
+              callbacks.onUpdate?.(parsed.data);
+            } else {
+              callbacks.onError?.(new Error(`Invalid guardian payload: ${parsed.error.message}`));
+            }
           }
         )
         .subscribe((status) => {
@@ -786,6 +856,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -868,6 +944,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -933,6 +1015,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -996,6 +1084,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
@@ -1061,6 +1155,12 @@ export class IndexerSubscriptionService {
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             this.handleReconnect(channelName, subscribe, callbacks.onError);
           } else if (status === 'CLOSED') {
+            // Cancel any pending reconnect timeout to prevent duplicate subscriptions
+            const pendingTimeout = this.reconnectTimeouts.get(channelName);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              this.reconnectTimeouts.delete(channelName);
+            }
             this.channels.delete(channelName);
             this.reconnectAttempts.delete(channelName);
             this.isReconnecting.delete(channelName);
