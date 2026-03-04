@@ -52,6 +52,11 @@ export class MultisigService {
   private indexerCheckTimestamp = 0;
   private indexerCheckPromise: Promise<boolean> | null = null;
 
+  // Serial queue for getBalance calls — Pelagus serializes RPC internally,
+  // so concurrent calls just pile up and timeout. Running them one at a time
+  // ensures each gets a fair shot.
+  private balanceQueue: Promise<bigint> = Promise.resolve(0n);
+
   constructor(provider?: Provider) {
     this.wallet = new WalletService(provider);
     this.transaction = new TransactionService(provider);
@@ -104,6 +109,17 @@ export class MultisigService {
   }
 
   /**
+   * Enqueue a getBalance call so it runs serially (not concurrently).
+   * Each call waits for the previous one to finish before starting.
+   */
+  private fetchBalanceSerial(address: string): Promise<bigint> {
+    this.balanceQueue = this.balanceQueue
+      .catch(() => {}) // don't let a previous failure block the queue
+      .then(() => getActiveProvider().getBalance(address));
+    return this.balanceQueue;
+  }
+
+  /**
    * Set signer for signing transactions
    */
   setSigner(signer: Signer | null): void {
@@ -144,16 +160,11 @@ export class MultisigService {
     // Try indexer first for faster response
     if (indexerAvailable) {
       try {
-        // Fire balance fetch in parallel with indexer queries — balance is the
-        // slowest call (Pelagus signer bridge init) so starting it early saves
-        // 100-300ms vs fetching sequentially after the indexer responds.
+        // Fire balance fetch in parallel with indexer queries.
+        // Uses a serial queue so concurrent wallet cards don't overwhelm
+        // Pelagus's serialized RPC bridge (which causes timeouts).
         const balancePromise: Promise<bigint> = hasWalletProvider()
-          ? Promise.race([
-              getActiveProvider().getBalance(checksummedAddress),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('getBalance timed out')), 8000)
-              ),
-            ]).catch((err) => {
+          ? this.fetchBalanceSerial(checksummedAddress).catch((err) => {
               console.warn('[MultisigService] getBalance failed:', err instanceof Error ? err.message : err);
               return 0n;
             })

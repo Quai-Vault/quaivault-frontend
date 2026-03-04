@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState, memo, useCallback, useRef, useEffect } from 'react';
 import { useMultisig } from '../hooks/useMultisig';
-import { formatQuai } from 'quais';
-import { formatAddress } from '../utils/formatting';
+import { formatAddress, formatCompactBalance } from '../utils/formatting';
 import { copyToClipboard as copyText } from '../utils/clipboard';
 import { TIMING } from '../config/contracts';
 
@@ -111,8 +110,8 @@ export const WalletCard = memo(function WalletCard({ walletAddress, compact = fa
               {walletInfo.threshold}/{walletInfo.owners.length}
             </span>
           )}
-          <span className={`${balanceColor} font-display font-semibold`}>
-            {parseFloat(formatQuai(walletInfo.balance)).toFixed(3)} QUAI
+          <span className={`${balanceColor} font-display font-semibold truncate`}>
+            {formatCompactBalance(walletInfo.balance)} QUAI
           </span>
         </div>
       </div>
@@ -211,7 +210,7 @@ export const WalletCard = memo(function WalletCard({ walletAddress, compact = fa
             )}
           </div>
           <span className={`text-xl font-display font-bold ${isGuardianRole ? 'text-blue-400' : 'text-gradient-red'}`}>
-            {parseFloat(formatQuai(walletInfo.balance)).toFixed(3)}
+            {formatCompactBalance(walletInfo.balance)}
             <span className="text-lg text-dark-500 ml-1">QUAI</span>
           </span>
         </div>

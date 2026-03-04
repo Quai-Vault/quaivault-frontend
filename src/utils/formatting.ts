@@ -1,6 +1,7 @@
 /**
  * Common formatting utilities
  */
+import { formatQuai as formatQuaiImport } from 'quais';
 
 /** Zero address constant for null transaction detection */
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -87,6 +88,19 @@ export function formatExpiration(timestamp: number): string {
     return `Expired ${formatDuration(Math.abs(Math.ceil(diff)))} ago`;
   }
   return `Expires in ${formatDuration(Math.ceil(diff))}`;
+}
+
+/**
+ * Format a QUAI balance compactly for space-constrained UI (e.g. sidebar).
+ * Abbreviates large values: 1,234,567.89 → "1.23M", 45,678 → "45.7K".
+ * Values under 1000 are shown with up to 3 decimal places.
+ */
+export function formatCompactBalance(weiString: string): string {
+  const val = parseFloat(formatQuaiImport(weiString));
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
+  if (val >= 10_000) return `${(val / 1_000).toFixed(1)}K`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(2)}K`;
+  return val.toFixed(3);
 }
 
 /**

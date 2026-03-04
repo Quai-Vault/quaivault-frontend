@@ -13,13 +13,12 @@ import { EmptyState } from '../components/EmptyState';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
 import { multisigService } from '../services/MultisigService';
 import { CONTRACT_ADDRESSES, TIMING } from '../config/contracts';
-import { formatQuai } from 'quais';
 import { ExplorerLink } from '../components/ExplorerLink';
 import { TokenBalancePanel } from '../components/TokenBalancePanel';
 import { NftHoldingsPanel } from '../components/NftHoldingsPanel';
 import { Erc1155HoldingsPanel } from '../components/Erc1155HoldingsPanel';
 import { IndexerStatusBanner } from '../components/IndexerStatusBanner';
-import { formatDuration } from '../utils/formatting';
+import { formatDuration, formatCompactBalance } from '../utils/formatting';
 
 export function WalletDetail() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -222,7 +221,7 @@ export function WalletDetail() {
                 )}
               </div>
               <p className="text-lg font-display font-bold text-gradient-red vault-text-glow">
-                {parseFloat(formatQuai(walletInfo.balance)).toFixed(4)}
+                {formatCompactBalance(walletInfo.balance)}
                 <span className="text-base text-primary-600 dark:text-primary-400 ml-1">QUAI</span>
               </p>
             </div>
