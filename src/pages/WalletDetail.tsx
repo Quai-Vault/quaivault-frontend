@@ -29,6 +29,7 @@ export function WalletDetail() {
     walletInfo,
     pendingTransactions,
     isLoadingInfo,
+    walletInfoError,
     isLoadingTransactions,
     isRefetchingWalletInfo,
     isRefetchingPending,
@@ -110,6 +111,11 @@ export function WalletDetail() {
           </div>
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Vault Not Found</h2>
           <p className="text-dark-500">The requested vault could not be found or accessed.</p>
+          {walletInfoError && (
+            <p className="mt-4 text-sm text-red-500 font-mono break-all">
+              {walletInfoError instanceof Error ? walletInfoError.message : String(walletInfoError)}
+            </p>
+          )}
         </div>
       </div>
     );

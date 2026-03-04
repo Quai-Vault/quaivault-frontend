@@ -12,6 +12,7 @@ import { SocialRecoveryModuleService } from './modules/SocialRecoveryModuleServi
 import { indexerService } from './indexer';
 import { convertIndexerTransaction } from './utils/TransactionConverter';
 import { INDEXER_CONFIG } from '../config/supabase';
+import { getActiveProvider, hasWalletProvider } from '../config/provider';
 import { validateAddress, validateTxHash } from './utils/TransactionErrorHandler';
 import { transactionBuilderService } from './TransactionBuilderService';
 import type { SocialRecovery, RecoveryApproval } from '../types/database';
@@ -143,16 +144,29 @@ export class MultisigService {
     // Try indexer first for faster response
     if (indexerAvailable) {
       try {
+        // Fire balance fetch in parallel with indexer queries — balance is the
+        // slowest call (Pelagus signer bridge init) so starting it early saves
+        // 100-300ms vs fetching sequentially after the indexer responds.
+        const balancePromise = hasWalletProvider()
+          ? Promise.race([
+              getActiveProvider().getBalance(checksummedAddress),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('getBalance timed out')), 3000)
+              ),
+            ]).catch((err) => {
+              console.warn('[MultisigService] getBalance failed:', err instanceof Error ? err.message : err);
+              return 0n;
+            })
+          : Promise.resolve(0n);
+
         // Indexer services convert to lowercase internally for queries
-        const [wallet, owners] = await Promise.all([
+        const [wallet, owners, balance] = await Promise.all([
           indexerService.wallet.getWalletDetails(walletAddress),
           indexerService.wallet.getWalletOwners(walletAddress),
+          balancePromise,
         ]);
 
         if (wallet) {
-          // Balance comes from blockchain - use checksummed address for RPC
-          const balance = await this.wallet.getBalance(checksummedAddress);
-
           // Return checksummed addresses for display and blockchain compatibility
           return {
             address: checksummedAddress,
@@ -167,7 +181,11 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain - use checksummed address
+    // Fallback to blockchain — only if wallet provider is available.
+    // The sharedProvider (public RPC) may be CORS-blocked and hang forever.
+    if (!hasWalletProvider()) {
+      throw new Error('Wallet info unavailable: no wallet provider and indexer failed');
+    }
     return this.wallet.getWalletInfo(checksummedAddress);
   }
 
@@ -185,7 +203,7 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain
+    if (!hasWalletProvider()) return [];
     return this.wallet.getWalletsForOwner(ownerAddress);
   }
 
@@ -220,7 +238,7 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain - use checksummed addresses for RPC calls
+    if (!hasWalletProvider()) return false;
     return this.wallet.isOwner(getAddress(walletAddress), getAddress(address));
   }
 
@@ -238,7 +256,7 @@ export class MultisigService {
       }
     }
 
-    // Use checksummed addresses for RPC calls
+    if (!hasWalletProvider()) return false;
     return this.wallet.isModuleEnabled(getAddress(walletAddress), moduleAddress);
   }
 
@@ -420,7 +438,8 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain
+    // Fallback to blockchain — only if wallet provider is available.
+    if (!hasWalletProvider()) return null;
     return this.transaction.getTransactionByHash(validatedWallet, validatedHash);
   }
 
@@ -458,6 +477,8 @@ export class MultisigService {
       }
     }
 
+    // Fallback to blockchain — only if wallet provider is available.
+    if (!hasWalletProvider()) return [];
     return this.transaction.getPendingTransactions(validatedWallet);
   }
 
@@ -513,7 +534,8 @@ export class MultisigService {
       }
     }
 
-    // Blockchain fallback — expired/failed are only trackable via indexer
+    // Blockchain fallback — only if wallet provider is available.
+    if (!hasWalletProvider()) return [];
     switch (status) {
       case 'executed':
         return this.transaction.getExecutedTransactions(validatedWallet);
@@ -611,7 +633,9 @@ export class MultisigService {
             recoveryPeriod: Number(config.recoveryPeriod),
           };
         }
-        // No config or empty guardians (indexer race condition) - fall through to blockchain
+        // Indexer returned null → wallet has no social recovery config.
+        // This is a definitive answer, not an indexer failure — return empty config.
+        return { guardians: [], threshold: 0, recoveryPeriod: 0 };
       } catch (error) {
         // Silently fall back to blockchain - table may not exist in indexer schema
         const errorMessage = error instanceof Error ? error.message : '';
@@ -621,7 +645,11 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain - convert bigint to number for React Query serialization
+    // Fallback to blockchain - only if wallet provider is available.
+    // The sharedProvider (public RPC) may be CORS-blocked and hang forever.
+    if (!hasWalletProvider()) {
+      return { guardians: [], threshold: 0, recoveryPeriod: 0 };
+    }
     const blockchainConfig = await this.socialRecovery.getRecoveryConfig(walletAddress);
     return {
       guardians: blockchainConfig.guardians,
@@ -639,13 +667,15 @@ export class MultisigService {
           const normalizedAddress = address.toLowerCase();
           return config.guardians.some((g) => g.toLowerCase() === normalizedAddress);
         }
-        // No config or empty guardians - fall through to blockchain
+        // Indexer returned null → wallet has no social recovery config → not a guardian.
+        return false;
       } catch (err) {
         console.warn('[MultisigService] isGuardian indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
       }
     }
 
-    // Fallback to blockchain
+    // Fallback to blockchain — only if wallet provider is available.
+    if (!hasWalletProvider()) return false;
     return this.socialRecovery.isGuardian(walletAddress, address);
   }
 
@@ -674,7 +704,8 @@ export class MultisigService {
       }
     }
 
-    // Fallback to blockchain (limited to recent blocks) - convert bigint to number for React Query
+    // Fallback to blockchain — only if wallet provider is available.
+    if (!hasWalletProvider()) return [];
     const blockchainRecoveries = await this.socialRecovery.getPendingRecoveries(walletAddress);
     return blockchainRecoveries.map((r) => ({
       recoveryHash: r.recoveryHash,

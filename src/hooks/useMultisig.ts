@@ -153,6 +153,7 @@ export function useMultisig(walletAddress?: string) {
   const {
     walletInfo,
     isLoadingInfo,
+    walletInfoError,
     refetchWalletInfo,
     isRefetchingWalletInfo,
     userWallets,
@@ -1404,6 +1405,7 @@ export function useMultisig(walletAddress?: string) {
     // Loading states
     isLoading: isLoadingInfo || isLoadingTransactions || isLoadingHistory || isLoadingCancelled || isLoadingWallets || isLoadingGuardianWallets,
     isLoadingInfo,
+    walletInfoError,
     isLoadingTransactions,
     isLoadingHistory,
     isLoadingCancelled,

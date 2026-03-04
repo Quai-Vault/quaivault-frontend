@@ -127,7 +127,7 @@ export class TransactionService extends BaseService {
     // Pre-validation
     await this.validateRevokeApproval(wallet, normalizedHash, signerAddress);
 
-    const nonce = await this.provider.getTransactionCount(signerAddress, 'pending');
+    const nonce = await this.requireProvider().getTransactionCount(signerAddress, 'pending');
     const tx = await wallet.revokeApproval(normalizedHash, { nonce });
 
     const receipt = await tx.wait();
@@ -469,7 +469,7 @@ export class TransactionService extends BaseService {
 
     try {
       const callerAddress = await signer.getAddress();
-      const currentNonce = await this.provider.getTransactionCount(callerAddress, 'pending');
+      const currentNonce = await this.requireProvider().getTransactionCount(callerAddress, 'pending');
       txOptions.nonce = currentNonce;
     } catch {
       // Use default nonce if explicit nonce fails

@@ -48,19 +48,20 @@ export function useWallet() {
   // the signer to never be set under React 18 strict mode (effects run twice, second run skipped).
   useEffect(() => {
     if (!connector || !isConnected || !address) return;
+    // Connector may not have getProvider (e.g. during HMR or with certain connector types)
+    if (typeof connector.getProvider !== 'function') return;
 
     // Guard against stale async callbacks during rapid account switches / strict mode double-invoke
     let isActive = true;
 
     connector.getProvider()
-      .then((rawProvider) => {
+      .then(async (rawProvider) => {
         if (!isActive || !rawProvider) return;
-        return providerToQuaisSigner(
-          rawProvider as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
-        );
-      })
-      .then((signer) => {
-        if (!isActive || !signer) return;
+
+        const typedProvider = rawProvider as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
+
+        const signer = await providerToQuaisSigner(typedProvider);
+        if (!isActive) return;
         signerRef.current = signer;
         setWalletProvider(signer.provider as Provider);
         multisigService.setSigner(signer);

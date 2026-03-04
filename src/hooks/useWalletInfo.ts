@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { Shard } from 'quais';
 import { useWalletStore } from '../store/walletStore';
 import { multisigService } from '../services/MultisigService';
 import { usePageVisibility } from './usePageVisibility';
 import { detectClockSkew } from '../utils/clockSkew';
-import { getActiveProvider } from '../config/provider';
+import { getActiveProvider, hasWalletProvider } from '../config/provider';
 
 // Polling intervals (in milliseconds)
 const POLLING_INTERVALS = {
@@ -27,23 +28,37 @@ export function useWalletInfo(walletAddress?: string) {
   const {
     data: walletInfo,
     isLoading: isLoadingInfo,
+    error: walletInfoError,
     refetch: refetchWalletInfo,
     isRefetching: isRefetchingWalletInfo,
   } = useQuery({
-    queryKey: ['walletInfo', walletAddress],
+    // Include connectedAddress so the query re-runs once the wallet's signer
+    // bridge completes — this switches the provider from the (possibly dead)
+    // public RPC to the wallet extension's own RPC.
+    queryKey: ['walletInfo', walletAddress, connectedAddress],
     queryFn: async () => {
       if (!walletAddress) return null;
-      const info = await multisigService.getWalletInfo(walletAddress);
+      // Timeout to prevent hanging queries from blocking the UI forever
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Wallet info fetch timed out after 15s')), 15000)
+      );
+      const info = await Promise.race([
+        multisigService.getWalletInfo(walletAddress),
+        timeout,
+      ]);
       // Fire-and-forget clock skew detection — must not block the query
-      getActiveProvider().getBlock('latest').then(block => {
-        if (block?.timestamp) {
-          detectClockSkew(Number(block.timestamp));
-        }
-      }).catch(() => {});
+      if (hasWalletProvider()) {
+        getActiveProvider().getBlock(Shard.Cyprus1, 'latest').then(block => {
+          if (block?.timestamp) {
+            detectClockSkew(Number(block.timestamp));
+          }
+        }).catch(() => {});
+      }
       return info;
     },
     enabled: !!walletAddress && isPageVisible,
     staleTime: POLLING_INTERVALS.WALLET_INFO,
+    retry: 1, // Fail fast — the wallet provider retry (via key change) handles recovery
     refetchInterval: isPageVisible ? POLLING_INTERVALS.WALLET_INFO : false,
   });
 
@@ -82,6 +97,7 @@ export function useWalletInfo(walletAddress?: string) {
   return {
     walletInfo,
     isLoadingInfo,
+    walletInfoError,
     refetchWalletInfo,
     isRefetchingWalletInfo,
     userWallets,

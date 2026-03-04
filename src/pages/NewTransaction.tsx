@@ -74,6 +74,7 @@ export function NewTransaction() {
   const [executionDelay, setExecutionDelay] = useState<string>(''); // numeric value in current unit
   const [delayUnit, setDelayUnit] = useState<DelayUnit>('minutes');
   const [assetValidationWarning, setAssetValidationWarning] = useState<string | null>(null);
+  const [signAction, setSignAction] = useState<'sign' | 'unsign'>('sign');
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Deep-link pre-selection props
@@ -146,9 +147,9 @@ export function NewTransaction() {
       case 'send-nft': return 'Propose NFT Transfer';
       case 'send-erc1155': return 'Propose ERC1155 Transfer';
       case 'contract-call': return 'Propose Transaction';
-      case 'sign-message': return 'Propose Message Signing';
+      case 'sign-message': return signAction === 'unsign' ? 'Propose Message Unsigning' : 'Propose Message Signing';
     }
-  }, [mode]);
+  }, [mode, signAction]);
 
   // Pre-compute whether value exceeds vault balance (avoids parseValue in render path)
   const exceedsBalance = useMemo(() => {
@@ -537,6 +538,7 @@ export function NewTransaction() {
             onToChange={setTo}
             onValueChange={setValue}
             onDataChange={setData}
+            onActionChange={setSignAction}
           />
         )}
 
@@ -644,8 +646,8 @@ export function NewTransaction() {
           </>
         )}
 
-        {/* Advanced Options for non send-quai modes (send-quai has its own inline section) */}
-        {mode !== 'send-quai' && (
+        {/* Advanced Options — hidden for send-quai (has its own inline section) and sign-message (self-calls bypass delay) */}
+        {mode !== 'send-quai' && mode !== 'sign-message' && (
           <AdvancedOptions
             expiration={expiration}
             onExpirationChange={setExpiration}

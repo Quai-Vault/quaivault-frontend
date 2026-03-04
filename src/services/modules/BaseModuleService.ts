@@ -30,7 +30,7 @@ export abstract class BaseModuleService extends BaseService {
     return new QuaisContract(
       this.moduleAddress,
       this.moduleAbi,
-      signerOrProvider || this.provider
+      signerOrProvider || this.requireProvider()
     ) as Contract;
   }
 
@@ -59,7 +59,7 @@ export abstract class BaseModuleService extends BaseService {
     const signer = this.requireSigner();
     let txService = this.transactionService;
     if (!txService) {
-      txService = new TransactionService(this.provider);
+      txService = new TransactionService(this.provider!);
     }
     txService.setSigner(signer);
 

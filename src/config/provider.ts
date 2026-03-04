@@ -1,25 +1,8 @@
-import { JsonRpcProvider } from 'quais';
-import { NETWORK_CONFIG } from './contracts';
 import type { Provider } from '../types';
 
-/**
- * Shared JsonRpcProvider singleton.
- * quais JsonRpcProvider is safe for concurrent requests — no need for
- * multiple instances pointing at the same RPC URL.
- *
- * NOTE: This provider's _detectNetwork() blocks all requests until the RPC
- * responds. When the RPC is down, operations will hang until retries exhaust.
- * Use getActiveProvider() to prefer the wallet's BrowserProvider when available.
- */
-export const sharedProvider = new JsonRpcProvider(
-  NETWORK_CONFIG.RPC_URL,
-  undefined,
-  { usePathing: true }
-);
-
 // Wallet's BrowserProvider — set when wallet connects, cleared on disconnect.
-// The BrowserProvider routes reads through the wallet extension's own RPC
-// connection, which works even when the public RPC endpoint is down.
+// Routes reads through the wallet extension's own RPC connection (Pelagus or
+// WalletConnect), bypassing CORS issues with the public RPC endpoint.
 let walletProvider: Provider | null = null;
 
 /**
@@ -31,10 +14,22 @@ export function setWalletProvider(provider: Provider | null): void {
 }
 
 /**
- * Get the best available provider for read operations.
- * Prefers the wallet's BrowserProvider (already authenticated, working RPC)
- * when connected; falls back to the shared JsonRpcProvider.
+ * Get the wallet's BrowserProvider for read operations.
+ * Throws if no wallet is connected — callers must either guard with
+ * hasWalletProvider() or handle the error.
  */
 export function getActiveProvider(): Provider {
-  return walletProvider || sharedProvider;
+  if (!walletProvider) {
+    throw new Error('No wallet provider available. Connect wallet first.');
+  }
+  return walletProvider;
+}
+
+/**
+ * Whether the wallet's BrowserProvider is available.
+ * Use this to guard read-only operations that should be skipped
+ * when no wallet is connected.
+ */
+export function hasWalletProvider(): boolean {
+  return walletProvider !== null;
 }

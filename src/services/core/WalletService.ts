@@ -13,15 +13,21 @@ import QuaiVaultProxyABI from '../../config/abi/QuaiVaultProxy.json';
  * Handles wallet deployment, info retrieval, and factory interactions
  */
 export class WalletService extends BaseService {
-  private factoryContract: Contract;
+  private _factoryContract: Contract | null = null;
 
-  constructor(provider?: Provider) {
-    super(provider);
-    this.factoryContract = new Contract(
-      CONTRACT_ADDRESSES.QUAIVAULT_FACTORY,
-      QuaiVaultFactoryABI.abi,
-      this.provider
-    );
+  /**
+   * Lazy factory contract — created on first access so the constructor
+   * doesn't need a provider (services are instantiated at module load).
+   */
+  private get factoryContract(): Contract {
+    if (!this._factoryContract) {
+      this._factoryContract = new Contract(
+        CONTRACT_ADDRESSES.QUAIVAULT_FACTORY,
+        QuaiVaultFactoryABI.abi,
+        this.requireProvider()
+      );
+    }
+    return this._factoryContract;
   }
 
   /**
@@ -30,13 +36,11 @@ export class WalletService extends BaseService {
   setSigner(signer: Signer | null): void {
     super.setSigner(signer);
     if (signer) {
-      this.factoryContract = this.factoryContract.connect(signer) as Contract;
+      // Reconnect existing contract with signer for write operations
+      this._factoryContract = this.factoryContract.connect(signer) as Contract;
     } else {
-      this.factoryContract = new Contract(
-        CONTRACT_ADDRESSES.QUAIVAULT_FACTORY,
-        QuaiVaultFactoryABI.abi,
-        this.provider
-      );
+      // Reset so it rebuilds with current provider on next access
+      this._factoryContract = null;
     }
   }
 
@@ -59,7 +63,7 @@ export class WalletService extends BaseService {
       if (!implAddress || implAddress === ZeroAddress) {
         errors.push('Implementation address is not set');
       } else {
-        const code = await this.provider.getCode(implAddress);
+        const code = await this.requireProvider().getCode(implAddress);
         if (code === '0x') {
           errors.push(`Implementation contract at ${implAddress} has no code`);
         }
@@ -270,7 +274,7 @@ export class WalletService extends BaseService {
     const [owners, threshold, balance, minExecutionDelay] = await Promise.all([
       wallet.getOwners(),
       wallet.threshold(),
-      this.provider.getBalance(walletAddress),
+      this.requireProvider().getBalance(walletAddress),
       wallet.minExecutionDelay().catch(() => 0n),
     ]);
 
@@ -311,7 +315,7 @@ export class WalletService extends BaseService {
    * Get the balance of a wallet address
    */
   async getBalance(walletAddress: string): Promise<bigint> {
-    return await this.provider.getBalance(walletAddress);
+    return await this.requireProvider().getBalance(walletAddress);
   }
 
   /**
