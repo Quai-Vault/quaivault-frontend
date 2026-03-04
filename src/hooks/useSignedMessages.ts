@@ -33,8 +33,6 @@ async function fetchSignedMessages(walletAddress: string): Promise<SignedMessage
     { limit: 100 }
   );
 
-  console.log('[SignedMessages] Indexer returned', result.data.length, 'transactions');
-
   // Step 2: Filter to executed signMessage self-calls
   const signMessageTxs = result.data.filter((tx) => {
     const data = tx.data ?? '';
@@ -44,8 +42,6 @@ async function fetchSignedMessages(walletAddress: string): Promise<SignedMessage
       data.toLowerCase().startsWith(SIGN_MESSAGE_SELECTOR)
     );
   });
-
-  console.log('[SignedMessages] Filtered to', signMessageTxs.length, 'signMessage self-calls');
 
   // Step 3: Decode calldata to extract original message bytes
   const candidates = new Map<string, SignedMessage>();
@@ -70,7 +66,6 @@ async function fetchSignedMessages(walletAddress: string): Promise<SignedMessage
     }
   }
 
-  console.log('[SignedMessages] Decoded', candidates.size, 'candidates');
   if (candidates.size === 0) return [];
 
   // Step 4: Verify on-chain which are still signed
@@ -79,24 +74,21 @@ async function fetchSignedMessages(walletAddress: string): Promise<SignedMessage
   const provider = getActiveProvider();
   const contract = new QuaisContract(walletAddress, QuaiVaultABI.abi, provider);
 
-  const verified: SignedMessage[] = [];
-  for (const entry of candidates.values()) {
+  const checks = Array.from(candidates.values()).map(async (entry) => {
     try {
       const msgHash: string = await contract.getMessageHash(entry.messageBytes);
       const isSigned = await contract.signedMessages(msgHash);
-      console.log('[SignedMessages] On-chain check for', msgHash, '→', isSigned, typeof isSigned);
       if (isSigned) {
-        // Update entry with the actual on-chain hash
-        entry.msgHash = msgHash;
-        verified.push(entry);
+        return { ...entry, msgHash };
       }
     } catch (e) {
       console.error('[SignedMessages] On-chain check failed for', entry.msgHash, e);
     }
-  }
+    return null;
+  });
 
-  console.log('[SignedMessages] Verified', verified.length, 'of', candidates.size, 'candidates');
-  return verified;
+  const results = await Promise.all(checks);
+  return results.filter((r): r is SignedMessage => r !== null);
 }
 
 export function useSignedMessages(walletAddress?: string) {

@@ -296,22 +296,27 @@ export function TransactionPreview({
           {(() => {
             const userDelay = executionDelay ?? 0;
             const vaultDelay = minExecutionDelay ?? 0;
-            const totalDelay = vaultDelay + userDelay;
-            if (totalDelay > 0) {
+            const effectiveDelay = Math.max(vaultDelay, userDelay);
+            if (effectiveDelay > 0) {
               return (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Effective Delay:</span>
-                    <span className="text-dark-700 dark:text-dark-200 font-semibold">{formatDuration(totalDelay)}</span>
+                    <span className="text-dark-700 dark:text-dark-200 font-semibold">{formatDuration(effectiveDelay)}</span>
                   </div>
-                  {vaultDelay > 0 && userDelay > 0 && (
+                  {vaultDelay > 0 && userDelay > vaultDelay && (
                     <p className="text-sm font-mono text-dark-500">
-                      Vault timelock ({formatDuration(vaultDelay)}) + your delay ({formatDuration(userDelay)})
+                      Your delay ({formatDuration(userDelay)}) overrides vault minimum ({formatDuration(vaultDelay)})
+                    </p>
+                  )}
+                  {vaultDelay > 0 && userDelay <= vaultDelay && userDelay > 0 && (
+                    <p className="text-sm font-mono text-dark-500">
+                      Vault minimum ({formatDuration(vaultDelay)}) applies
                     </p>
                   )}
                   {vaultDelay > 0 && userDelay === 0 && (
                     <p className="text-sm font-mono text-dark-500">
-                      Vault timelock
+                      Vault minimum timelock
                     </p>
                   )}
                 </div>

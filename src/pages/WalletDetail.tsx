@@ -274,28 +274,6 @@ export function WalletDetail() {
               </div>
             </div>
 
-            {/* Status */}
-            <div className="col-span-2">
-              <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Your Status</h3>
-              <div className="flex flex-wrap gap-2">
-                {isOwner ? (
-                  <span className="inline-flex items-center gap-1.5 text-primary-600 dark:text-primary-400 text-lg font-semibold">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary-600"></div>
-                    Owner
-                  </span>
-                ) : null}
-                {isGuardian && (
-                  <span className="inline-flex items-center gap-1.5 text-blue-400 text-lg font-semibold">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
-                    Guardian
-                  </span>
-                )}
-                {!isOwner && !isGuardian && (
-                  <span className="text-dark-500 text-lg">Viewer</span>
-                )}
-              </div>
-            </div>
-
             {/* Indexer status warning */}
             <div className="col-span-2">
               <IndexerStatusBanner />
@@ -319,14 +297,26 @@ export function WalletDetail() {
             owners={walletInfo.owners}
             threshold={walletInfo.threshold}
             onUpdate={refresh}
+            isGuardian={!!isGuardian}
           />
         ) : (
           <div className="vault-panel p-4">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Owners</h2>
-              <span className="vault-badge text-base">
-                {walletInfo.owners.length}
-              </span>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Owners</h2>
+                <span className="vault-badge text-base">
+                  {walletInfo.owners.length}
+                </span>
+                {isGuardian && (
+                  <span className="inline-flex items-center gap-1.5 text-blue-400 text-sm font-semibold">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                    Guardian
+                  </span>
+                )}
+                {!isGuardian && (
+                  <span className="text-dark-500 text-sm">Viewer</span>
+                )}
+              </div>
             </div>
             <div className="max-h-[400px] overflow-y-auto pr-1">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

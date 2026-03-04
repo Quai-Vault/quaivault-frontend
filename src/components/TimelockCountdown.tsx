@@ -1,23 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { formatDuration } from '../utils/formatting';
 
 interface TimelockCountdownProps {
   /** Unix timestamp (seconds) when execution becomes available */
   executableAfter: number;
+  /** Called once when the countdown reaches zero */
+  onElapsed?: () => void;
 }
 
-export function TimelockCountdown({ executableAfter }: TimelockCountdownProps) {
+export function TimelockCountdown({ executableAfter, onElapsed }: TimelockCountdownProps) {
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Math.max(0, Math.ceil(executableAfter - Date.now() / 1000))
   );
+  const elapsedFired = useRef(false);
 
   useEffect(() => {
-    if (secondsLeft <= 0) return;
+    if (secondsLeft <= 0) {
+      if (!elapsedFired.current && onElapsed) {
+        elapsedFired.current = true;
+        onElapsed();
+      }
+      return;
+    }
 
     const id = setInterval(() => {
       const remaining = Math.max(0, Math.ceil(executableAfter - Date.now() / 1000));
       setSecondsLeft(remaining);
-      if (remaining <= 0) clearInterval(id);
+      if (remaining <= 0) {
+        clearInterval(id);
+        if (!elapsedFired.current && onElapsed) {
+          elapsedFired.current = true;
+          onElapsed();
+        }
+      }
     }, 1000);
 
     return () => clearInterval(id);

@@ -25,7 +25,7 @@ import {
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { TimelockCountdown } from './TimelockCountdown';
-import { formatAddress, formatTimestamp, formatDuration, formatExpiration } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatDuration } from '../utils/formatting';
 import { indexerService } from '../services';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -69,6 +69,10 @@ const TransactionItem = memo(function TransactionItem({
   onCancel,
   onExpire,
 }: TransactionItemProps) {
+  // Bumped when a timelock countdown reaches zero, forcing re-evaluation of memoized state
+  const [timelockTick, setTimelockTick] = useState(0);
+  const handleTimelockElapsed = useCallback(() => setTimelockTick(t => t + 1), []);
+
   // Memoize approval-related computed values using centralized transaction state logic
   const {
     hasApproved,
@@ -111,7 +115,8 @@ const TransactionItem = memo(function TransactionItem({
       timelocked: computeIsTimelocked(tx),
       canExpireIt: computeCanExpire(tx),
     };
-  }, [tx, connectedAddress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tx, connectedAddress, timelockTick]);
 
   return (
     <div className="vault-panel p-5 hover:border-primary-600/50 transition-all duration-300">
@@ -125,7 +130,7 @@ const TransactionItem = memo(function TransactionItem({
             </span>
             {/* Status badges based on 5-state lifecycle */}
             {timelocked ? (
-              <TimelockCountdown executableAfter={tx.executableAfter} />
+              <TimelockCountdown executableAfter={tx.executableAfter} onElapsed={handleTimelockElapsed} />
             ) : tx.executionDelay > 0 && (
               <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-yellow-900 to-yellow-950 text-yellow-300 border border-yellow-700 shadow-vault-inner">
                 <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
@@ -134,14 +139,31 @@ const TransactionItem = memo(function TransactionItem({
                 Execution Delay: {formatDuration(tx.executionDelay)}
               </span>
             )}
-            {(canExpireIt || tx.status === 'expired') && (
+            {(canExpireIt || tx.status === 'expired') ? (
               <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-orange-700 to-orange-800 text-orange-200 border border-orange-600 shadow-vault-inner">
                 <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 Expired
               </span>
-            )}
+            ) : tx.expiration > 0 && tx.status === 'pending' && (() => {
+              const expiresAt = new Date(tx.expiration * 1000);
+              const expiresDate = expiresAt.toLocaleDateString(undefined, {
+                month: 'short', day: 'numeric',
+                year: expiresAt.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+              });
+              const expiresTime = expiresAt.toLocaleTimeString(undefined, {
+                hour: 'numeric', minute: '2-digit',
+              });
+              return (
+                <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-orange-900 to-orange-950 text-orange-300 border border-orange-700 shadow-vault-inner">
+                  <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  Expires {expiresDate} at {expiresTime}
+                </span>
+              );
+            })()}
             {tx.status === 'failed' && (
               <span className="inline-flex items-center px-3 py-1.5 rounded text-base font-semibold bg-gradient-to-r from-red-700 to-red-800 text-red-200 border border-red-600 shadow-vault-inner">
                 <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
@@ -159,14 +181,6 @@ const TransactionItem = memo(function TransactionItem({
               </span>
             )}
           </div>
-          {/* Expiration metadata */}
-          {tx.expiration > 0 && tx.status === 'pending' && !canExpireIt && (
-            <div className="flex flex-wrap items-center gap-3 mt-1">
-              <span className="text-sm font-mono text-dark-500 dark:text-dark-400">
-                {formatExpiration(tx.expiration)}
-              </span>
-            </div>
-          )}
           {decoded.details && (
             <p className="text-base text-dark-600 dark:text-dark-300 font-medium mt-1 mb-0.5">{decoded.details}</p>
           )}

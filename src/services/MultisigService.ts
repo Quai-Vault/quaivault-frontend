@@ -147,11 +147,11 @@ export class MultisigService {
         // Fire balance fetch in parallel with indexer queries — balance is the
         // slowest call (Pelagus signer bridge init) so starting it early saves
         // 100-300ms vs fetching sequentially after the indexer responds.
-        const balancePromise = hasWalletProvider()
+        const balancePromise: Promise<bigint> = hasWalletProvider()
           ? Promise.race([
               getActiveProvider().getBalance(checksummedAddress),
               new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('getBalance timed out')), 3000)
+                setTimeout(() => reject(new Error('getBalance timed out')), 8000)
               ),
             ]).catch((err) => {
               console.warn('[MultisigService] getBalance failed:', err instanceof Error ? err.message : err);

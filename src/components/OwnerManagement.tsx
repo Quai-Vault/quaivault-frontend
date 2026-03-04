@@ -10,9 +10,10 @@ interface OwnerManagementProps {
   owners: string[];
   threshold: number;
   onUpdate: () => void;
+  isGuardian?: boolean;
 }
 
-export function OwnerManagement({ walletAddress, owners, threshold, onUpdate }: OwnerManagementProps) {
+export function OwnerManagement({ walletAddress, owners, threshold, onUpdate, isGuardian }: OwnerManagementProps) {
   const { address: connectedAddress } = useWallet();
   const [showAddOwner, setShowAddOwner] = useState(false);
   const [ownerToRemove, setOwnerToRemove] = useState<string | null>(null);
@@ -39,6 +40,16 @@ export function OwnerManagement({ walletAddress, owners, threshold, onUpdate }: 
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Owners</h2>
           <span className="vault-badge text-base">{owners.length}</span>
+          <span className="inline-flex items-center gap-1.5 text-primary-600 dark:text-primary-400 text-sm font-semibold">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary-600"></div>
+            Owner
+          </span>
+          {isGuardian && (
+            <span className="inline-flex items-center gap-1.5 text-blue-400 text-sm font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+              Guardian
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowAddOwner(true)}

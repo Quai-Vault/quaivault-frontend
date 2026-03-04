@@ -105,7 +105,28 @@ export function NewTransaction() {
     setAssetValidationWarning(null);
   }, []);
 
-  // Contract detection and ABI fetching (only active in contract-call mode)
+  // Switch to contract-call mode while preserving the `to` address
+  const switchToContractCall = useCallback(() => {
+    setMode('contract-call');
+    setValue('');
+    setData('0x');
+    setErrors([]);
+    setTokenMeta(null);
+    setNftMeta(null);
+    setTokenRecipient('');
+    setTokenAmount('');
+    setNftRecipient('');
+    setErc1155Meta(null);
+    setErc1155Recipient('');
+    setErc1155Quantity('');
+    setExpiration('');
+    setExecutionDelay('');
+    setDelayUnit('minutes');
+    setAssetValidationWarning(null);
+    setSignAction('sign');
+  }, []);
+
+  // Contract detection and ABI fetching
   const {
     isContract: isRecipientContract,
     isDetecting: isDetectingContract,
@@ -449,6 +470,23 @@ export function NewTransaction() {
                 placeholder="0x..."
                 className="input-field w-full"
               />
+              {isRecipientContract === true && (
+                <div className="mt-3 bg-blue-900/30 border border-blue-700 rounded-md p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-blue-200 font-mono">This address is a smart contract.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={switchToContractCall}
+                    className="shrink-0 px-4 py-1.5 rounded-md border border-blue-600 bg-blue-600/20 text-sm font-mono text-blue-200 hover:bg-blue-600/40 transition-colors cursor-pointer"
+                  >
+                    Switch to Contract Call
+                  </button>
+                </div>
+              )}
             </div>
             <div className="mb-8">
               <label htmlFor="value" className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
@@ -469,7 +507,7 @@ export function NewTransaction() {
                 <p className="mt-1 text-base font-mono text-dark-500 dark:text-dark-400">
                   Vault balance: <span className={`font-semibold ${
                     exceedsBalance ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
-                  }`}>{transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI</span>
+                  }`}>{`${transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI`}</span>
                 </p>
               )}
             </div>
@@ -607,7 +645,7 @@ export function NewTransaction() {
                 <p className="mt-1 text-base font-mono text-dark-500 dark:text-dark-400">
                   Vault balance: <span className={`font-semibold ${
                     exceedsBalance ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
-                  }`}>{transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI</span>
+                  }`}>{`${transactionBuilderService.formatValue(BigInt(walletInfo.balance))} QUAI`}</span>
                 </p>
               )}
             </div>

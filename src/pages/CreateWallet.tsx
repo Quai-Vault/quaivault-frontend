@@ -14,6 +14,8 @@ export function CreateWallet() {
   ]);
   const [threshold, setThreshold] = useState(1);
   const [minExecutionDelay, setMinExecutionDelay] = useState<string>('');
+  const [delayUnit, setDelayUnit] = useState<'minutes' | 'hours' | 'days'>('minutes');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [showFlow, setShowFlow] = useState(false);
 
@@ -97,7 +99,8 @@ export function CreateWallet() {
   ): Promise<string> => {
     const validOwners = owners.filter(o => o.trim() !== '');
     
-    const delaySeconds = minExecutionDelay ? Number(minExecutionDelay) * 60 : 0;
+    const unitMultiplier = delayUnit === 'days' ? 86400 : delayUnit === 'hours' ? 3600 : 60;
+    const delaySeconds = minExecutionDelay ? Number(minExecutionDelay) * unitMultiplier : 0;
     return await multisigService.deployWallet(
       {
         owners: validOwners,
@@ -262,30 +265,56 @@ export function CreateWallet() {
           )}
         </div>
 
-        {/* Timelock Section */}
+        {/* Advanced Options */}
         <div className="mb-8">
-          <div className="mb-4">
-            <label className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-2">
-              Minimum Execution Delay (Optional)
-            </label>
-            <p className="text-lg text-dark-500 dark:text-dark-400">
-              Require a delay between threshold approval and execution. Set to 0 or leave empty for no timelock.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-3 text-base font-mono text-dark-500 uppercase tracking-wider hover:text-dark-700 dark:hover:text-dark-300 transition-colors"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${showAdvanced ? '' : '-rotate-90'}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            Advanced Options
+          </button>
 
-          <div className="flex items-center gap-4">
-            <input
-              type="number"
-              min={0}
-              value={minExecutionDelay}
-              onChange={(e) => setMinExecutionDelay(e.target.value)}
-              placeholder="0"
-              className="input-field w-24"
-            />
-            <span className="text-lg font-mono text-dark-500 dark:text-dark-400">
-              minutes
-            </span>
-          </div>
+          {showAdvanced && (
+            <div className="mt-4 pl-7">
+              <div className="mb-3">
+                <label className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-2">
+                  Minimum Execution Delay
+                </label>
+                <p className="text-lg text-dark-500 dark:text-dark-400">
+                  Require a delay between threshold approval and execution. Leave empty or 0 for no timelock.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  value={minExecutionDelay}
+                  onChange={(e) => setMinExecutionDelay(e.target.value)}
+                  placeholder="0"
+                  className="input-field w-24"
+                />
+                <select
+                  value={delayUnit}
+                  onChange={(e) => setDelayUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                  className="input-field w-auto"
+                >
+                  <option value="minutes">minutes</option>
+                  <option value="hours">hours</option>
+                  <option value="days">days</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Errors */}

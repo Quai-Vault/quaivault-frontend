@@ -123,15 +123,20 @@ export function AdvancedOptions({
             </div>
             {minExecutionDelay != null && minExecutionDelay > 0 && (() => {
               const userDelay = delayToSeconds(executionDelay, delayUnit) ?? 0;
-              const effectiveDelay = minExecutionDelay + userDelay;
+              const effectiveDelay = Math.max(minExecutionDelay, userDelay);
               return (
                 <div className="mt-2 space-y-1">
                   <p className="text-base font-mono text-dark-600">
-                    Vault default timelock: {formatDuration(minExecutionDelay)}
+                    Vault minimum timelock: {formatDuration(minExecutionDelay)}
                   </p>
-                  {userDelay > 0 && (
+                  {userDelay > 0 && userDelay > minExecutionDelay && (
                     <p className="text-base font-mono text-primary-500">
-                      Effective delay: {formatDuration(minExecutionDelay)} + {formatDuration(userDelay)} = {formatDuration(effectiveDelay)}
+                      Effective delay: {formatDuration(effectiveDelay)} (overrides vault minimum)
+                    </p>
+                  )}
+                  {userDelay > 0 && userDelay <= minExecutionDelay && (
+                    <p className="text-base font-mono text-dark-500">
+                      Effective delay: {formatDuration(effectiveDelay)} (vault minimum applies)
                     </p>
                   )}
                 </div>

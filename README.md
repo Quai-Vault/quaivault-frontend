@@ -4,31 +4,35 @@ Multisig wallet management UI for Quai Network, powered by QuaiVault smart contr
 
 ## Related Repositories
 
-- **[quaivault-contracts](../quaivault-contracts/)** - Smart contracts (QuaiVault, ProxyFactory, modules)
-- **[quaivault-indexer](../quaivault-indexer/)** - Supabase-based blockchain event indexer
+- **[quaivault-contracts](../quaivault-contracts/)** — Smart contracts (QuaiVault, ProxyFactory, modules)
+- **[quaivault-indexer](../quaivault-indexer/)** — Supabase-based blockchain event indexer
 
 ## Key Features
 
-- **Decentralized-First**: All core functionality works directly via RPC without backend dependencies
-- **Real-Time Updates**: Supabase subscriptions with polling fallback
-- **Hybrid Data Fetching**: Indexer for fast reads, blockchain for writes, automatic fallback
-- **Transaction Management**: Propose, approve, execute, cancel, and revoke approvals
-- **Owner Management**: Add/remove owners and change approval thresholds via multisig
-- **Module Management**: DailyLimit, Whitelist, SocialRecovery configuration
-- **Transaction History**: View executed and cancelled transactions with detailed decoding
-- **Modern UI**: Dark vault theme with responsive design and comprehensive notifications
+- **Decentralized-First** — All core functionality works directly via RPC without backend dependencies
+- **Real-Time Updates** — Supabase subscriptions with automatic polling fallback
+- **Hybrid Data Fetching** — Indexer for fast reads, blockchain for writes, automatic fallback when indexer is unavailable
+- **Transaction Management** — Propose, approve, execute, cancel, and revoke approvals with configurable timelocks and expiration
+- **Multi-Asset Support** — Native QUAI, ERC-20 tokens, ERC-721 NFTs, and ERC-1155 semi-fungibles
+- **Owner Management** — Add/remove owners and change approval thresholds via multisig proposals
+- **Social Recovery** — Guardian-based vault recovery via the SocialRecoveryModule
+- **Message Signing** — EIP-1271 message signing and unsigning with browsable history
+- **Contract Interaction** — ABI auto-fetch, function selector, and custom calldata builder
+- **Modern UI** — Dark vault theme with responsive design, toast notifications, and accessibility features
 
 ## Tech Stack
 
-- **React 18** with TypeScript
-- **Vite** for build tooling
-- **quais.js** for Quai Network blockchain interaction
-- **TailwindCSS** with custom vault theme
-- **TanStack React Query** for data fetching and caching
-- **Zustand** for state management
-- **Supabase** for indexer integration and real-time subscriptions
-- **Zod** for runtime type validation
-- **Vitest** for unit testing
+| Category | Libraries |
+|----------|-----------|
+| Framework | React 18, TypeScript, Vite |
+| Blockchain | quais.js (Quai SDK), viem, wagmi |
+| Wallet Connect | Reown AppKit, WalletConnect |
+| Data Fetching | TanStack React Query |
+| State Management | Zustand (persisted) |
+| Styling | TailwindCSS (custom vault theme) |
+| Backend | Supabase (indexer, real-time subscriptions) |
+| Validation | Zod, React Hook Form |
+| Testing | Vitest, Testing Library |
 
 ## Quick Start
 
@@ -36,7 +40,7 @@ Multisig wallet management UI for Quai Network, powered by QuaiVault smart contr
 
 - Node.js 18+
 - npm or yarn
-- Pelagus wallet browser extension
+- [Pelagus](https://pelaguswallet.io/) wallet browser extension (or WalletConnect-compatible wallet)
 
 ### Installation
 
@@ -55,26 +59,36 @@ cp .env.example .env
 Required environment variables:
 
 ```env
+# Network
+VITE_RPC_URL=https://rpc.orchard.quai.network
+VITE_CHAIN_ID=15000
+VITE_BLOCK_EXPLORER_URL=https://orchard.quaiscan.io
+
 # Contract addresses (from quaivault-contracts deployment)
 VITE_QUAIVAULT_IMPLEMENTATION=0x...
 VITE_QUAIVAULT_FACTORY=0x...
 VITE_SOCIAL_RECOVERY_MODULE=0x...
-VITE_DAILY_LIMIT_MODULE=0x...
-VITE_WHITELIST_MODULE=0x...
 VITE_MULTISEND=0x...
 
-# Network configuration
-VITE_RPC_URL=https://rpc.orchard.quai.network
-VITE_CHAIN_ID=9000
-
-# Indexer configuration (optional - enables real-time updates)
+# Indexer (optional — enables real-time updates and fast queries)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_NETWORK_SCHEMA=testnet
-VITE_INDEXER_URL=http://localhost:3001
+VITE_NETWORK_SCHEMA=dev
+VITE_INDEXER_URL=https://index.devnet.quaivault.org
+
+# WalletConnect
+VITE_WC_PROJECT_ID=your-walletconnect-project-id
+
+# NFT metadata resolution
+VITE_IPFS_GATEWAY=https://ipfs.qu.ai
+VITE_NFT_IPFS_GATEWAY=https://ipfs.io
+
+# Site metadata
+VITE_SITE_URL=https://testnet.quaivault.org
+VITE_GITHUB_URL=https://github.com/Quai-Vault/quaivault-frontend
 ```
 
-See [.env.example](.env.example) for all configuration options.
+See [.env.example](.env.example) for defaults and all options.
 
 ### Development
 
@@ -82,84 +96,137 @@ See [.env.example](.env.example) for all configuration options.
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`
+The app runs at `http://localhost:5173`.
 
 ### Build
 
 ```bash
-npm run build
+npm run build    # Type-check + production build → dist/
+npm run preview  # Preview the production build locally
 ```
-
-Production build outputs to `dist/`
 
 ## Project Structure
 
 ```
 src/
-├── components/         # Reusable UI components
-│   ├── modules/        # Module-specific components
-│   └── ...
-├── pages/              # Page components
-├── services/           # Blockchain interaction services
-│   ├── core/           # Core services (Wallet, Transaction, Owner)
-│   ├── modules/        # Module services (DailyLimit, Whitelist, SocialRecovery)
-│   ├── indexer/        # Indexer services (queries, subscriptions, health)
-│   └── utils/          # Utility functions
-├── hooks/              # Custom React hooks
-├── store/              # Zustand state management
-├── types/              # TypeScript type definitions
-├── config/             # Configuration and ABIs
-└── test/               # Test setup and utilities
+├── components/              # UI components
+│   ├── transaction/         # Transaction forms (SendToken, SendNft, SignMessage, etc.)
+│   ├── Modal.tsx            # Accessible modal with focus trap
+│   ├── OwnerManagement.tsx  # Owner list and management
+│   ├── ModuleManagement.tsx # Module configuration panel
+│   ├── WalletCard.tsx       # Vault card for dashboard
+│   ├── Layout.tsx           # App shell (sidebar + content)
+│   └── ...                  # 36 components total
+├── pages/                   # Route pages
+│   ├── Dashboard.tsx        # Vault list (owned + guardian)
+│   ├── WalletDetail.tsx     # Vault overview, pending txs, owners, modules
+│   ├── CreateWallet.tsx     # Vault deployment wizard
+│   ├── NewTransaction.tsx   # Propose transaction (6 modes)
+│   ├── TransactionHistory.tsx
+│   └── LookupTransaction.tsx
+├── services/                # Blockchain and data services
+│   ├── core/                # WalletService, TransactionService, OwnerService
+│   ├── modules/             # SocialRecoveryModuleService
+│   ├── indexer/             # Supabase indexer queries, subscriptions, health
+│   ├── utils/               # Gas estimation, error handling, metadata, verification
+│   └── MultisigService.ts   # Facade — indexer-first with blockchain fallback
+├── hooks/                   # 17 custom React hooks
+├── store/                   # Zustand stores (wallet, theme)
+├── config/                  # Chain config, ABIs, provider, Supabase client
+├── types/                   # TypeScript type definitions
+├── utils/                   # Formatting, validation, clipboard
+└── test/                    # Test setup and mocks
 ```
 
-## Key Services
+## Routes
+
+| Path | Page | Purpose |
+|------|------|---------|
+| `/` | Dashboard | Lists owned vaults and guardian-only vaults |
+| `/create` | CreateWallet | Deploy a new multisig vault |
+| `/wallet/:address` | WalletDetail | Balance, pending transactions, owners, modules, assets |
+| `/wallet/:address/transaction/new` | NewTransaction | Propose a transaction (send QUAI, tokens, NFTs, contract calls, message signing) |
+| `/wallet/:address/history` | TransactionHistory | Executed, cancelled, expired, and failed transactions |
+| `/wallet/:address/lookup` | LookupTransaction | Search for a specific transaction by hash |
+
+## Architecture
+
+### Service Layer
+
+The service layer follows a **facade + fallback** pattern:
+
+- **MultisigService** is the single entry point for all wallet operations.
+- It queries the **Supabase indexer** first for fast reads.
+- If the indexer is unavailable, it falls back to direct **blockchain RPC** calls.
+- Write operations always go through the blockchain (propose, approve, execute, cancel).
 
 ### Core Services
-- **MultisigService** - Facade for all wallet operations (uses indexer when available, falls back to blockchain)
-- **WalletService** - Wallet deployment and info
-- **TransactionService** - Transaction proposal/approval/execution
-- **OwnerService** - Owner management operations
 
-### Module Services
-- **DailyLimitModuleService** - Daily spending limits
-- **WhitelistModuleService** - Address whitelisting
-- **SocialRecoveryModuleService** - Guardian-based recovery
+| Service | Responsibility |
+|---------|---------------|
+| `WalletService` | Vault deployment (CREATE2) and on-chain wallet info |
+| `TransactionService` | Propose, approve, revoke, execute, cancel transactions |
+| `OwnerService` | Add/remove owners, change threshold, change timelock |
 
 ### Indexer Services
-- **IndexerService** - Main indexer facade
-- **IndexerWalletService** - Wallet queries from indexer
-- **IndexerTransactionService** - Transaction queries with batch confirmations
-- **IndexerSubscriptionService** - Real-time Supabase subscriptions with reconnection handling
-- **IndexerHealthService** - Indexer health checks and sync status
+
+| Service | Responsibility |
+|---------|---------------|
+| `IndexerWalletService` | Wallet details and owner lists |
+| `IndexerTransactionService` | Transaction queries with batch confirmation lookups |
+| `IndexerTokenService` | Token/NFT discovery and transfer history |
+| `IndexerSubscriptionService` | Real-time Supabase subscriptions with reconnection |
+| `IndexerHealthService` | Health checks and sync status (5s polling) |
+| `SubscriptionManager` | Limits concurrent subscriptions (max 10), LRU cleanup |
+
+### State Management
+
+- **Zustand** — Global UI state (connected wallet, vault list, theme). Persisted to localStorage.
+- **React Query** — Server state (wallet info, transactions, token balances). Smart caching with configurable stale times.
+
+### Wallet Connection
+
+- **Pelagus** (Quai-native) and **WalletConnect** (via Reown AppKit) are supported.
+- A bridge layer (`walletBridge.ts`) converts raw EIP-1193 providers into quais `Signer` instances.
+- Supported chains: **Quai Mainnet** (chainId 9) and **Quai Orchard Testnet** (chainId 15000), selected via `VITE_CHAIN_ID`.
+
+## Transaction Modes
+
+| Mode | Description |
+|------|-------------|
+| Send QUAI | Native currency transfer (auto-detects contracts and offers to switch to Contract Call) |
+| Send Token | ERC-20 transfer with token picker and balance validation |
+| Send NFT | ERC-721 transfer with collection browser and image previews |
+| Send ERC-1155 | ERC-1155 transfer with quantity input and on-chain balance verification |
+| Contract Call | ABI auto-fetch from Sourcify, function selector, parameter builder, or raw calldata |
+| Sign Message | EIP-1271 message signing/unsigning with browsable history of signed messages |
+
+All modes support optional **expiration** and **execution delay** (timelock) settings, except message signing (self-calls bypass timelock on-chain).
 
 ## Module Configuration
 
-Module configuration requires **multisig approval**. The frontend uses `propose*` methods that create multisig proposals:
+Module configuration requires **multisig approval**:
 
-| Action | Method | Workflow |
-|--------|--------|----------|
-| Set daily limit | `proposeSetDailyLimit()` | Creates proposal -> Requires approval -> Executed |
-| Add to whitelist | `proposeAddToWhitelist()` | Creates proposal -> Requires approval -> Executed |
-| Setup recovery | `proposeSetupRecovery()` | Creates proposal -> Requires approval -> Executed |
+| Module | Description |
+|--------|-------------|
+| Social Recovery | Guardian-based vault recovery — add guardians, initiate and finalize recovery |
 
 ## Testing
 
-357 passing tests covering all service layers, utilities, and core business logic.
-
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run with coverage
-npm run test:coverage
+npm test              # Watch mode
+npm run test:run      # Single run (CI)
+npm run test:coverage # Coverage report
 ```
 
-## Deployment
+16 test files covering services, utilities, and components.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for deployment configuration across Nginx, Apache, Netlify, Vercel, and other platforms.
+## Linting & Formatting
+
+```bash
+npm run lint    # ESLint
+npm run format  # Prettier
+```
 
 ## License
 

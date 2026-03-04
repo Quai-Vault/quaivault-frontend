@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ModalProps {
@@ -15,6 +15,7 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disab
 export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
 
   // Scroll lock
   useEffect(() => {
@@ -96,7 +97,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             ref={modalRef}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="modal-title"
+            aria-labelledby={titleId}
             tabIndex={-1}
             className={`relative w-full ${sizeClasses[size]} vault-panel shadow-vault-outer border-2 border-dark-200 dark:border-dark-700 max-h-[calc(100vh-5rem-6rem)] flex flex-col pointer-events-auto`}
             onClick={(e) => e.stopPropagation()}
@@ -104,7 +105,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             {/* Header - Fixed */}
             <div className="flex items-center justify-between p-5 border-b-2 border-dark-200 dark:border-dark-700 relative flex-shrink-0">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary-600/50 to-transparent"></div>
-              <h2 id="modal-title" className="text-lg font-display font-bold text-gradient-red vault-text-glow">{title}</h2>
+              <h2 id={titleId} className="text-lg font-display font-bold text-gradient-red vault-text-glow">{title}</h2>
               <button
                 onClick={onClose}
                 className="text-dark-400 dark:text-dark-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-4 rounded hover:bg-dark-100 dark:hover:bg-vault-dark-4"
