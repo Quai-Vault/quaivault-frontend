@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
 import { useTokenBalances } from '../hooks/useTokenBalances';
@@ -12,7 +12,6 @@ import { Modal } from '../components/Modal';
 import { TransactionFlow } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
 import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TransactionModeSelector } from '../components/transaction/TransactionModeSelector';
 import { SendTokenForm } from '../components/transaction/SendTokenForm';
 import { SendNftForm } from '../components/transaction/SendNftForm';
@@ -86,9 +85,6 @@ export function NewTransaction() {
       nftRecipient !== '' || erc1155Recipient !== '' || erc1155Quantity !== '' ||
       tokenMeta !== null || nftMeta !== null || erc1155Meta !== null;
   }, [to, value, data, tokenRecipient, tokenAmount, nftRecipient, erc1155Recipient, erc1155Quantity, tokenMeta, nftMeta, erc1155Meta, showFlow, showPreview]);
-
-  // Block in-app navigation when form is dirty
-  const blocker = useBlocker(isDirty);
 
   // Block browser tab close / refresh when form is dirty
   useEffect(() => {
@@ -799,18 +795,6 @@ export function NewTransaction() {
           minExecutionDelay={walletInfo?.minExecutionDelay}
         />
       </Modal>
-
-      {/* Navigation Guard Dialog */}
-      <ConfirmDialog
-        isOpen={blocker.state === 'blocked'}
-        onClose={() => blocker.reset?.()}
-        onConfirm={() => blocker.proceed?.()}
-        title="Unsaved Changes"
-        message="You have unsaved transaction data. Are you sure you want to leave this page? Your changes will be lost."
-        confirmText="Leave Page"
-        cancelText="Stay"
-        variant="warning"
-      />
 
       {/* Transaction Flow Modal */}
       <Modal
