@@ -38,8 +38,13 @@ export function Dashboard() {
     localStorage.setItem(DASHBOARD_GUARDIAN_VAULTS_COLLAPSED_KEY, String(guardianVaultsCollapsed));
   }, [guardianVaultsCollapsed]);
 
+  const [search, setSearch] = useState('');
+
   // Deduplicate: vaults where user is both owner and guardian show only in "Your Vaults"
   const { guardianOnlyWallets, dualRoleAddresses } = useDeduplicatedWallets(userWallets, guardianWallets);
+
+  const filteredUserWallets = userWallets?.filter(w => !search || w.toLowerCase().includes(search.toLowerCase())) ?? [];
+  const filteredGuardianOnlyWallets = guardianOnlyWallets.filter(w => !search || w.toLowerCase().includes(search.toLowerCase()));
 
   // Not connected - show connect wallet CTA
   if (!connected) {
@@ -58,6 +63,26 @@ export function Dashboard() {
           <p className="text-base text-dark-500 dark:text-dark-400 mb-6">
             Secure multisig wallet solution for Quai Network. Connect your wallet to manage your vaults.
           </p>
+          <div className="grid grid-cols-3 gap-4 mb-6 max-w-md mx-auto text-sm text-dark-500 dark:text-dark-400">
+            <div className="text-center space-y-2">
+              <svg className="w-6 h-6 mx-auto text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>Multi-Signature Security</span>
+            </div>
+            <div className="text-center space-y-2">
+              <svg className="w-6 h-6 mx-auto text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Social Recovery</span>
+            </div>
+            <div className="text-center space-y-2">
+              <svg className="w-6 h-6 mx-auto text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>Token & NFT Management</span>
+            </div>
+          </div>
           <button onClick={connect} className="btn-primary">
             Connect Wallet
           </button>
@@ -103,16 +128,35 @@ export function Dashboard() {
     );
   }
 
+  const totalWalletCount = (userWallets?.length ?? 0) + guardianOnlyWallets.length;
+
   // Has vaults - show overview
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {totalWalletCount >= 3 && (
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search vaults by address..."
+            className="input-field w-full pl-10"
+          />
+        </div>
+      )}
+
       {/* Owner Vaults */}
-      {userWallets && userWallets.length > 0 && (
+      {filteredUserWallets.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => setOwnerVaultsCollapsed(!ownerVaultsCollapsed)}
               className="flex items-center gap-3 hover:opacity-70 transition-opacity"
+              aria-expanded={!ownerVaultsCollapsed}
+              aria-controls="owner-vaults-content"
             >
               <svg
                 className={`w-5 h-5 text-dark-500 transition-transform ${ownerVaultsCollapsed ? '-rotate-90' : ''}`}
@@ -133,25 +177,27 @@ export function Dashboard() {
               Create Vault
             </Link>
           </div>
-          {!ownerVaultsCollapsed && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {userWallets.map((walletAddress) => {
+          <div className={`overflow-hidden transition-all duration-300 ${ownerVaultsCollapsed ? 'max-h-0' : 'max-h-[2000px]'}`}>
+            <div id="owner-vaults-content" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredUserWallets.map((walletAddress) => {
                 const isDualRole = dualRoleAddresses.has(walletAddress.toLowerCase());
                 return (
                   <WalletCard key={walletAddress} walletAddress={walletAddress} role={isDualRole ? 'owner+guardian' : 'owner'} />
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
       )}
 
       {/* Guardian Vaults (only vaults where user is guardian but NOT owner) */}
-      {guardianOnlyWallets.length > 0 && (
+      {filteredGuardianOnlyWallets.length > 0 && (
         <div>
           <button
             onClick={() => setGuardianVaultsCollapsed(!guardianVaultsCollapsed)}
             className="flex items-center gap-3 mb-6 hover:opacity-70 transition-opacity"
+            aria-expanded={!guardianVaultsCollapsed}
+            aria-controls="guardian-vaults-content"
           >
             <svg
               className={`w-5 h-5 text-dark-500 transition-transform ${guardianVaultsCollapsed ? '-rotate-90' : ''}`}
@@ -168,13 +214,13 @@ export function Dashboard() {
               Guardian Vaults
             </h2>
           </button>
-          {!guardianVaultsCollapsed && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {guardianOnlyWallets.map((walletAddress) => (
+          <div className={`overflow-hidden transition-all duration-300 ${guardianVaultsCollapsed ? 'max-h-0' : 'max-h-[2000px]'}`}>
+            <div id="guardian-vaults-content" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredGuardianOnlyWallets.map((walletAddress) => (
                 <WalletCard key={walletAddress} walletAddress={walletAddress} role="guardian" />
               ))}
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

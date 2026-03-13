@@ -10,15 +10,18 @@ import { ModuleManagement } from '../components/ModuleManagement';
 import { SocialRecoveryManagement } from '../components/SocialRecoveryManagement';
 import { ChangeThresholdModal, ChangeTimelockModal } from '../components/transactionModals';
 import { EmptyState } from '../components/EmptyState';
+import { CopyButton } from '../components/CopyButton';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
 import { multisigService } from '../services/MultisigService';
-import { CONTRACT_ADDRESSES, TIMING } from '../config/contracts';
+import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { ExplorerLink } from '../components/ExplorerLink';
+import { ReceiveModal } from '../components/ReceiveModal';
 import { TokenBalancePanel } from '../components/TokenBalancePanel';
 import { NftHoldingsPanel } from '../components/NftHoldingsPanel';
 import { Erc1155HoldingsPanel } from '../components/Erc1155HoldingsPanel';
 import { IndexerStatusBanner } from '../components/IndexerStatusBanner';
 import { formatDuration, formatCompactBalance } from '../utils/formatting';
+import { isQuaiAddress } from 'quais';
 
 export function WalletDetail() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -33,19 +36,12 @@ export function WalletDetail() {
     isRefetchingWalletInfo,
     isRefetchingPending,
     refresh,
+    refreshTransactions,
   } = useMultisig(walletAddress);
-  const [copied, setCopied] = useState(false);
   const [showRecoveryManagement, setShowRecoveryManagement] = useState(false);
   const [showChangeThreshold, setShowChangeThreshold] = useState(false);
   const [showChangeTimelock, setShowChangeTimelock] = useState(false);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-
-  // Clean up copy feedback timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
+  const [showReceive, setShowReceive] = useState(false);
 
   // Check if connected user is a Social Recovery guardian
   const { data: isGuardian } = useQuery({
@@ -67,21 +63,14 @@ export function WalletDetail() {
     enabled: !!walletAddress,
   });
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), TIMING.COPY_FEEDBACK);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  if (!walletAddress) {
+  if (!walletAddress || !isQuaiAddress(walletAddress)) {
     return (
-      <div className="text-center py-12">
-        <p className="text-primary-600">Invalid wallet address</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+        <h2 className="text-lg font-semibold text-dark-800 dark:text-dark-100 mb-2">Invalid Wallet Address</h2>
+        <p className="text-dark-500 dark:text-dark-400 mb-6 max-w-sm">
+          The address in the URL is not a valid Quai address.
+        </p>
+        <Link to="/" className="btn-secondary text-sm">Return to Dashboard</Link>
       </div>
     );
   }
@@ -139,37 +128,46 @@ export function WalletDetail() {
             <p className="text-base font-mono text-dark-600 uppercase tracking-wider">Secure QuaiVault</p>
           </div>
         </div>
-        {isOwner && (
-          <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4">
+          {isOwner && (
             <Link
               to={`/wallet/${walletAddress}/transaction/new`}
-              className="btn-primary text-lg px-5 py-2.5 inline-flex items-center gap-4.5"
+              className="btn-primary text-sm px-3 py-1.5 sm:text-base sm:px-4 sm:py-2 lg:text-lg lg:px-5 lg:py-2.5 inline-flex items-center gap-2 sm:gap-3 lg:gap-4.5"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New Transaction
             </Link>
-            <Link
-              to={`/wallet/${walletAddress}/history`}
-              className="btn-secondary text-lg px-5 py-2.5 inline-flex items-center gap-4.5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              History
-            </Link>
-            <Link
-              to={`/wallet/${walletAddress}/lookup`}
-              className="btn-secondary text-lg px-5 py-2.5 inline-flex items-center gap-4.5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Lookup TX
-            </Link>
-          </div>
-        )}
+          )}
+          <button
+            onClick={() => setShowReceive(true)}
+            className="btn-secondary text-sm px-3 py-1.5 sm:text-base sm:px-4 sm:py-2 lg:text-lg lg:px-5 lg:py-2.5 inline-flex items-center gap-2 sm:gap-3 lg:gap-4.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Receive
+          </button>
+          <Link
+            to={`/wallet/${walletAddress}/history`}
+            className="btn-secondary text-sm px-3 py-1.5 sm:text-base sm:px-4 sm:py-2 lg:text-lg lg:px-5 lg:py-2.5 inline-flex items-center gap-2 sm:gap-3 lg:gap-4.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            History
+          </Link>
+          <Link
+            to={`/wallet/${walletAddress}/lookup`}
+            className="btn-secondary text-sm px-3 py-1.5 sm:text-base sm:px-4 sm:py-2 lg:text-lg lg:px-5 lg:py-2.5 inline-flex items-center gap-2 sm:gap-3 lg:gap-4.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Lookup TX
+          </Link>
+        </div>
       </div>
 
       {/* Wallet Info and Owners Side by Side */}
@@ -180,33 +178,12 @@ export function WalletDetail() {
             {/* Address - Full width */}
             <div className="col-span-2">
               <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Address</h3>
-              <button
-                onClick={() => copyToClipboard(walletAddress)}
-                className="group relative w-full text-left cursor-pointer"
-                title="Click to copy address"
-              >
-                <div className="flex items-center gap-4 bg-dark-100 dark:bg-vault-dark-4 px-5 py-3 rounded-md border border-dark-300 dark:border-dark-600 hover:border-primary-600/50 hover:bg-dark-50 dark:hover:bg-vault-dark-3 transition-all duration-200">
-                  <p className="text-base font-mono text-primary-600 dark:text-primary-300 truncate flex-1 group-hover:text-primary-200 transition-colors">
-                    {walletAddress}
-                  </p>
-                  <div className={`flex-shrink-0 transition-all duration-200 ${copied ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}>
-                    {copied ? (
-                      <svg className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3.5 h-3.5 text-primary-500 group-hover:text-primary-600 dark:text-primary-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                {copied && (
-                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-primary-900 text-primary-200 px-4 py-2 rounded text-base font-semibold border border-primary-700 shadow-red-glow z-10">
-                    Copied!
-                  </div>
-                )}
-              </button>
+              <div className="flex items-center gap-4 bg-dark-100 dark:bg-vault-dark-4 px-5 py-3 rounded-md border border-dark-300 dark:border-dark-600">
+                <p className="text-base font-mono text-primary-600 dark:text-primary-300 truncate flex-1">
+                  {walletAddress}
+                </p>
+                <CopyButton text={walletAddress} size="md" />
+              </div>
               <ExplorerLink type="address" value={walletAddress} className="text-xs mt-2">
                 View on Explorer
               </ExplorerLink>
@@ -412,6 +389,13 @@ export function WalletDetail() {
         ownerCount={walletInfo.owners.length}
       />
 
+      {/* Receive Modal */}
+      <ReceiveModal
+        isOpen={showReceive}
+        onClose={() => setShowReceive(false)}
+        walletAddress={walletAddress}
+      />
+
       {/* Change Timelock Modal */}
       <ChangeTimelockModal
         isOpen={showChangeTimelock}
@@ -494,6 +478,7 @@ export function WalletDetail() {
             transactions={pendingTransactions}
             walletAddress={walletAddress}
             isOwner={isOwner}
+            refreshTransactions={refreshTransactions}
           />
         )}
       </div>

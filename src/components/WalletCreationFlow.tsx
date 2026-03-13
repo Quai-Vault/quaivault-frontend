@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { TIMING } from '../config/contracts';
 import { copyToClipboard } from '../utils/clipboard';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export type DeploymentStep =
   | 'preparing'
@@ -46,6 +47,7 @@ export function WalletCreationFlow({
     step: 'preparing',
   });
   const [copied, setCopied] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const completeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -304,6 +306,21 @@ export function WalletCreationFlow({
               </div>
             </div>
 
+            {/* Cancel button during mining/deploying (before tx is submitted) */}
+            {(progress.step === 'mining' || progress.step === 'deploying') && (
+              <div className="pt-4 border-t border-dark-200 dark:border-dark-700">
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="btn-secondary inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Cancel Deployment
+                </button>
+              </div>
+            )}
+
             {/* Success Message */}
             {progress.step === 'success' && progress.walletAddress && (
               <div className="mt-8 p-6 bg-gradient-to-br from-primary-900/30 via-primary-800/20 to-primary-900/30 border-2 border-primary-600/50 rounded-md shadow-red-glow">
@@ -364,6 +381,21 @@ export function WalletCreationFlow({
           </div>
         </div>
       )}
+
+      {/* Cancel Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          onCancel();
+        }}
+        title="Cancel Deployment"
+        message="Are you sure you want to cancel the vault deployment? Any progress (address mining) will be lost and you will need to start over."
+        confirmText="Yes, Cancel"
+        cancelText="Continue Deployment"
+        variant="warning"
+      />
 
       {/* Error State */}
       {progress.step === 'error' && (

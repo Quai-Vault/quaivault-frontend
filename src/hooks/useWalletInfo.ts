@@ -58,7 +58,11 @@ export function useWalletInfo(walletAddress?: string) {
     },
     enabled: !!walletAddress && isPageVisible,
     staleTime: POLLING_INTERVALS.WALLET_INFO,
-    retry: 1, // Fail fast — the wallet provider retry (via key change) handles recovery
+    // Retry a few times with backoff — during initial connect or account switch the
+    // signer bridge may not have completed yet, so the first attempt(s) may fail with
+    // "no wallet provider". The bridge effect invalidates walletInfo queries once ready.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     refetchInterval: isPageVisible ? POLLING_INTERVALS.WALLET_INFO : false,
   });
 

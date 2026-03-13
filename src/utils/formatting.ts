@@ -104,6 +104,23 @@ export function formatCompactBalance(weiString: string): string {
 }
 
 /**
+ * Format a Unix timestamp as a human-friendly relative time string.
+ * Examples: "just now", "5m ago", "3h ago", "2d ago"
+ * Falls back to formatTimestamp for dates older than 7 days.
+ */
+export function formatRelativeTime(timestamp: number | bigint): string {
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts) || ts === 0) return 'Unknown';
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - ts;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return formatTimestamp(ts);
+}
+
+/**
  * Format a wallet's timelock setting for display.
  * Examples: "No timelock", "1h minimum delay", "7d minimum delay"
  */

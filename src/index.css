@@ -282,6 +282,12 @@
    ============================================ */
 
 @layer utilities {
+  /* Focus indicators for keyboard navigation */
+  :focus-visible {
+    outline: 2px solid #c53030;
+    outline-offset: 2px;
+  }
+
   .text-gradient-red {
     @apply bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 bg-clip-text text-transparent;
   }
@@ -291,5 +297,14 @@
       linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
     background-size: 20px 20px;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

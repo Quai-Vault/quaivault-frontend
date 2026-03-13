@@ -2,7 +2,6 @@ import { useState, memo, useCallback, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../hooks/useWallet';
-import { useMultisig } from '../hooks/useMultisig';
 import type { PendingTransaction } from '../types';
 import { formatQuai } from 'quais';
 import {
@@ -25,7 +24,7 @@ import {
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { TimelockCountdown } from './TimelockCountdown';
-import { formatAddress, formatTimestamp, formatDuration } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime, formatDuration } from '../utils/formatting';
 import { indexerService } from '../services';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -38,6 +37,7 @@ interface TransactionListProps {
   transactions: PendingTransaction[];
   walletAddress: string;
   isOwner: boolean;
+  refreshTransactions: () => void;
 }
 
 interface TransactionItemProps {
@@ -184,7 +184,7 @@ const TransactionItem = memo(function TransactionItem({
           {decoded.details && (
             <p className="text-base text-dark-600 dark:text-dark-300 font-medium mt-1 mb-0.5">{decoded.details}</p>
           )}
-          <p className="text-base font-mono text-dark-500 dark:text-dark-600 uppercase tracking-wider">{formatTimestamp(tx.timestamp)}</p>
+          <p className="text-base font-mono text-dark-500 dark:text-dark-600 uppercase tracking-wider" title={formatTimestamp(tx.timestamp)}>{formatRelativeTime(tx.timestamp)}</p>
         </div>
         <div className="text-right flex-shrink-0">
           {tx.value !== '0' && (
@@ -227,7 +227,14 @@ const TransactionItem = memo(function TransactionItem({
             <span className="text-dark-600 dark:text-dark-300">{tx.threshold.toString()}</span>
           </span>
         </div>
-        <div className="w-full bg-dark-200 dark:bg-vault-dark-4 rounded-full h-1.5 border border-dark-300 dark:border-dark-600 shadow-vault-inner overflow-hidden">
+        <div
+          className="w-full bg-dark-200 dark:bg-vault-dark-4 rounded-full h-1.5 border border-dark-300 dark:border-dark-600 shadow-vault-inner overflow-hidden"
+          role="progressbar"
+          aria-valuenow={Math.round(approvalPercentage)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Approval progress: ${approvalCount} of ${tx.threshold.toString()} required`}
+        >
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               canExecuteIt
@@ -271,6 +278,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onApprove(tx)}
                 className="btn-primary inline-flex items-center gap-2 text-base"
+                aria-label={`Approve transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -282,6 +290,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onRevoke(tx)}
                 className="btn-secondary inline-flex items-center gap-2 text-base"
+                aria-label={`Revoke approval for transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -293,6 +302,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onExecute(tx)}
                 className="btn-primary inline-flex items-center gap-2 text-base bg-gradient-to-r from-primary-500 to-primary-600"
+                aria-label={`Execute transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -304,6 +314,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onCancel(tx)}
                 className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                aria-label={`Cancel transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <span className="inline-flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -317,6 +328,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onCancel(tx)}
                 className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                aria-label={`Cancel transaction ${tx.hash.slice(0, 10)}... by consensus`}
               >
                 <span className="inline-flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -330,6 +342,7 @@ const TransactionItem = memo(function TransactionItem({
               <button
                 onClick={() => onExpire(tx)}
                 className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded border border-orange-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                aria-label={`Expire transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <span className="inline-flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,9 +359,11 @@ const TransactionItem = memo(function TransactionItem({
   );
 });
 
-export function TransactionList({ transactions, walletAddress, isOwner }: TransactionListProps) {
+type FilterType = 'all' | 'needs-approval' | 'ready' | 'timelocked';
+
+export function TransactionList({ transactions, walletAddress, isOwner, refreshTransactions }: TransactionListProps) {
   const { address: connectedAddress } = useWallet();
-  const { refreshTransactions } = useMultisig(walletAddress);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [approveModalTx, setApproveModalTx] = useState<PendingTransaction | null>(null);
   const [executeModalTx, setExecuteModalTx] = useState<PendingTransaction | null>(null);
   const [cancelModalTx, setCancelModalTx] = useState<PendingTransaction | null>(null);
@@ -416,12 +431,30 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
     return decoded;
   }, [transactions, walletAddress, tokenMetaMap]);
 
+  // Filter transactions based on active filter
+  const filteredTransactions = useMemo(() => {
+    if (activeFilter === 'all') return transactions;
+    const addr = connectedAddress || '';
+    return transactions.filter((tx) => {
+      switch (activeFilter) {
+        case 'needs-approval':
+          return computeCanApprove(tx, addr);
+        case 'ready':
+          return computeCanExecute(tx);
+        case 'timelocked':
+          return computeIsTimelocked(tx);
+        default:
+          return true;
+      }
+    });
+  }, [transactions, activeFilter, connectedAddress]);
+
   // Determine if we should use virtualization
-  const shouldVirtualize = transactions.length > VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize = filteredTransactions.length > VIRTUALIZATION_THRESHOLD;
 
   // Virtual list setup - only created when needed
   const rowVirtualizer = useVirtualizer({
-    count: transactions.length,
+    count: filteredTransactions.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ESTIMATED_ITEM_HEIGHT,
     overscan: OVERSCAN,
@@ -446,9 +479,17 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
     />
   ), [walletAddress, connectedAddress, isOwner, decodedTransactions, handleApprove, handleRevoke, handleExecute, handleCancel, handleExpire]);
 
+  // Filter chip definitions
+  const filterChips: { key: FilterType; label: string }[] = useMemo(() => [
+    { key: 'all', label: 'All' },
+    { key: 'needs-approval', label: 'Needs My Approval' },
+    { key: 'ready', label: 'Ready to Execute' },
+    { key: 'timelocked', label: 'Timelocked' },
+  ], []);
+
   // Render transaction list content based on mode
   const renderContent = () => {
-    // Empty state
+    // Empty state (no transactions at all)
     if (transactions.length === 0) {
       return (
         <EmptyState
@@ -474,46 +515,80 @@ export function TransactionList({ transactions, walletAddress, isOwner }: Transa
       );
     }
 
-    // Non-virtualized mode for small lists (better for SEO and simpler DOM)
-    if (!shouldVirtualize) {
-      return transactions.map((tx) => renderTransactionItem(tx));
-    }
-
-    // Virtualized mode for large lists
     return (
-      <div
-        ref={parentRef}
-        className="max-h-[calc(100vh-300px)] overflow-auto scrollbar-thin"
-        style={{ contain: 'strict' }}
-      >
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const tx = transactions[virtualRow.index];
-            return (
-              <div
-                key={tx.hash}
-                data-index={virtualRow.index}
-                ref={rowVirtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                {renderTransactionItem(tx)}
-              </div>
-            );
-          })}
+      <>
+        {/* Filter Chips */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {filterChips.map((chip) => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFilter(chip.key)}
+              className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all duration-200 ${
+                activeFilter === chip.key
+                  ? 'bg-primary-600 text-white border-primary-600 shadow-red-glow'
+                  : 'bg-dark-100 dark:bg-vault-dark-4 text-dark-600 dark:text-dark-300 border-dark-300 dark:border-dark-600 hover:border-primary-600/50 hover:text-primary-600 dark:hover:text-primary-400'
+              }`}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
-      </div>
+
+        {/* Empty filter result */}
+        {filteredTransactions.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-dark-500 dark:text-dark-400 text-base">No transactions match this filter.</p>
+            <button
+              onClick={() => setActiveFilter('all')}
+              className="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold"
+            >
+              Show all transactions
+            </button>
+          </div>
+        )}
+
+        {/* Non-virtualized mode for small lists (better for SEO and simpler DOM) */}
+        {filteredTransactions.length > 0 && !shouldVirtualize && (
+          filteredTransactions.map((tx) => renderTransactionItem(tx))
+        )}
+
+        {/* Virtualized mode for large lists */}
+        {filteredTransactions.length > 0 && shouldVirtualize && (
+          <div
+            ref={parentRef}
+            className="max-h-[calc(100vh-300px)] overflow-auto scrollbar-thin"
+            style={{ contain: 'strict' }}
+          >
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const tx = filteredTransactions[virtualRow.index];
+                return (
+                  <div
+                    key={tx.hash}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {renderTransactionItem(tx)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </>
     );
   };
 

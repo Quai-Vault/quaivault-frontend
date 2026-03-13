@@ -78,11 +78,8 @@ export function decodeErrorData(contract: Contract, errorData: string): string |
       if (friendlyMessage) {
         return friendlyMessage;
       }
-      let message = decoded.name;
-      if (decoded.args && decoded.args.length > 0) {
-        message += ` - ${decoded.args.map((arg: unknown) => String(arg)).join(', ')}`;
-      }
-      return message;
+      // Generic fallback for unmapped errors — expose name only, not args (security)
+      return `Transaction would fail: ${decoded.name}`;
     }
   } catch {
     // Try to decode as a plain string error message
@@ -192,6 +189,15 @@ export const TransactionErrors = {
   MAX_MODULES_REACHED: 'Maximum number of modules has been reached.',
   CALLDATA_TOO_SHORT: 'Transaction calldata is too short to contain a valid function selector.',
   MESSAGE_NOT_SIGNED: 'This message has not been signed by the wallet.',
+  // SocialRecoveryModule errors
+  MODULE_NOT_ENABLED: 'This module is not enabled on the wallet.',
+  EXECUTION_DELAY_TOO_LONG: 'Execution delay cannot exceed 30 days.',
+  RECOVERY_EXPIRED: 'This recovery has expired and can no longer be executed.',
+  RECOVERY_NOT_EXPIRED: 'This recovery has not expired yet.',
+  RECOVERY_ALREADY_INITIATED: 'A recovery with this configuration has already been initiated.',
+  TOO_MANY_PENDING_RECOVERIES: 'Too many pending recoveries. Cancel or expire existing ones first.',
+  RECOVERY_PERIOD_TOO_SHORT: 'Recovery period is too short.',
+  CANNOT_UPDATE_CONFIG_WHILE_RECOVERIES_PENDING: 'Cannot update recovery config while recoveries are pending.',
 } as const;
 
 /**
@@ -210,6 +216,15 @@ export const CONTRACT_ERROR_MAP: Record<string, string> = {
   MaxModulesReached: TransactionErrors.MAX_MODULES_REACHED,
   CalldataTooShort: TransactionErrors.CALLDATA_TOO_SHORT,
   MessageNotSigned: TransactionErrors.MESSAGE_NOT_SIGNED,
+  // SocialRecoveryModule errors
+  ModuleNotEnabled: TransactionErrors.MODULE_NOT_ENABLED,
+  ExecutionDelayTooLong: TransactionErrors.EXECUTION_DELAY_TOO_LONG,
+  RecoveryExpired: TransactionErrors.RECOVERY_EXPIRED,
+  RecoveryNotExpired: TransactionErrors.RECOVERY_NOT_EXPIRED,
+  RecoveryAlreadyInitiated: TransactionErrors.RECOVERY_ALREADY_INITIATED,
+  TooManyPendingRecoveries: TransactionErrors.TOO_MANY_PENDING_RECOVERIES,
+  RecoveryPeriodTooShort: TransactionErrors.RECOVERY_PERIOD_TOO_SHORT,
+  CannotUpdateConfigWhileRecoveriesPending: TransactionErrors.CANNOT_UPDATE_CONFIG_WHILE_RECOVERIES_PENDING,
 };
 
 /**

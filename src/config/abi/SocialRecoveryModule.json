@@ -87,7 +87,22 @@
     },
     {
       "inputs": [],
+      "name": "RecoveryExceedsMaxOwners",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RecoveryExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "RecoveryNotConfigured",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RecoveryNotExpired",
       "type": "error"
     },
     {
@@ -232,6 +247,25 @@
           "internalType": "bytes32",
           "name": "recoveryHash",
           "type": "bytes32"
+        }
+      ],
+      "name": "RecoveryExpiredEvent",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "recoveryHash",
+          "type": "bytes32"
         },
         {
           "indexed": false,
@@ -253,6 +287,25 @@
         }
       ],
       "name": "RecoveryInitiated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "recoveryHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "RecoveryInvalidated",
       "type": "event"
     },
     {
@@ -359,6 +412,24 @@
           "internalType": "address",
           "name": "wallet",
           "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "recoveryHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "expireRecovery",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
         }
       ],
       "name": "getPendingRecoveryHashes",
@@ -407,6 +478,11 @@
             {
               "internalType": "uint256",
               "name": "executionTime",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "expiration",
               "type": "uint256"
             },
             {
@@ -495,7 +571,7 @@
           "type": "bytes32"
         }
       ],
-      "stateMutability": "pure",
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -651,6 +727,11 @@
         {
           "internalType": "uint256",
           "name": "executionTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expiration",
           "type": "uint256"
         },
         {

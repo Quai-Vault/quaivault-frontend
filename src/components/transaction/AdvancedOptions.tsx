@@ -49,6 +49,8 @@ export function AdvancedOptions({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="text-sm font-mono text-dark-400 hover:text-dark-600 dark:hover:text-dark-300 flex items-center gap-1 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls="advanced-options-content"
       >
         Advanced Options
         <svg className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -56,7 +58,7 @@ export function AdvancedOptions({
         </svg>
       </button>
       {isOpen && (
-        <div className="mt-3 space-y-6">
+        <div id="advanced-options-content" className="mt-3 space-y-6">
           {/* Calldata (send-quai only) */}
           {showData && onDataChange && (
             <div>

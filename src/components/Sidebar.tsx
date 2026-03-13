@@ -1,11 +1,24 @@
 import { memo, useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../hooks/useWallet';
 import { useMultisig } from '../hooks/useMultisig';
 import { useDeduplicatedWallets } from '../hooks/useDeduplicatedWallets';
 import { WalletCard } from './WalletCard';
 import { EmptyState } from './EmptyState';
 import { formatAddress } from '../utils/formatting';
+
+/** Deterministic color from a wallet address for the icon rail avatars. */
+const ICON_COLORS = [
+  'bg-primary-600', 'bg-primary-700', 'bg-primary-800', 'bg-rose-700',
+  'bg-rose-800', 'bg-red-700', 'bg-red-800', 'bg-primary-500',
+];
+function addressColor(addr: string): string {
+  let hash = 0;
+  for (let i = 0; i < addr.length; i++) {
+    hash = (hash * 31 + addr.charCodeAt(i)) | 0;
+  }
+  return ICON_COLORS[Math.abs(hash) % ICON_COLORS.length];
+}
 
 const OWNER_VAULTS_COLLAPSED_KEY = 'sidebar-owner-vaults-collapsed';
 const GUARDIAN_VAULTS_COLLAPSED_KEY = 'sidebar-guardian-vaults-collapsed';
@@ -19,6 +32,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
   const { connect, disconnect, connected, address } = useWallet();
   const { userWallets, guardianWallets, isLoadingWallets, isLoadingGuardianWallets, isRefetchingWallets, isRefetchingGuardianWallets } = useMultisig();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [ownerVaultsCollapsed, setOwnerVaultsCollapsed] = useState(() => {
     try {
@@ -47,6 +61,12 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
   // Deduplicate: vaults where user is both owner and guardian show only in "Your Vaults"
   const { guardianOnlyWallets, dualRoleAddresses } = useDeduplicatedWallets(userWallets, guardianWallets);
 
+  // Combine all wallets for the icon rail
+  const allWallets = [
+    ...(userWallets || []),
+    ...guardianOnlyWallets,
+  ];
+
   return (
     <>
       {/* Overlay for mobile when sidebar is open */}
@@ -56,6 +76,112 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
           onClick={onToggle}
         />
       )}
+
+      {/* Icon rail — visible only on lg+ when collapsed */}
+      {collapsed && (
+        <aside
+          className="hidden lg:flex fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-16 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center z-20 py-3 gap-2"
+          aria-label="Sidebar icon rail"
+        >
+          {/* Expand chevron */}
+          <button
+            onClick={onToggle}
+            className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Divider */}
+          <div className="w-8 border-t border-dark-200 dark:border-dark-700" />
+
+          {/* Wallet address icons */}
+          <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2 py-1 scrollbar-hide">
+            {connected && allWallets.map((walletAddress) => {
+              const pathLower = location.pathname.toLowerCase();
+              const walletLower = walletAddress.toLowerCase();
+              const isActive = pathLower === `/wallet/${walletLower}` || pathLower.startsWith(`/wallet/${walletLower}/`);
+              const label = walletAddress.slice(0, 4);
+              const isGuardianOnly = guardianOnlyWallets.some(
+                (g) => g.toLowerCase() === walletLower
+              );
+              return (
+                <button
+                  key={walletAddress}
+                  onClick={() => navigate(`/wallet/${walletAddress}`)}
+                  className={`relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transition-all shrink-0 ${addressColor(walletAddress)} ${
+                    isActive
+                      ? 'ring-2 ring-primary-400 ring-offset-2 ring-offset-white dark:ring-offset-vault-dark-2 scale-110'
+                      : 'hover:scale-110 opacity-80 hover:opacity-100'
+                  }`}
+                  title={formatAddress(walletAddress)}
+                  aria-label={`Vault ${formatAddress(walletAddress)}`}
+                >
+                  {label}
+                  {isGuardianOnly && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border border-white dark:border-vault-dark-2 flex items-center justify-center">
+                      <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Create vault button */}
+          {connected && (
+            <button
+              onClick={() => navigate('/create')}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                location.pathname === '/create'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-dark-100 dark:bg-vault-dark-4 text-dark-500 dark:text-dark-400 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-200 dark:hover:bg-vault-dark-3'
+              }`}
+              title="Create vault"
+              aria-label="Create vault"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+
+          {/* Divider */}
+          <div className="w-8 border-t border-dark-200 dark:border-dark-700" />
+
+          {/* Connect / Disconnect */}
+          {connected ? (
+            <button
+              onClick={disconnect}
+              className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
+              title="Disconnect wallet"
+              aria-label="Disconnect wallet"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={connect}
+              className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
+              title="Connect wallet"
+              aria-label="Connect wallet"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          )}
+        </aside>
+      )}
+
+      {/* Full sidebar — slides off on mobile, collapses to w-0 (hidden behind icon rail) on lg */}
       <aside className={`fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex flex-col z-20 overflow-hidden transition-all duration-300 ${collapsed ? '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-r-0' : 'w-64 translate-x-0'}`}>
 
       {/* Wallet Connect/Disconnect */}

@@ -249,6 +249,32 @@
           "type": "address"
         }
       ],
+      "name": "DisabledModule",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "module",
+          "type": "address"
+        }
+      ],
+      "name": "EnabledModule",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "module",
+          "type": "address"
+        }
+      ],
       "name": "ExecutionFromModuleFailure",
       "type": "event"
     },
@@ -333,32 +359,6 @@
         }
       ],
       "name": "MinExecutionDelayChanged",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "module",
-          "type": "address"
-        }
-      ],
-      "name": "ModuleDisabled",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "module",
-          "type": "address"
-        }
-      ],
-      "name": "ModuleEnabled",
       "type": "event"
     },
     {

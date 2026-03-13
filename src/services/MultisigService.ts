@@ -52,10 +52,6 @@ export class MultisigService {
   private indexerCheckTimestamp = 0;
   private indexerCheckPromise: Promise<boolean> | null = null;
 
-  // Serial queue for getBalance calls — Pelagus serializes RPC internally,
-  // so concurrent calls just pile up and timeout. Running them one at a time
-  // ensures each gets a fair shot.
-  private balanceQueue: Promise<bigint> = Promise.resolve(0n);
 
   constructor(provider?: Provider) {
     this.wallet = new WalletService(provider);
@@ -100,6 +96,28 @@ export class MultisigService {
   }
 
   /**
+   * Generic indexer-first-with-fallback pattern.
+   * Tries the indexer function first, falls back to blockchain, or returns fallbackValue.
+   */
+  private async indexerFirst<T>(
+    label: string,
+    indexerFn: () => Promise<T | null | undefined>,
+    blockchainFn: (() => Promise<T>) | null,
+    fallbackValue: T
+  ): Promise<T> {
+    if (await this.isIndexerAvailable()) {
+      try {
+        const result = await indexerFn();
+        if (result !== null && result !== undefined) return result;
+      } catch (err) {
+        console.warn(`[MultisigService] ${label} indexer failed, falling back:`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (blockchainFn && hasWalletProvider()) return blockchainFn();
+    return fallbackValue;
+  }
+
+  /**
    * Invalidate the indexer health cache
    * Call this when subscription errors occur to trigger immediate re-check
    */
@@ -109,14 +127,16 @@ export class MultisigService {
   }
 
   /**
-   * Enqueue a getBalance call so it runs serially (not concurrently).
-   * Each call waits for the previous one to finish before starting.
+   * Fetch balance with a timeout guard.
+   * Pelagus serializes RPC calls internally, so concurrent calls are fine —
+   * the timeout prevents any single call from hanging the UI.
    */
-  private fetchBalanceSerial(address: string): Promise<bigint> {
-    this.balanceQueue = this.balanceQueue
-      .catch(() => {}) // don't let a previous failure block the queue
-      .then(() => getActiveProvider().getBalance(address));
-    return this.balanceQueue;
+  private fetchBalance(address: string): Promise<bigint> {
+    const balanceCall = getActiveProvider().getBalance(address);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('getBalance timed out')), 8000)
+    );
+    return Promise.race([balanceCall, timeout]);
   }
 
   /**
@@ -160,24 +180,25 @@ export class MultisigService {
     // Try indexer first for faster response
     if (indexerAvailable) {
       try {
-        // Fire balance fetch in parallel with indexer queries.
-        // Uses a serial queue so concurrent wallet cards don't overwhelm
-        // Pelagus's serialized RPC bridge (which causes timeouts).
-        const balancePromise: Promise<bigint> = hasWalletProvider()
-          ? this.fetchBalanceSerial(checksummedAddress).catch((err) => {
-              console.warn('[MultisigService] getBalance failed:', err instanceof Error ? err.message : err);
-              return 0n;
-            })
-          : Promise.resolve(0n);
-
-        // Indexer services convert to lowercase internally for queries
-        const [wallet, owners, balance] = await Promise.all([
+        // Fetch wallet details and owners from indexer (fast, no provider needed)
+        const [wallet, owners] = await Promise.all([
           indexerService.wallet.getWalletDetails(walletAddress),
           indexerService.wallet.getWalletOwners(walletAddress),
-          balancePromise,
         ]);
 
         if (wallet) {
+          // Fetch balance concurrently with an 8s timeout per call.
+          // Pelagus serializes RPC internally — individual timeouts prevent
+          // any single hanging call from blocking the UI.
+          let balance = 0n;
+          if (hasWalletProvider()) {
+            try {
+              balance = await this.fetchBalance(checksummedAddress);
+            } catch (err) {
+              console.warn('[MultisigService] getBalance failed:', err instanceof Error ? err.message : err);
+            }
+          }
+
           // Return checksummed addresses for display and blockchain compatibility
           return {
             address: checksummedAddress,
@@ -201,74 +222,62 @@ export class MultisigService {
   }
 
   async getWalletsForOwner(ownerAddress: string): Promise<string[]> {
-    const indexerAvailable = await this.isIndexerAvailable();
-
-    // Try indexer first for faster response
-    if (indexerAvailable) {
-      try {
+    return this.indexerFirst<string[]>(
+      'getWalletsForOwner',
+      async () => {
         const wallets = await indexerService.wallet.getWalletsForOwner(ownerAddress);
         // Return checksummed addresses for display and blockchain compatibility
         return wallets.map((w) => getAddress(w.address));
-      } catch (err) {
-        console.warn('[MultisigService] getWalletsForOwner indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
-      }
-    }
-
-    if (!hasWalletProvider()) return [];
-    return this.wallet.getWalletsForOwner(ownerAddress);
+      },
+      () => this.wallet.getWalletsForOwner(ownerAddress),
+      []
+    );
   }
 
   async getWalletsForGuardian(guardianAddress: string): Promise<string[]> {
-    const indexerAvailable = await this.isIndexerAvailable();
-
-    // Guardian wallets are only available via indexer (social recovery is indexed only)
-    if (indexerAvailable) {
-      try {
+    return this.indexerFirst<string[]>(
+      'getWalletsForGuardian',
+      async () => {
         const wallets = await indexerService.wallet.getWalletsForGuardian(guardianAddress);
         // Return checksummed addresses for display and blockchain compatibility
         return wallets.map((w) => getAddress(w.address));
-      } catch (err) {
-        console.warn('[MultisigService] getWalletsForGuardian indexer failed:', err instanceof Error ? err.message : err);
-        return [];
-      }
-    }
-
-    // No blockchain fallback - guardian relationships are only tracked in indexer
-    return [];
+      },
+      null,
+      []
+    );
   }
 
   async isOwner(walletAddress: string, address: string): Promise<boolean> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
+    return this.indexerFirst<boolean>(
+      'isOwner',
+      async () => {
         const owners = await indexerService.wallet.getWalletOwners(walletAddress);
         const normalizedAddress = address.toLowerCase();
         return owners.some((o) => o.toLowerCase() === normalizedAddress);
-      } catch (err) {
-        console.warn('[MultisigService] isOwner indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
-      }
-    }
-
-    if (!hasWalletProvider()) return false;
-    return this.wallet.isOwner(getAddress(walletAddress), getAddress(address));
+      },
+      () => this.wallet.isOwner(getAddress(walletAddress), getAddress(address)),
+      false
+    );
   }
 
   async isModuleEnabled(walletAddress: string, moduleAddress: string): Promise<boolean> {
-    // Try indexer first
-    if (await this.isIndexerAvailable()) {
-      try {
-        return await indexerService.module.isModuleEnabled(walletAddress, moduleAddress);
-      } catch (error) {
-        // Only log if it's not the expected "table not available" error
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (!errorMessage.includes('table not available')) {
-          console.warn('Indexer query failed, falling back to blockchain:', errorMessage || 'Unknown error');
+    return this.indexerFirst<boolean>(
+      'isModuleEnabled',
+      async () => {
+        try {
+          return await indexerService.module.isModuleEnabled(walletAddress, moduleAddress);
+        } catch (error) {
+          // Only re-throw if it's not the expected "table not available" error
+          const errorMessage = error instanceof Error ? error.message : '';
+          if (errorMessage.includes('table not available')) {
+            return null; // signal fallback without logging
+          }
+          throw error;
         }
-      }
-    }
-
-    if (!hasWalletProvider()) return false;
-    return this.wallet.isModuleEnabled(getAddress(walletAddress), moduleAddress);
+      },
+      () => this.wallet.isModuleEnabled(getAddress(walletAddress), moduleAddress),
+      false
+    );
   }
 
   // ============ Transaction Service Methods ============
@@ -628,51 +637,63 @@ export class MultisigService {
     return this.socialRecovery.revokeRecoveryApproval(walletAddress, recoveryHash);
   }
 
+  /**
+   * Expire a recovery that has passed its expiration timestamp (permissionless)
+   * @param walletAddress Address of the multisig wallet
+   * @param recoveryHash Hash of the recovery to expire
+   */
+  async expireRecovery(walletAddress: string, recoveryHash: string): Promise<void> {
+    return this.socialRecovery.expireRecovery(walletAddress, recoveryHash);
+  }
+
   async getRecoveryConfig(walletAddress: string): Promise<{
     guardians: string[];
     threshold: number;
     recoveryPeriod: number;
   }> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
-        const config = await indexerService.module.getRecoveryConfig(walletAddress);
-        if (config && config.guardians.length > 0) {
-          return {
-            guardians: config.guardians,
-            threshold: Number(config.threshold),
-            recoveryPeriod: Number(config.recoveryPeriod),
-          };
-        }
-        // Indexer returned null → wallet has no social recovery config.
-        // This is a definitive answer, not an indexer failure — return empty config.
-        return { guardians: [], threshold: 0, recoveryPeriod: 0 };
-      } catch (error) {
-        // Silently fall back to blockchain - table may not exist in indexer schema
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (!errorMessage.includes('table not available')) {
-          console.warn('Indexer recovery config failed, falling back to blockchain:', errorMessage || 'Unknown error');
-        }
-      }
-    }
+    type RecoveryConfigResult = { guardians: string[]; threshold: number; recoveryPeriod: number };
+    const emptyConfig: RecoveryConfigResult = { guardians: [], threshold: 0, recoveryPeriod: 0 };
 
-    // Fallback to blockchain - only if wallet provider is available.
-    // The sharedProvider (public RPC) may be CORS-blocked and hang forever.
-    if (!hasWalletProvider()) {
-      return { guardians: [], threshold: 0, recoveryPeriod: 0 };
-    }
-    const blockchainConfig = await this.socialRecovery.getRecoveryConfig(walletAddress);
-    return {
-      guardians: blockchainConfig.guardians,
-      threshold: Number(blockchainConfig.threshold),
-      recoveryPeriod: Number(blockchainConfig.recoveryPeriod),
-    };
+    return this.indexerFirst<RecoveryConfigResult>(
+      'getRecoveryConfig',
+      async () => {
+        try {
+          const config = await indexerService.module.getRecoveryConfig(walletAddress);
+          if (config && config.guardians.length > 0) {
+            return {
+              guardians: config.guardians,
+              threshold: Number(config.threshold),
+              recoveryPeriod: Number(config.recoveryPeriod),
+            };
+          }
+          // Indexer returned null → wallet has no social recovery config.
+          // This is a definitive answer, not an indexer failure — return empty config.
+          return emptyConfig;
+        } catch (error) {
+          // Only re-throw if it's not the expected "table not available" error
+          const errorMessage = error instanceof Error ? error.message : '';
+          if (errorMessage.includes('table not available')) {
+            return null; // signal fallback without logging
+          }
+          throw error;
+        }
+      },
+      async () => {
+        const blockchainConfig = await this.socialRecovery.getRecoveryConfig(walletAddress);
+        return {
+          guardians: blockchainConfig.guardians,
+          threshold: Number(blockchainConfig.threshold),
+          recoveryPeriod: Number(blockchainConfig.recoveryPeriod),
+        };
+      },
+      emptyConfig
+    );
   }
 
   async isGuardian(walletAddress: string, address: string): Promise<boolean> {
-    // Try indexer first for faster response
-    if (await this.isIndexerAvailable()) {
-      try {
+    return this.indexerFirst<boolean>(
+      'isGuardian',
+      async () => {
         const config = await indexerService.module.getRecoveryConfig(walletAddress);
         if (config && config.guardians.length > 0) {
           const normalizedAddress = address.toLowerCase();
@@ -680,14 +701,10 @@ export class MultisigService {
         }
         // Indexer returned null → wallet has no social recovery config → not a guardian.
         return false;
-      } catch (err) {
-        console.warn('[MultisigService] isGuardian indexer failed, falling back to blockchain:', err instanceof Error ? err.message : err);
-      }
-    }
-
-    // Fallback to blockchain — only if wallet provider is available.
-    if (!hasWalletProvider()) return false;
-    return this.socialRecovery.isGuardian(walletAddress, address);
+      },
+      () => this.socialRecovery.isGuardian(walletAddress, address),
+      false
+    );
   }
 
   async getPendingRecoveries(walletAddress: string): Promise<Array<{
@@ -695,7 +712,9 @@ export class MultisigService {
     newOwners: string[];
     newThreshold: number;
     approvalCount: number;
+    requiredThreshold: number;
     executionTime: number;
+    expiration: number;
     executed: boolean;
   }>> {
     // Try indexer first for faster response (no block range limitations)
@@ -707,7 +726,9 @@ export class MultisigService {
           newOwners: r.newOwners,
           newThreshold: Number(r.newThreshold),
           approvalCount: Number(r.approvalCount),
+          requiredThreshold: Number(r.requiredThreshold),
           executionTime: Number(r.executionTime),
+          expiration: r.expiration ?? 0,
           executed: false, // Indexer only returns pending (non-executed) recoveries
         }));
       } catch (err) {
@@ -723,33 +744,29 @@ export class MultisigService {
       newOwners: r.newOwners,
       newThreshold: Number(r.newThreshold),
       approvalCount: Number(r.approvalCount),
+      requiredThreshold: Number(r.requiredThreshold),
       executionTime: Number(r.executionTime),
+      expiration: Number(r.expiration),
       executed: r.executed,
     }));
   }
 
   async getRecoveryHistory(walletAddress: string): Promise<SocialRecovery[]> {
-    // Recovery history is only available via indexer (no blockchain fallback)
-    if (await this.isIndexerAvailable()) {
-      try {
-        return await indexerService.module.getRecoveryHistory(walletAddress);
-      } catch (err) {
-        console.warn('[MultisigService] getRecoveryHistory indexer failed:', err instanceof Error ? err.message : err);
-      }
-    }
-    return [];
+    return this.indexerFirst<SocialRecovery[]>(
+      'getRecoveryHistory',
+      () => indexerService.module.getRecoveryHistory(walletAddress),
+      null,
+      []
+    );
   }
 
   async getRecoveryApprovals(walletAddress: string, recoveryHash: string): Promise<RecoveryApproval[]> {
-    // Recovery approvals are only available via indexer (no blockchain fallback)
-    if (await this.isIndexerAvailable()) {
-      try {
-        return await indexerService.module.getRecoveryApprovals(walletAddress, recoveryHash);
-      } catch (err) {
-        console.warn('[MultisigService] getRecoveryApprovals indexer failed:', err instanceof Error ? err.message : err);
-      }
-    }
-    return [];
+    return this.indexerFirst<RecoveryApproval[]>(
+      'getRecoveryApprovals',
+      () => indexerService.module.getRecoveryApprovals(walletAddress, recoveryHash),
+      null,
+      []
+    );
   }
 }
 

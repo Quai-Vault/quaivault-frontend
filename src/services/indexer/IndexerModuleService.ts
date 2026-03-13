@@ -26,6 +26,7 @@ export interface PendingRecovery {
   approvalCount: number;
   requiredThreshold: number;
   executionTime: number;
+  expiration: number;
   status: string;
 }
 
@@ -185,6 +186,7 @@ export class IndexerModuleService {
         approvalCount: recovery.approval_count,
         requiredThreshold: recovery.required_threshold,
         executionTime: recovery.execution_time,
+        expiration: recovery.expiration ?? 0,
         status: recovery.status,
       };
     });

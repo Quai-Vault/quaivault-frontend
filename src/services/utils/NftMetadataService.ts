@@ -13,6 +13,28 @@ const ERC1155_URI_ABI = [
 const FETCH_TIMEOUT_MS = 10_000;
 const BATCH_CONCURRENCY = 5;
 
+/** Derive allowed NFT metadata hosts from the configured VITE_NFT_IPFS_GATEWAY */
+function getAllowedMetadataHosts(): string[] {
+  try {
+    const parsed = new URL(NETWORK_CONFIG.NFT_IPFS_GATEWAY);
+    return [parsed.hostname];
+  } catch {
+    return [];
+  }
+}
+
+function isAllowedMetadataUrl(url: string): boolean {
+  if (url.startsWith('data:')) return true;
+  try {
+    const parsed = new URL(url);
+    const allowed = getAllowedMetadataHosts();
+    return parsed.protocol === 'https:' &&
+      allowed.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h));
+  } catch {
+    return false;
+  }
+}
+
 export interface NftMetadata {
   name: string | null;
   description: string | null;
@@ -102,6 +124,7 @@ export async function fetchNftMetadata(
       json = decodeDataUri(tokenUri);
     } else {
       const resolvedUrl = resolveIpfsUri(tokenUri, gateway);
+      if (!isAllowedMetadataUrl(resolvedUrl)) return empty;
       const response = await fetch(resolvedUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (!response.ok) return empty;
 

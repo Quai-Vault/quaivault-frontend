@@ -89,7 +89,7 @@ describe('TransactionErrorHandler', () => {
       } as any;
 
       const result = decodeErrorData(mockContract, '0xcustom...');
-      expect(result).toBe('InsufficientBalance - 100, 50');
+      expect(result).toBe('Transaction would fail: InsufficientBalance');
     });
 
     it('should decode custom error without args', () => {
@@ -103,7 +103,7 @@ describe('TransactionErrorHandler', () => {
       } as any;
 
       const result = decodeErrorData(mockContract, '0xcustom...');
-      expect(result).toBe('Unauthorized');
+      expect(result).toBe('Transaction would fail: Unauthorized');
     });
 
     it('should return null when parsing fails', () => {

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { formatAddress, formatTimestamp } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime } from '../utils/formatting';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { CopyButton } from './CopyButton';
 import { formatQuai } from 'quais';
@@ -102,6 +102,7 @@ export function HistoricalTransactionTab({
                   type="button"
                   onClick={() => toggleExpanded(tx.hash)}
                   className="w-full text-left"
+                  aria-expanded={isExpanded}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
@@ -117,7 +118,7 @@ export function HistoricalTransactionTab({
                       {decoded.details && (
                         <p className="text-lg text-dark-600 dark:text-dark-300 font-semibold mt-2">{decoded.details}</p>
                       )}
-                      <p className="text-base font-mono text-dark-600 mt-2 uppercase tracking-wider">{formatTimestamp(tx.timestamp)}</p>
+                      <p className="text-base font-mono text-dark-600 mt-2 uppercase tracking-wider" title={formatTimestamp(tx.timestamp)}>{formatRelativeTime(tx.timestamp)}</p>
                     </div>
                     <div className="flex items-start gap-3 ml-4 flex-shrink-0">
                       <div className="text-right">

@@ -38,6 +38,7 @@ export function TransactionFlow({
   const [progress, setProgress] = useState<TransactionProgress>({
     step: 'preparing',
   });
+  const [retryKey, setRetryKey] = useState(0);
   const hasExecuted = useRef(false);
   const lastResetKey = useRef(resetKey);
   const isMountedRef = useRef(true);
@@ -66,6 +67,12 @@ export function TransactionFlow({
       setProgress({ step: 'preparing' });
     }
   }, [resetKey]);
+
+  const handleRetry = () => {
+    hasExecuted.current = false;
+    setProgress({ step: 'preparing' });
+    setRetryKey(k => k + 1);
+  };
 
   useEffect(() => {
     // Only execute once when component mounts or resets
@@ -122,7 +129,7 @@ export function TransactionFlow({
 
     execute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, [retryKey]); // Re-run on retry
 
   const getStepIcon = () => {
     switch (progress.step) {
@@ -209,12 +216,20 @@ export function TransactionFlow({
       <div className="vault-divider pt-6">
         <div className="flex gap-4 justify-end">
           {progress.step === 'error' && (
-            <button
-              onClick={onCancel}
-              className="btn-secondary"
-            >
-              Close
-            </button>
+            <>
+              <button
+                onClick={handleRetry}
+                className="btn-primary"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={onCancel}
+                className="btn-secondary"
+              >
+                Close
+              </button>
+            </>
           )}
           {progress.step === 'success' && (
             <button

@@ -55,9 +55,11 @@ describe('SocialRecoveryModuleService', () => {
         newThreshold: 1n,
         approvalCount: 1n,
         executionTime: BigInt(Math.floor(Date.now() / 1000) + 86400),
+        expiration: BigInt(Math.floor(Date.now() / 1000) + 172800),
+        requiredThreshold: 2n,
         executed: false,
       }),
-      getRecoveryHashForCurrentNonce: vi.fn().mockResolvedValue('0xrecoveryhash'),
+      predictNextRecoveryHash: vi.fn().mockResolvedValue('0xrecoveryhash'),
       recoveryApprovals: vi.fn().mockResolvedValue(false),
       setupRecovery: Object.assign(
         vi.fn().mockResolvedValue({
@@ -93,6 +95,13 @@ describe('SocialRecoveryModuleService', () => {
       cancelRecovery: Object.assign(
         vi.fn().mockResolvedValue({
           hash: '0xcanceltxhash',
+          wait: vi.fn().mockResolvedValue({ status: 1 }),
+        }),
+        { estimateGas: vi.fn().mockResolvedValue(80000n) }
+      ),
+      expireRecovery: Object.assign(
+        vi.fn().mockResolvedValue({
+          hash: '0xexpiretxhash',
           wait: vi.fn().mockResolvedValue({ status: 1 }),
         }),
         { estimateGas: vi.fn().mockResolvedValue(80000n) }
@@ -180,7 +189,7 @@ describe('SocialRecoveryModuleService', () => {
 
   describe('getRecoveryHash', () => {
     it('should return recovery hash for given parameters', async () => {
-      mockModule.getRecoveryHashForCurrentNonce.mockResolvedValue('0xhash123');
+      mockModule.predictNextRecoveryHash.mockResolvedValue('0xhash123');
 
       const result = await service.getRecoveryHash(
         VALID_WALLET,
@@ -199,6 +208,8 @@ describe('SocialRecoveryModuleService', () => {
         newThreshold: 2n,
         approvalCount: 1n,
         executionTime: 1234567890n,
+        expiration: 1234654290n,
+        requiredThreshold: 2n,
         executed: false,
       });
 
@@ -209,6 +220,8 @@ describe('SocialRecoveryModuleService', () => {
         newThreshold: 2n,
         approvalCount: 1n,
         executionTime: 1234567890n,
+        expiration: 1234654290n,
+        requiredThreshold: 2n,
         executed: false,
       });
     });
@@ -449,6 +462,37 @@ describe('SocialRecoveryModuleService', () => {
       mockModule.cancelRecovery.mockRejectedValue({ code: 'ACTION_REJECTED' });
 
       await expect(service.cancelRecovery('0xWallet', '0xhash')).rejects.toThrow(
+        'Transaction was rejected by user'
+      );
+    });
+  });
+
+  describe('expireRecovery', () => {
+    beforeEach(() => {
+      service.setSigner(mockSigner);
+    });
+
+    it('should throw when signer not set', async () => {
+      service.setSigner(null);
+
+      await expect(service.expireRecovery('0xWallet', '0xhash')).rejects.toThrow(
+        'Signer not set'
+      );
+    });
+
+    it('should expire recovery', async () => {
+      await service.expireRecovery('0xWallet', '0xhash');
+
+      expect(mockModule.expireRecovery).toHaveBeenCalledWith(
+        '0xWallet',
+        '0xhash'
+      );
+    });
+
+    it('should throw on user rejection', async () => {
+      mockModule.expireRecovery.mockRejectedValue({ code: 'ACTION_REJECTED' });
+
+      await expect(service.expireRecovery('0xWallet', '0xhash')).rejects.toThrow(
         'Transaction was rejected by user'
       );
     });

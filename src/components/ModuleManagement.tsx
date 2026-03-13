@@ -130,6 +130,8 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-base text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors font-semibold flex items-center gap-2"
+              aria-expanded={isExpanded}
+              aria-controls="module-enabled-content"
             >
               <svg
                 className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -158,7 +160,7 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
 
       {/* Enabled Modules - Collapsible */}
       {enabledCount > 0 && (
-        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-0'}`}>
+        <div id="module-enabled-content" className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-0'}`}>
           <div className="space-y-2 pt-2">
             {enabledModules.map((module) => (
               <div

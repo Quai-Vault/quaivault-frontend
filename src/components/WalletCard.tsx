@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useState, memo, useCallback, useRef, useEffect } from 'react';
-import { useMultisig } from '../hooks/useMultisig';
+import { useWalletSummary } from '../hooks/useWalletSummary';
 import { formatAddress, formatCompactBalance } from '../utils/formatting';
 import { copyToClipboard as copyText } from '../utils/clipboard';
 import { TIMING } from '../config/contracts';
+import { canExecute } from '../utils/transactionState';
 
 type WalletRole = 'owner' | 'guardian' | 'owner+guardian';
 
@@ -18,7 +19,7 @@ interface WalletCardProps {
  * when other wallets in the list change
  */
 export const WalletCard = memo(function WalletCard({ walletAddress, compact = false, role = 'owner' }: WalletCardProps) {
-  const { walletInfo, pendingTransactions, isLoadingInfo, isRefetchingWalletInfo } = useMultisig(walletAddress);
+  const { walletInfo, pendingTransactions, isLoadingInfo, isRefetchingWalletInfo } = useWalletSummary(walletAddress);
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -39,14 +40,23 @@ export const WalletCard = memo(function WalletCard({ walletAddress, compact = fa
   if (isLoadingInfo || !walletInfo) {
     return (
       <div className={`${compact ? 'p-4' : 'p-6'} animate-pulse`}>
-        <div className="h-4 bg-dark-200 dark:bg-vault-dark-4 rounded w-3/4 mb-3"></div>
-        <div className="h-3 bg-dark-200 dark:bg-vault-dark-4 rounded w-1/2 mb-2"></div>
-        <div className="h-3 bg-dark-200 dark:bg-vault-dark-4 rounded w-1/3"></div>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 bg-dark-200 dark:bg-vault-dark-4 rounded-full" />
+          <div className="h-4 bg-dark-200 dark:bg-vault-dark-4 rounded w-2/3" />
+        </div>
+        <div className="h-3 bg-dark-200 dark:bg-vault-dark-4 rounded w-1/2 mb-3" />
+        <div className="border-t border-dark-200 dark:border-dark-600 pt-3 mt-3">
+          <div className="flex justify-between">
+            <div className="h-3 bg-dark-200 dark:bg-vault-dark-4 rounded w-16" />
+            <div className="h-4 bg-dark-200 dark:bg-vault-dark-4 rounded w-24" />
+          </div>
+        </div>
       </div>
     );
   }
 
   const pendingCount = pendingTransactions?.length || 0;
+  const hasReadyTx = pendingTransactions?.some(tx => canExecute(tx)) ?? false;
 
   const isGuardianRole = role === 'guardian';
   const isDualRole = role === 'owner+guardian';
@@ -97,7 +107,7 @@ export const WalletCard = memo(function WalletCard({ walletAddress, compact = fa
             </button>
           </div>
           {pendingCount > 0 && (
-            <span className="flex-shrink-0 inline-flex items-center px-5 py-2.5 rounded text-base font-bold bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border border-primary-300 dark:border-primary-700/50">
+            <span className={`flex-shrink-0 inline-flex items-center px-5 py-2.5 rounded text-base font-bold border ${hasReadyTx ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700/50' : 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700/50'}`}>
               {pendingCount}
             </span>
           )}

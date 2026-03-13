@@ -3,13 +3,7 @@ import type { Provider } from '../../types';
 import { CONTRACT_ADDRESSES, EVENT_QUERY_RANGE, EVENT_QUERY_RANGE_FALLBACK } from '../../config/contracts';
 import { BaseModuleService } from './BaseModuleService';
 import type { TransactionService } from '../core/TransactionService';
-import {
-  isUserRejection,
-  validateAddress,
-} from '../utils/TransactionErrorHandler';
-import {
-  estimateGasOrThrow,
-} from '../utils/GasEstimator';
+import { validateAddress } from '../utils/TransactionErrorHandler';
 import SocialRecoveryModuleABI from '../../config/abi/SocialRecoveryModule.json';
 
 export interface RecoveryConfig {
@@ -23,6 +17,8 @@ export interface Recovery {
   newThreshold: bigint;
   approvalCount: bigint;
   executionTime: bigint;
+  expiration: bigint;
+  requiredThreshold: bigint;
   executed: boolean;
 }
 
@@ -184,7 +180,7 @@ export class SocialRecoveryModuleService extends BaseModuleService {
   ): Promise<string> {
     const module = this.getModuleContract();
     const normalizedOwners = newOwners.map(addr => getAddress(addr));
-    return await module.getRecoveryHashForCurrentNonce(walletAddress, normalizedOwners, newThreshold);
+    return await module.predictNextRecoveryHash(walletAddress, normalizedOwners, newThreshold);
   }
 
   /**
@@ -198,6 +194,8 @@ export class SocialRecoveryModuleService extends BaseModuleService {
       newThreshold: recovery.newThreshold || 0n,
       approvalCount: recovery.approvalCount || 0n,
       executionTime: recovery.executionTime || 0n,
+      expiration: recovery.expiration || 0n,
+      requiredThreshold: recovery.requiredThreshold || 0n,
       executed: recovery.executed || false,
     };
   }
@@ -228,36 +226,15 @@ export class SocialRecoveryModuleService extends BaseModuleService {
       throw new Error(`Invalid threshold: must be between 1 and ${normalizedOwners.length}`);
     }
 
-    const module = this.getModuleContract(signer);
-
-    await estimateGasOrThrow(
-      module.initiateRecovery,
+    const receipt = await this.executeModuleTransaction(
+      'initiateRecovery',
       [walletAddress, normalizedOwners, newThreshold],
-      'initiate recovery',
-      module
+      'initiate recovery'
     );
 
-    let tx;
-    try {
-      tx = await module.initiateRecovery(walletAddress, normalizedOwners, newThreshold);
-    } catch (error) {
-      if (isUserRejection(error)) {
-        throw new Error('Transaction was rejected by user');
-      }
-      throw error;
-    }
-
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction receipt not available — transaction may have been replaced');
-    }
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted');
-    }
-
     // Extract recovery hash from event
-    const recoveryHash = this.extractRecoveryHashFromReceipt(receipt, module);
-    return recoveryHash;
+    const module = this.getModuleContract();
+    return this.extractRecoveryHashFromReceipt(receipt, module);
   }
 
   /**
@@ -265,8 +242,8 @@ export class SocialRecoveryModuleService extends BaseModuleService {
    */
   async approveRecovery(walletAddress: string, recoveryHash: string): Promise<void> {
     const signer = this.requireSigner();
-    const module = this.getModuleContract(signer);
     const signerAddress = await signer.getAddress();
+    const module = this.getModuleContract();
 
     // Pre-validation
     try {
@@ -287,100 +264,33 @@ export class SocialRecoveryModuleService extends BaseModuleService {
       if (errMsg.includes('cancelled') || errMsg.includes('already approved') || errMsg.includes('already been executed')) {
         throw error;
       }
-      // Log unexpected pre-validation errors (e.g., RPC failures) for diagnostics
+      // Re-throw unexpected pre-validation errors (e.g., RPC failures) instead of swallowing
       console.warn('approveRecovery pre-validation failed:', errMsg || 'Unknown error');
-    }
-
-    await estimateGasOrThrow(
-      module.approveRecovery,
-      [walletAddress, recoveryHash],
-      'approve recovery',
-      module
-    );
-
-    let tx;
-    try {
-      tx = await module.approveRecovery(walletAddress, recoveryHash);
-    } catch (error) {
-      if (isUserRejection(error)) {
-        throw new Error('Transaction was rejected by user');
-      }
       throw error;
     }
 
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction receipt not available — transaction may have been replaced');
-    }
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted');
-    }
+    await this.executeModuleTransaction('approveRecovery', [walletAddress, recoveryHash], 'approve recovery');
   }
 
   /**
    * Execute recovery (anyone, once conditions met)
    */
   async executeRecovery(walletAddress: string, recoveryHash: string): Promise<void> {
-    const signer = this.requireSigner();
-    const module = this.getModuleContract(signer);
-
-    await estimateGasOrThrow(
-      module.executeRecovery,
-      [walletAddress, recoveryHash],
-      'execute recovery',
-      module
-    );
-
-    let tx;
-    try {
-      tx = await module.executeRecovery(walletAddress, recoveryHash);
-    } catch (error) {
-      if (isUserRejection(error)) {
-        throw new Error('Transaction was rejected by user');
-      }
-      throw error;
-    }
-
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction receipt not available — transaction may have been replaced');
-    }
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted');
-    }
+    await this.executeModuleTransaction('executeRecovery', [walletAddress, recoveryHash], 'execute recovery');
   }
 
   /**
    * Cancel recovery (owners only)
    */
   async cancelRecovery(walletAddress: string, recoveryHash: string): Promise<void> {
-    const signer = this.requireSigner();
-    const module = this.getModuleContract(signer);
+    await this.executeModuleTransaction('cancelRecovery', [walletAddress, recoveryHash], 'cancel recovery');
+  }
 
-    await estimateGasOrThrow(
-      module.cancelRecovery,
-      [walletAddress, recoveryHash],
-      'cancel recovery',
-      module
-    );
-
-    let tx;
-    try {
-      tx = await module.cancelRecovery(walletAddress, recoveryHash);
-    } catch (error) {
-      if (isUserRejection(error)) {
-        throw new Error('Transaction was rejected by user');
-      }
-      throw error;
-    }
-
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction receipt not available — transaction may have been replaced');
-    }
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted');
-    }
+  /**
+   * Expire a recovery that has passed its expiration timestamp (permissionless)
+   */
+  async expireRecovery(walletAddress: string, recoveryHash: string): Promise<void> {
+    await this.executeModuleTransaction('expireRecovery', [walletAddress, recoveryHash], 'expire recovery');
   }
 
   /**
@@ -389,8 +299,8 @@ export class SocialRecoveryModuleService extends BaseModuleService {
    */
   async revokeRecoveryApproval(walletAddress: string, recoveryHash: string): Promise<void> {
     const signer = this.requireSigner();
-    const module = this.getModuleContract(signer);
     const signerAddress = await signer.getAddress();
+    const module = this.getModuleContract();
 
     // Pre-validation
     const recovery = await this.getRecovery(walletAddress, recoveryHash);
@@ -406,30 +316,7 @@ export class SocialRecoveryModuleService extends BaseModuleService {
       throw new Error('You have not approved this recovery');
     }
 
-    await estimateGasOrThrow(
-      module.revokeRecoveryApproval,
-      [walletAddress, recoveryHash],
-      'revoke recovery approval',
-      module
-    );
-
-    let tx;
-    try {
-      tx = await module.revokeRecoveryApproval(walletAddress, recoveryHash);
-    } catch (error) {
-      if (isUserRejection(error)) {
-        throw new Error('Transaction was rejected by user');
-      }
-      throw error;
-    }
-
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction receipt not available — transaction may have been replaced');
-    }
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted');
-    }
+    await this.executeModuleTransaction('revokeRecoveryApproval', [walletAddress, recoveryHash], 'revoke recovery approval');
   }
 
   /**

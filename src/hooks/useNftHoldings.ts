@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { indexerService } from '../services/indexer';
 import { getNftOwner } from '../services/utils/ContractMetadataService';
@@ -123,11 +124,14 @@ export function useNftHoldings(walletAddress?: string) {
     staleTime: METADATA_STALE_TIME_MS,
   });
 
-  // Merge holdings with metadata
-  const holdingsWithMetadata: NftHoldingWithMetadata[] = (holdings ?? []).map(h => ({
-    ...h,
-    metadata: metadataMap?.get(`${h.tokenAddress}:${h.tokenId}`) ?? null,
-  }));
+  // Merge holdings with metadata (memoized to prevent new array reference each render)
+  const holdingsWithMetadata: NftHoldingWithMetadata[] = useMemo(
+    () => (holdings ?? []).map(h => ({
+      ...h,
+      metadata: metadataMap?.get(`${h.tokenAddress}:${h.tokenId}`) ?? null,
+    })),
+    [holdings, metadataMap],
+  );
 
   const error = holdingsError;
 

@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { wagmiConfig } from './config/wagmi';
@@ -108,6 +108,16 @@ class RouteErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boole
   }
 }
 
+/**
+ * Functional wrapper that resets the RouteErrorBoundary on navigation.
+ * Uses location.pathname as a key so React unmounts/remounts the class
+ * component when the route changes, clearing any caught error state.
+ */
+function RouteErrorBoundaryWrapper({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  return <RouteErrorBoundary key={location.pathname}>{children}</RouteErrorBoundary>;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -127,12 +137,12 @@ function App() {
           <ErrorBoundary>
             <Layout>
               <Routes>
-                <Route path="/" element={<RouteErrorBoundary><Dashboard /></RouteErrorBoundary>} />
-                <Route path="/create" element={<RouteErrorBoundary><CreateWallet /></RouteErrorBoundary>} />
-                <Route path="/wallet/:address" element={<RouteErrorBoundary><WalletDetail /></RouteErrorBoundary>} />
-                <Route path="/wallet/:address/transaction/new" element={<RouteErrorBoundary><NewTransaction /></RouteErrorBoundary>} />
-                <Route path="/wallet/:address/history" element={<RouteErrorBoundary><TransactionHistory /></RouteErrorBoundary>} />
-                <Route path="/wallet/:address/lookup" element={<RouteErrorBoundary><LookupTransaction /></RouteErrorBoundary>} />
+                <Route path="/" element={<RouteErrorBoundaryWrapper><Dashboard /></RouteErrorBoundaryWrapper>} />
+                <Route path="/create" element={<RouteErrorBoundaryWrapper><CreateWallet /></RouteErrorBoundaryWrapper>} />
+                <Route path="/wallet/:address" element={<RouteErrorBoundaryWrapper><WalletDetail /></RouteErrorBoundaryWrapper>} />
+                <Route path="/wallet/:address/transaction/new" element={<RouteErrorBoundaryWrapper><NewTransaction /></RouteErrorBoundaryWrapper>} />
+                <Route path="/wallet/:address/history" element={<RouteErrorBoundaryWrapper><TransactionHistory /></RouteErrorBoundaryWrapper>} />
+                <Route path="/wallet/:address/lookup" element={<RouteErrorBoundaryWrapper><LookupTransaction /></RouteErrorBoundaryWrapper>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

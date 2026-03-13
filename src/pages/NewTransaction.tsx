@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
 import { useTokenBalances } from '../hooks/useTokenBalances';
@@ -12,6 +12,7 @@ import { Modal } from '../components/Modal';
 import { TransactionFlow } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
 import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TransactionModeSelector } from '../components/transaction/TransactionModeSelector';
 import { SendTokenForm } from '../components/transaction/SendTokenForm';
 import { SendNftForm } from '../components/transaction/SendNftForm';
@@ -77,6 +78,28 @@ export function NewTransaction() {
   const [signAction, setSignAction] = useState<'sign' | 'unsign'>('sign');
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Track whether the form has been modified (dirty state for navigation guard)
+  const isDirty = useMemo(() => {
+    if (showFlow || showPreview) return false; // Don't block when in transaction flow
+    return to !== '' || value !== '' || data !== '0x' ||
+      tokenRecipient !== '' || tokenAmount !== '' ||
+      nftRecipient !== '' || erc1155Recipient !== '' || erc1155Quantity !== '' ||
+      tokenMeta !== null || nftMeta !== null || erc1155Meta !== null;
+  }, [to, value, data, tokenRecipient, tokenAmount, nftRecipient, erc1155Recipient, erc1155Quantity, tokenMeta, nftMeta, erc1155Meta, showFlow, showPreview]);
+
+  // Block in-app navigation when form is dirty
+  const blocker = useBlocker(isDirty);
+
+  // Block browser tab close / refresh when form is dirty
+  useEffect(() => {
+    if (!isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
   // Deep-link pre-selection props
   const initialToken = useMemo(() => {
     const token = searchParams.get('token');
@@ -84,10 +107,9 @@ export function NewTransaction() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const initialTokenId = useMemo(() => searchParams.get('tokenId') ?? undefined, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mode change handler — resets all form state
-  const handleModeChange = useCallback((newMode: TransactionMode) => {
-    setMode(newMode);
-    setTo('');
+  // Reset all form fields except optionally preserving `to`
+  const resetFormFields = useCallback((options?: { preserveTo?: boolean }) => {
+    if (!options?.preserveTo) setTo('');
     setValue('');
     setData('0x');
     setErrors([]);
@@ -105,26 +127,18 @@ export function NewTransaction() {
     setAssetValidationWarning(null);
   }, []);
 
+  // Mode change handler — resets all form state
+  const handleModeChange = useCallback((newMode: TransactionMode) => {
+    setMode(newMode);
+    resetFormFields();
+  }, [resetFormFields]);
+
   // Switch to contract-call mode while preserving the `to` address
   const switchToContractCall = useCallback(() => {
     setMode('contract-call');
-    setValue('');
-    setData('0x');
-    setErrors([]);
-    setTokenMeta(null);
-    setNftMeta(null);
-    setTokenRecipient('');
-    setTokenAmount('');
-    setNftRecipient('');
-    setErc1155Meta(null);
-    setErc1155Recipient('');
-    setErc1155Quantity('');
-    setExpiration('');
-    setExecutionDelay('');
-    setDelayUnit('minutes');
-    setAssetValidationWarning(null);
+    resetFormFields({ preserveTo: true });
     setSignAction('sign');
-  }, []);
+  }, [resetFormFields]);
 
   // Contract detection and ABI fetching
   const {
@@ -382,7 +396,7 @@ export function NewTransaction() {
     setShowFlow(false);
   };
 
-  if (!walletAddress) {
+  if (!walletAddress || !isQuaiAddress(walletAddress)) {
     return (
       <div className="text-center py-20">
         <div className="vault-panel max-w-md mx-auto p-12">
@@ -715,7 +729,7 @@ export function NewTransaction() {
 
         {/* Errors */}
         {errors.length > 0 && (
-          <div className="mb-8 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-l-4 border-primary-600 rounded-md p-4 shadow-red-glow">
+          <div role="alert" aria-live="assertive" className="mb-8 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-l-4 border-primary-600 rounded-md p-4 shadow-red-glow">
             <h4 className="text-lg font-semibold text-primary-200 mb-3 flex items-center gap-4">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -785,6 +799,18 @@ export function NewTransaction() {
           minExecutionDelay={walletInfo?.minExecutionDelay}
         />
       </Modal>
+
+      {/* Navigation Guard Dialog */}
+      <ConfirmDialog
+        isOpen={blocker.state === 'blocked'}
+        onClose={() => blocker.reset?.()}
+        onConfirm={() => blocker.proceed?.()}
+        title="Unsaved Changes"
+        message="You have unsaved transaction data. Are you sure you want to leave this page? Your changes will be lost."
+        confirmText="Leave Page"
+        cancelText="Stay"
+        variant="warning"
+      />
 
       {/* Transaction Flow Modal */}
       <Modal

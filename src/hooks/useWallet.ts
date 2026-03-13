@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useWalletStore } from '../store/walletStore';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -9,6 +10,7 @@ import { setWalletProvider } from '../config/provider';
 import type { Signer, Provider } from '../types';
 
 export function useWallet() {
+  const queryClient = useQueryClient();
   const {
     setConnected,
     setError,
@@ -25,14 +27,26 @@ export function useWallet() {
 
   // Keep a ref to the signer for signMessage
   const signerRef = useRef<Signer | null>(null);
+  // Track previous address to detect account switches vs initial connect
+  const prevAddressRef = useRef<string | null>(null);
 
   // Sync connection state immediately so wallet list loads without waiting for the signer bridge.
   // The signer bridge can fail if the wallet's chain ID doesn't match wagmi's configured chain,
   // but read-only operations (wallet list, balances) only need the address.
   useEffect(() => {
     if (isConnected && address) {
+      // On account switch (not initial connect), clear stale signer/provider
+      // from previous account so queries don't use the old provider during
+      // the async signer bridge. The bridge effect re-establishes them.
+      if (prevAddressRef.current && prevAddressRef.current !== address) {
+        signerRef.current = null;
+        multisigService.setSigner(null);
+        setWalletProvider(null);
+      }
+      prevAddressRef.current = address;
       setConnected(true, address);
     } else if (!isConnected) {
+      prevAddressRef.current = null;
       signerRef.current = null;
       multisigService.setSigner(null);
       setWalletProvider(null);
@@ -65,6 +79,9 @@ export function useWallet() {
         signerRef.current = signer;
         setWalletProvider(signer.provider as Provider);
         multisigService.setSigner(signer);
+        // Provider is now ready — refetch wallet info so balances update
+        // from the 0n placeholder set during the bridge window.
+        queryClient.invalidateQueries({ queryKey: ['walletInfo'] });
       })
       .catch((err) => {
         if (!isActive) return;

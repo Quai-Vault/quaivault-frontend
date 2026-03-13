@@ -7,7 +7,7 @@ import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
-import { formatAddress, formatTimestamp, formatDateString } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime, formatDateString } from '../utils/formatting';
 import { CopyButton } from '../components/CopyButton';
 import { EmptyState } from '../components/EmptyState';
 import { HistoricalTransactionTab, type HistoricalTabConfig } from '../components/HistoricalTransactionTab';
@@ -224,7 +224,7 @@ export function TransactionHistory() {
       )}
 
       {/* Tab Bar */}
-      <div className="flex border-b border-dark-300 dark:border-dark-600 mb-8">
+      <div className="flex overflow-x-auto scrollbar-hide border-b border-dark-300 dark:border-dark-600 mb-8">
         <button
           onClick={() => setActiveTab('transactions')}
           className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
@@ -377,6 +377,7 @@ export function TransactionHistory() {
                     type="button"
                     onClick={() => toggleExpanded(tx.hash)}
                     className="w-full text-left"
+                    aria-expanded={isExpanded}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">
@@ -392,7 +393,7 @@ export function TransactionHistory() {
                         {decoded.details && (
                           <p className="text-lg text-dark-700 dark:text-dark-200 font-semibold mt-2">{decoded.details}</p>
                         )}
-                        <p className="text-base font-mono text-dark-500 mt-2 uppercase tracking-wider">{formatTimestamp(tx.timestamp)}</p>
+                        <p className="text-base font-mono text-dark-500 mt-2 uppercase tracking-wider" title={formatTimestamp(tx.timestamp)}>{formatRelativeTime(tx.timestamp)}</p>
                       </div>
                       <div className="flex items-start gap-3 ml-4 flex-shrink-0">
                         <div className="text-right">
@@ -601,6 +602,7 @@ export function TransactionHistory() {
                     type="button"
                     onClick={() => toggleExpanded(recovery.recovery_hash)}
                     className="w-full text-left"
+                    aria-expanded={isExpanded}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">

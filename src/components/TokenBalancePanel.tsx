@@ -61,6 +61,8 @@ export function TokenBalancePanel({ walletAddress, isOwner }: TokenBalancePanelP
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1.5 group"
           type="button"
+          aria-expanded={isExpanded}
+          aria-controls="token-balances-content"
         >
           <svg
             className={`w-3.5 h-3.5 text-dark-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -78,6 +80,7 @@ export function TokenBalancePanel({ walletAddress, isOwner }: TokenBalancePanelP
           disabled={isRefetching}
           className="text-xs text-primary-500 hover:text-primary-400 transition-colors disabled:opacity-50"
           title="Refresh token balances"
+          aria-label="Refresh token balances"
         >
           <svg className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -85,7 +88,7 @@ export function TokenBalancePanel({ walletAddress, isOwner }: TokenBalancePanelP
         </button>
       </div>
       {isExpanded && (
-        <div className="space-y-1.5 mt-1.5">
+        <div id="token-balances-content" className="space-y-1.5 mt-1.5">
           {erc20Tokens.map((token) => {
             const bal = balanceMap.get(token.address.toLowerCase());
             return (

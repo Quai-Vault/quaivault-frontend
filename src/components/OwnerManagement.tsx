@@ -89,6 +89,7 @@ export function OwnerManagement({ walletAddress, owners, threshold, onUpdate, is
                   onClick={() => handleRemoveOwner(owner)}
                   className="text-base font-semibold text-primary-500 hover:text-primary-400 transition-colors px-4 py-2 rounded border border-primary-300 dark:border-primary-700/50 hover:border-primary-600 bg-dark-50 dark:bg-vault-dark-3 hover:bg-dark-100 dark:hover:bg-vault-dark-2"
                   title="Remove owner"
+                  aria-label="Remove owner"
                 >
                   ×
                 </button>

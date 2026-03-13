@@ -7,7 +7,7 @@ import { isQuaiAddress } from 'quais';
 
 export function CreateWallet() {
   const navigate = useNavigate();
-  const { connected } = useWallet();
+  const { connected, address: connectedAddress } = useWallet();
 
   const [ownerInputs, setOwnerInputs] = useState<{ id: string; value: string }[]>([
     { id: crypto.randomUUID(), value: '' },
@@ -74,6 +74,15 @@ export function CreateWallet() {
 
     if (threshold > validOwners.length) {
       newErrors.push('Threshold cannot exceed number of owners');
+    }
+
+    // Validate execution delay (contract enforces max 30 days)
+    if (minExecutionDelay) {
+      const unitMultiplier = delayUnit === 'days' ? 86400 : delayUnit === 'hours' ? 3600 : 60;
+      const delaySeconds = Number(minExecutionDelay) * unitMultiplier;
+      if (delaySeconds > 2_592_000) {
+        newErrors.push('Execution delay cannot exceed 30 days');
+      }
     }
 
     setErrors(newErrors);
@@ -199,6 +208,15 @@ export function CreateWallet() {
                     className="input-field w-full pl-12"
                   />
                 </div>
+                {index === 0 && connectedAddress && !owner.value && (
+                  <button
+                    type="button"
+                    onClick={() => updateOwner(0, connectedAddress)}
+                    className="btn-secondary text-sm px-3 py-1.5 whitespace-nowrap"
+                  >
+                    Use My Address
+                  </button>
+                )}
                 {ownerInputs.length > 1 && (
                   <button
                     type="button"
@@ -319,7 +337,7 @@ export function CreateWallet() {
 
         {/* Errors */}
         {errors.length > 0 && (
-          <div className="mb-8 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-l-4 border-primary-600 rounded-md p-5 shadow-red-glow">
+          <div role="alert" aria-live="assertive" className="mb-8 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-l-4 border-primary-600 rounded-md p-5 shadow-red-glow">
             <div className="flex items-start gap-4">
               <svg className="w-5 h-5 text-primary-300 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />

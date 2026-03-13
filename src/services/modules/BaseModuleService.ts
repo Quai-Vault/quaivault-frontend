@@ -2,6 +2,8 @@ import { Contract as QuaisContract, Interface } from 'quais';
 import type { Contract, Signer, Provider } from '../../types';
 import { BaseService } from '../core/BaseService';
 import { TransactionService } from '../core/TransactionService';
+import { estimateGasOrThrow } from '../utils/GasEstimator';
+import { isUserRejection } from '../utils/TransactionErrorHandler';
 
 /**
  * Base service class for all module services
@@ -74,6 +76,32 @@ export abstract class BaseModuleService extends BaseService {
       0n,
       data
     );
+  }
+
+  /**
+   * Execute a direct transaction on the module contract.
+   * Handles gas estimation, user rejection, receipt waiting, and status validation.
+   * Pre-validation and post-processing should be handled by the calling method.
+   */
+  protected async executeModuleTransaction(
+    methodName: string,
+    args: unknown[],
+    description: string
+  ): Promise<any> {
+    const signer = this.requireSigner();
+    const module = this.getModuleContract(signer);
+    await estimateGasOrThrow(module[methodName], args, description, module);
+    let tx;
+    try {
+      tx = await module[methodName](...args);
+    } catch (error) {
+      if (isUserRejection(error)) throw new Error('Transaction was rejected by user');
+      throw error;
+    }
+    const receipt = await tx.wait();
+    if (!receipt) throw new Error('Transaction receipt not available — transaction may have been replaced');
+    if (receipt.status === 0) throw new Error('Transaction reverted');
+    return receipt;
   }
 
   /**

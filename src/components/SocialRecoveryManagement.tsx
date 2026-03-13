@@ -8,6 +8,7 @@ import { Modal } from './Modal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
 import { isAddress, formatQuai, getAddress } from 'quais';
+import { formatDuration } from '../utils/formatting';
 
 interface SocialRecoveryManagementProps {
   walletAddress: string;
@@ -224,6 +225,26 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
     },
   });
 
+  // Expire recovery mutation (permissionless — anyone can call for expired recoveries)
+  const expireRecovery = useMutation({
+    mutationFn: async (recoveryHash: string) => {
+      return await multisigService.expireRecovery(walletAddress, recoveryHash);
+    },
+    onSuccess: () => {
+      notificationManager.add({
+        message: 'Recovery expired successfully',
+        type: 'success',
+      });
+      queryClient.invalidateQueries({ queryKey: ['pendingRecoveries', walletAddress] });
+      setTimeout(async () => {
+        await refetchRecoveries();
+      }, 5000);
+    },
+    onError: (error) => {
+      setErrors([error instanceof Error ? error.message : 'Failed to expire recovery']);
+    },
+  });
+
   const updateNewOwner = (id: string, value: string) => {
     setOwnerInputs(prev => prev.map(o => o.id === id ? { ...o, value } : o));
     setErrors([]);
@@ -281,19 +302,10 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
     initiateRecovery.mutate({ newOwners: validOwners, newThreshold });
   };
 
-  const formatTimeUntilExecution = (executionTime: number): string => {
+  const formatTimeUntilExecution = (timestamp: number): string => {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    if (executionTime <= nowSeconds) {
-      return 'Ready to execute';
-    }
-    const secondsRemaining = executionTime - nowSeconds;
-    const days = Math.floor(secondsRemaining / 86400);
-    const hours = Math.floor((secondsRemaining % 86400) / 3600);
-    const minutes = Math.floor((secondsRemaining % 3600) / 60);
-
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    const remaining = timestamp - nowSeconds;
+    return remaining <= 0 ? 'Ready to execute' : formatDuration(remaining);
   };
 
   const handleRefreshRecoveries = useCallback(async () => {
@@ -485,17 +497,23 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
               <div className="space-y-3">
                 {pendingRecoveries.map((recovery) => {
                   const nowSeconds = Math.floor(Date.now() / 1000);
-                  const canExecute = recovery.executionTime <= nowSeconds && recovery.approvalCount >= recoveryConfig.threshold;
-                  const requiredApprovals = recoveryConfig.threshold;
+                  const isExpired = recovery.expiration > 0 && recovery.expiration <= nowSeconds;
+                  const canExecute = !isExpired && recovery.executionTime <= nowSeconds && recovery.approvalCount >= (recovery.requiredThreshold || recoveryConfig.threshold);
+                  const requiredApprovals = recovery.requiredThreshold || recoveryConfig.threshold;
                   const currentApprovals = recovery.approvalCount;
                   const hasApproved = approvalStatuses?.get(recovery.recoveryHash) === true;
-                  
+
                   return (
-                    <div key={recovery.recoveryHash} className="bg-dark-100 dark:bg-vault-dark-4 rounded-md p-4 border border-dark-300 dark:border-dark-600">
+                    <div key={recovery.recoveryHash} className={`bg-dark-100 dark:bg-vault-dark-4 rounded-md p-4 border ${isExpired ? 'border-primary-500/50 opacity-75' : 'border-dark-300 dark:border-dark-600'}`}>
                       <div className="space-y-3">
                         <div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">Recovery Hash:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">Recovery Hash:</span>
+                              {isExpired && (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase tracking-wider">Expired</span>
+                              )}
+                            </div>
                             <span className="text-xs font-mono text-primary-600 dark:text-primary-300">{recovery.recoveryHash.slice(0, 10)}...{recovery.recoveryHash.slice(-8)}</span>
                           </div>
                           <div className="text-sm text-dark-400 dark:text-dark-400 mb-2">
@@ -511,6 +529,14 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                             <div>
                               <strong>Execution Time:</strong> {formatTimeUntilExecution(recovery.executionTime)}
                             </div>
+                            {recovery.expiration > 0 && (
+                              <div>
+                                <strong>Expiration:</strong>{' '}
+                                {isExpired
+                                  ? <span className="text-primary-500 font-semibold">Expired</span>
+                                  : formatTimeUntilExecution(recovery.expiration)}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
@@ -583,6 +609,23 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                               'Cancel'
                             )}
                           </button>
+                          {isExpired && (
+                            <button
+                              onClick={() => expireRecovery.mutate(recovery.recoveryHash)}
+                              disabled={expireRecovery.isPending}
+                              className="btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2 text-primary-500"
+                              title="Clean up this expired recovery on-chain"
+                            >
+                              {expireRecovery.isPending && expireRecovery.variables === recovery.recoveryHash ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                  Expiring...
+                                </>
+                              ) : (
+                                'Expire'
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

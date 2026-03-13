@@ -82,6 +82,9 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-dark-50 dark:bg-vault-black relative">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-md focus:outline-none">
+        Skip to main content
+      </a>
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-600/3 dark:bg-primary-600/5 rounded-full blur-3xl animate-glow-slow"></div>
@@ -163,7 +166,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Error Banner - Fixed below navbar */}
       {error && (
-        <div className={`fixed top-14 right-0 z-20 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0' : 'left-64'}`}>
+        <div className={`fixed top-14 right-0 z-20 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0 lg:left-16' : 'left-64'}`}>
           <div className="flex max-w-full mx-auto px-5 items-center">
             <div className="flex-1">
               <p className="text-base font-semibold text-primary-100 flex items-center gap-4.5">
@@ -191,7 +194,7 @@ export function Layout({ children }: LayoutProps) {
       )}
 
       {/* Main Content Area - Offset by sidebar and navbar */}
-      <main className={`relative z-0 transition-all duration-300 ${sidebarCollapsed ? 'ml-0' : 'ml-64'} ${error ? 'pt-24' : 'pt-14'} min-h-screen pb-6`}>
+      <main id="main-content" className={`relative z-0 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-64'} ${error ? 'pt-24' : 'pt-14'} min-h-screen pb-6`}>
         <div className="px-5 py-4">
           {children}
         </div>
@@ -201,37 +204,29 @@ export function Layout({ children }: LayoutProps) {
       <NotificationContainer />
 
       {/* Footer */}
-      <footer className={`relative z-10 vault-panel border-t-2 border-dark-200 dark:border-dark-700 transition-all duration-300 ${sidebarCollapsed ? 'ml-0' : 'ml-64'}`}>
-        <div className="px-5 py-3">
-          <div className="flex flex-col items-center gap-4.5">
-            <div className="flex items-center gap-2">
-              <Logo className="w-6 h-6 opacity-70" />
-              <p className="text-center text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">
-                QuaiVault
-              </p>
-            </div>
-            <p className="text-center text-base text-dark-500 dark:text-dark-600">
-              Decentralized multisig solution for Quai Network
-            </p>
-            <div className="mt-1.5 flex items-center gap-4.5">
-              <div className="w-2 h-2 rounded-full bg-primary-600 animate-glow-pulse"></div>
-              <span className="text-base text-dark-500 dark:text-dark-600 font-mono">Secure • Decentralized • Trustless</span>
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <a
-                href={import.meta.env.VITE_GITHUB_URL || 'https://github.com/Quai-Vault/quaivault-frontend'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-base text-dark-400 dark:text-dark-500 hover:text-primary-400 transition-colors"
-                title="View on GitHub"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                </svg>
-                <span className="font-mono">View on GitHub</span>
-              </a>
-            </div>
+      <footer className={`relative z-10 vault-panel border-t-2 border-dark-200 dark:border-dark-700 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-64'}`}>
+        <div className="flex items-center justify-between py-2 px-4">
+          <div className="flex items-center gap-2">
+            <Logo className="w-5 h-5 opacity-70" />
+            <span className="text-xs font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">
+              QuaiVault
+            </span>
+            <span className="text-xs text-dark-500 dark:text-dark-600 hidden sm:inline">
+              Secure Multisig for Quai Network
+            </span>
           </div>
+          <a
+            href={import.meta.env.VITE_GITHUB_URL || 'https://github.com/Quai-Vault/quaivault-frontend'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-dark-400 dark:text-dark-500 hover:text-primary-400 transition-colors"
+            title="View on GitHub"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+            </svg>
+            <span className="font-mono hidden sm:inline">GitHub</span>
+          </a>
         </div>
       </footer>
     </div>

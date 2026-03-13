@@ -23,6 +23,11 @@
     },
     {
       "inputs": [],
+      "name": "ExecutionDelayTooLong",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "InvalidImplementationAddress",
       "type": "error"
     },
@@ -116,6 +121,19 @@
       ],
       "name": "WalletRegistered",
       "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_EXECUTION_DELAY",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "inputs": [
