@@ -9,6 +9,7 @@ import { OwnerManagement } from '../components/OwnerManagement';
 import { ModuleManagement } from '../components/ModuleManagement';
 import { SocialRecoveryManagement } from '../components/SocialRecoveryManagement';
 import { ChangeThresholdModal, ChangeTimelockModal } from '../components/transactionModals';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { CopyButton } from '../components/CopyButton';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
@@ -42,6 +43,10 @@ export function WalletDetail() {
   const [showChangeThreshold, setShowChangeThreshold] = useState(false);
   const [showChangeTimelock, setShowChangeTimelock] = useState(false);
   const [showReceive, setShowReceive] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDelegatecallConfirm, setShowDelegatecallConfirm] = useState(false);
+  const [isProposingDelegatecall, setIsProposingDelegatecall] = useState(false);
+  const [delegatecallError, setDelegatecallError] = useState<string | null>(null);
 
   // Check if connected user is a Social Recovery guardian
   const { data: isGuardian } = useQuery({
@@ -61,6 +66,14 @@ export function WalletDetail() {
       return await multisigService.isModuleEnabled(walletAddress, CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE);
     },
     enabled: !!walletAddress,
+  });
+
+  // Fetch pending recoveries to alert owners
+  const { data: pendingRecoveries } = useQuery({
+    queryKey: ['pendingRecoveries', walletAddress],
+    queryFn: () => multisigService.getPendingRecoveries(walletAddress!),
+    enabled: !!walletAddress && !!isSocialRecoveryEnabled,
+    refetchInterval: 30_000,
   });
 
   if (!walletAddress || !isQuaiAddress(walletAddress)) {
@@ -170,6 +183,57 @@ export function WalletDetail() {
         </div>
       </div>
 
+      {/* Active Recovery Warning Banner */}
+      {pendingRecoveries && pendingRecoveries.length > 0 && (
+        <div className="rounded-lg border-2 border-red-600 bg-gradient-to-r from-red-950 to-red-900/80 p-4 shadow-red-glow animate-pulse-slow">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-600/30 border border-red-500 flex items-center justify-center">
+              <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-display font-bold text-red-300">
+                Social Recovery In Progress
+              </h3>
+              <p className="text-sm text-red-300/80 mt-1">
+                {pendingRecoveries.length === 1
+                  ? 'A social recovery has been initiated for this vault. If completed, wallet ownership will be transferred to new owners.'
+                  : `${pendingRecoveries.length} social recoveries have been initiated for this vault.`}
+              </p>
+              {pendingRecoveries.map((recovery) => {
+                const now = Math.floor(Date.now() / 1000);
+                const isExecutable = recovery.executionTime > 0 && now >= recovery.executionTime;
+                const timeUntilExecutable = recovery.executionTime > 0
+                  ? recovery.executionTime - now
+                  : 0;
+                return isExecutable ? (
+                  <span key={recovery.recoveryHash} className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded bg-red-600/40 text-red-200 text-xs font-bold border border-red-500/50">
+                    EXECUTABLE NOW
+                  </span>
+                ) : timeUntilExecutable > 0 ? (
+                  <p key={recovery.recoveryHash} className="text-sm text-red-300/70 mt-2">
+                    Executable in {formatDuration(timeUntilExecutable)}
+                  </p>
+                ) : null;
+              })}
+              {isOwner && (
+                <p className="text-sm text-red-300/80 mt-3">
+                  As an owner, you can cancel this recovery from the{' '}
+                  <button
+                    onClick={() => setShowRecoveryManagement(true)}
+                    className="text-red-300 underline hover:text-red-200 font-semibold"
+                  >
+                    Social Recovery Management
+                  </button>
+                  {' '}panel.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Info and Owners Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left Column: Wallet Info */}
@@ -224,30 +288,79 @@ export function WalletDetail() {
               </div>
             </div>
             
-            {/* Timelock */}
-            <div>
-              <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Timelock</h3>
-              <div className="flex items-center gap-3">
-                <p className="text-lg font-semibold text-dark-700 dark:text-dark-200">
-                  {walletInfo.minExecutionDelay > 0 ? (
-                    <>
-                      {formatDuration(walletInfo.minExecutionDelay)}
-                      <span className="text-dark-500 text-sm ml-1">min delay</span>
-                    </>
-                  ) : (
-                    'None'
-                  )}
-                </p>
-                {isOwner && (
-                  <button
-                    onClick={() => setShowChangeTimelock(true)}
-                    className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
-                    title="Change timelock"
-                  >
-                    Change
-                  </button>
-                )}
-              </div>
+            {/* Advanced Settings Collapsible */}
+            <div className="col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-2 text-base font-mono text-dark-500 uppercase tracking-wider hover:text-dark-700 dark:hover:text-dark-300 transition-colors"
+                aria-expanded={showAdvanced}
+              >
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform ${showAdvanced ? '' : '-rotate-90'}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Advanced Settings
+              </button>
+
+              {showAdvanced && (
+                <div className="mt-3 space-y-4 pl-5">
+                  {/* Timelock */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">Timelock</h3>
+                      <p className="text-lg font-semibold text-dark-700 dark:text-dark-200">
+                        {walletInfo.minExecutionDelay > 0 ? (
+                          <>
+                            {formatDuration(walletInfo.minExecutionDelay)}
+                            <span className="text-dark-500 text-sm ml-1">min delay</span>
+                          </>
+                        ) : (
+                          'None'
+                        )}
+                      </p>
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => setShowChangeTimelock(true)}
+                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        title="Change timelock"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+
+                  {/* DelegateCall */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">DelegateCall</h3>
+                      {walletInfo.delegatecallDisabled ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-900/30 text-green-400 border border-green-700/50">
+                          Blocked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
+                          Allowed
+                        </span>
+                      )}
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => setShowDelegatecallConfirm(true)}
+                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        title="Toggle DelegateCall"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Indexer status warning */}
@@ -405,6 +518,45 @@ export function WalletDetail() {
         }}
         walletAddress={walletAddress}
         currentDelay={walletInfo.minExecutionDelay}
+      />
+
+      {/* DelegateCall Toggle Confirmation */}
+      <ConfirmDialog
+        isOpen={showDelegatecallConfirm}
+        onClose={() => {
+          if (!isProposingDelegatecall) {
+            setShowDelegatecallConfirm(false);
+            setDelegatecallError(null);
+          }
+        }}
+        onConfirm={async () => {
+          setIsProposingDelegatecall(true);
+          setDelegatecallError(null);
+          try {
+            const newValue = !walletInfo.delegatecallDisabled;
+            await multisigService.proposeSetDelegatecallDisabled(walletAddress, newValue);
+            setShowDelegatecallConfirm(false);
+            refresh();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Transaction failed';
+            setDelegatecallError(message);
+            console.error('Failed to propose DelegateCall change:', err);
+          } finally {
+            setIsProposingDelegatecall(false);
+          }
+        }}
+        title={walletInfo.delegatecallDisabled ? 'Enable DelegateCall?' : 'Disable DelegateCall?'}
+        message={
+          (delegatecallError
+            ? `Error: ${delegatecallError}\n\n`
+            : '') +
+          (walletInfo.delegatecallDisabled
+            ? 'Enabling DelegateCall allows modules to execute DelegateCall operations. This is required for DAO governance via MultiSend but reduces security. This change requires owner consensus.'
+            : 'Disabling DelegateCall blocks modules from executing DelegateCall operations. This is the secure default. This change requires owner consensus.')
+        }
+        confirmText={isProposingDelegatecall ? 'Proposing...' : 'Propose Change'}
+        isLoading={isProposingDelegatecall}
+        variant={walletInfo.delegatecallDisabled ? 'warning' : 'info'}
       />
 
       {/* Pending Transactions - Compact */}

@@ -8,17 +8,22 @@ vi.mock('./core/OwnerService');
 vi.mock('./modules/SocialRecoveryModuleService');
 
 // Mock TransactionBuilderService (uses quais Interface at module level)
-vi.mock('./TransactionBuilderService', () => ({
-  TransactionBuilderService: vi.fn().mockImplementation(() => ({
+const { mockTransactionBuilder } = vi.hoisted(() => ({
+  mockTransactionBuilder: {
     buildChangeThreshold: vi.fn().mockReturnValue('0xencoded'),
     buildAddOwner: vi.fn().mockReturnValue('0xencoded'),
     buildRemoveOwner: vi.fn().mockReturnValue('0xencoded'),
     buildSwapOwner: vi.fn().mockReturnValue('0xencoded'),
     buildSetMinExecutionDelay: vi.fn().mockReturnValue('0xencoded'),
+    buildSetDelegatecallDisabled: vi.fn().mockReturnValue('0xencoded'),
     buildCancelByConsensus: vi.fn().mockReturnValue('0xencoded'),
     buildEnableModule: vi.fn().mockReturnValue('0xencoded'),
     buildDisableModule: vi.fn().mockReturnValue('0xencoded'),
-  })),
+  },
+}));
+vi.mock('./TransactionBuilderService', () => ({
+  TransactionBuilderService: vi.fn().mockImplementation(() => mockTransactionBuilder),
+  transactionBuilderService: mockTransactionBuilder,
 }));
 
 vi.mock('quais', () => ({
@@ -145,6 +150,8 @@ describe('MultisigService', () => {
         name: null,
         threshold: 2,
         owner_count: 3,
+        min_execution_delay: 0,
+        delegatecall_disabled: true,
         created_at_block: 1,
         created_at_tx: '0xtx',
         created_at: '2026-01-01',
@@ -170,6 +177,7 @@ describe('MultisigService', () => {
         threshold: 2,
         balance: '5000',
         minExecutionDelay: 0,
+        delegatecallDisabled: true,
       });
 
       const result = await service.getWalletInfo(WALLET);
@@ -189,6 +197,7 @@ describe('MultisigService', () => {
         threshold: 2,
         balance: '5000',
         minExecutionDelay: 0,
+        delegatecallDisabled: true,
       });
 
       const result = await service.getWalletInfo(WALLET);
@@ -302,6 +311,22 @@ describe('MultisigService', () => {
       });
 
       expect(result).toBe(WALLET);
+    });
+  });
+
+  describe('proposeSetDelegatecallDisabled', () => {
+    it('should encode and propose a self-call to toggle delegatecall', async () => {
+      vi.mocked(service.transaction.proposeTransaction).mockResolvedValue(TX_HASH);
+
+      const result = await service.proposeSetDelegatecallDisabled(WALLET, false);
+
+      expect(result).toBe(TX_HASH);
+      expect(service.transaction.proposeTransaction).toHaveBeenCalledWith(
+        WALLET,
+        WALLET,
+        BigInt(0),
+        '0xencoded'
+      );
     });
   });
 

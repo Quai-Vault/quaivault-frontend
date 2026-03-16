@@ -134,8 +134,8 @@ export function LookupTransaction() {
   );
 
   const txCanConsensusCancel = useMemo(() =>
-    transaction ? canConsensusCancel(transaction) : false,
-    [transaction]
+    transaction ? canConsensusCancel(transaction, connectedAddress || '') : false,
+    [transaction, connectedAddress]
   );
 
   const txCanExpire = useMemo(() =>

@@ -15,6 +15,7 @@ export function CreateWallet() {
   const [threshold, setThreshold] = useState(1);
   const [minExecutionDelay, setMinExecutionDelay] = useState<string>('');
   const [delayUnit, setDelayUnit] = useState<'minutes' | 'hours' | 'days'>('minutes');
+  const [delegatecallDisabled, setDelegatecallDisabled] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [showFlow, setShowFlow] = useState(false);
@@ -115,6 +116,7 @@ export function CreateWallet() {
         owners: validOwners,
         threshold,
         minExecutionDelay: delaySeconds > 0 ? delaySeconds : undefined,
+        delegatecallDisabled,
       },
       onProgress
     );
@@ -330,6 +332,26 @@ export function CreateWallet() {
                   <option value="hours">hours</option>
                   <option value="days">days</option>
                 </select>
+              </div>
+
+              <div className="mt-6">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={delegatecallDisabled}
+                    onChange={(e) => setDelegatecallDisabled(e.target.checked)}
+                    className="w-5 h-5 rounded border-dark-400 dark:border-dark-600 text-primary-600 focus:ring-primary-500 bg-dark-100 dark:bg-vault-dark-4"
+                  />
+                  <div>
+                    <span className="block text-base font-mono text-dark-500 uppercase tracking-wider">
+                      Block Module DelegateCall
+                    </span>
+                    <span className="block text-lg text-dark-500 dark:text-dark-400">
+                      Prevents modules from executing DelegateCall operations. Only disable if your vault
+                      needs MultiSend batching for DAO governance.
+                    </span>
+                  </div>
+                </label>
               </div>
             </div>
           )}

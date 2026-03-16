@@ -120,6 +120,7 @@ export class IndexerModuleService {
         .from('social_recovery_configs')
         .select('*')
         .eq('wallet_address', validatedWallet.toLowerCase())
+        .eq('is_active', true)
         .single(),
       client
         .from('social_recovery_guardians')

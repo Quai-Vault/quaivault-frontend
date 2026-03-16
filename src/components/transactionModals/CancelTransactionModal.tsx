@@ -22,11 +22,11 @@ export function CancelTransactionModal({
   transaction,
 }: CancelTransactionModalProps) {
   const { cancelTransactionAsync, proposeTransactionAsync } = useMultisig(walletAddress);
-  const { connectedAddress } = useWallet();
+  const { address: connectedAddress } = useWallet();
   const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({ isOpen });
 
   const isProposerCancel = canProposerCancel(transaction, connectedAddress || '');
-  const isConsensusCancel = canConsensusCancel(transaction);
+  const isConsensusCancel = canConsensusCancel(transaction, connectedAddress || '');
 
   const handleCancel = async (onProgress: (progress: any) => void) => {
     if (isProposerCancel) {

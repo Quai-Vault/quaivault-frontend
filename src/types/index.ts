@@ -19,6 +19,7 @@ export interface WalletInfo {
   threshold: number;  // Changed from bigint for JSON serializability
   balance: string;    // Changed from bigint to string for JSON serializability (preserves precision)
   minExecutionDelay: number;  // Vault-level min timelock (seconds, 0 = none)
+  delegatecallDisabled: boolean;  // CR-1: true = DelegateCall blocked (secure default)
 }
 
 export type TransactionStatus = 'pending' | 'executed' | 'cancelled' | 'expired' | 'failed';
@@ -53,6 +54,7 @@ export interface DeploymentConfig {
   threshold: number;
   salt?: string;
   minExecutionDelay?: number;  // seconds, 0 = no timelock
+  delegatecallDisabled?: boolean;  // CR-1: defaults to true if omitted
 }
 
 export interface TransactionData {

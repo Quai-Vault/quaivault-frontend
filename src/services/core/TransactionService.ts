@@ -559,6 +559,14 @@ export class TransactionService extends BaseService {
     }
 
     const isProposer = txDetails.proposer?.toLowerCase() === callerAddress.toLowerCase();
+    if (isProposer && txDetails.approvedAt !== undefined && txDetails.approvedAt !== BigInt(0)) {
+      // C-2: approvedAt is set once and never cleared. Contract will revert with
+      // CannotCancelApprovedTransaction. Proposer must use cancelByConsensus instead.
+      throw new Error(
+        'This transaction reached approval threshold and cannot be directly cancelled. ' +
+        'Use cancel-by-consensus instead.'
+      );
+    }
     if (!isProposer) {
       const owners = await wallet.getOwners();
       const approvals = await this.getApprovalsForTransaction(wallet, txHash, owners);

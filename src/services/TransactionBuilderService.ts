@@ -46,6 +46,13 @@ export class TransactionBuilderService {
   }
 
   /**
+   * Build calldata for setDelegatecallDisabled self-call
+   */
+  buildSetDelegatecallDisabled(disabled: boolean): string {
+    return quaiVaultInterface.encodeFunctionData('setDelegatecallDisabled', [disabled]);
+  }
+
+  /**
    * Build calldata for signMessage self-call (EIP-1271)
    */
   buildSignMessage(data: string): string {

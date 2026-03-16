@@ -54,17 +54,25 @@ export function isTimelocked(tx: PendingTransaction): boolean {
   return now < tx.approvedAt + tx.executionDelay;
 }
 
-/** Can the proposer cancel directly? (only pre-approval) */
+/** Can the proposer cancel directly? The contract only allows proposer cancel
+ *  when approvedAt is 0 (threshold was never reached). Once approvedAt is set,
+ *  it is never cleared — even if all approvals are later revoked — so the
+ *  proposer must use cancelByConsensus instead (C-2). */
 export function canProposerCancel(tx: PendingTransaction, address: string): boolean {
   if (tx.status !== 'pending') return false;
-  if (tx.approvedAt !== 0) return false; // Contract rejects cancel after approvedAt set
-  return tx.proposer.toLowerCase() === address.toLowerCase();
+  if (tx.proposer.toLowerCase() !== address.toLowerCase()) return false;
+  // Contract reverts with CannotCancelApprovedTransaction if approvedAt != 0
+  if (tx.approvedAt !== 0) return false;
+  return true;
 }
 
-/** Can consensus cancel be proposed? (for post-approval cancel) */
-export function canConsensusCancel(tx: PendingTransaction): boolean {
+/** Can consensus cancel be proposed? Needed for non-proposer owners,
+ *  or for the proposer when approvedAt is set (direct cancel blocked by C-2). */
+export function canConsensusCancel(tx: PendingTransaction, address?: string): boolean {
   if (tx.status !== 'pending') return false;
-  return tx.approvedAt !== 0; // Only needed after approval (direct cancel blocked)
+  // If the caller is the proposer AND approvedAt is 0, they can cancel directly
+  if (address && tx.proposer.toLowerCase() === address.toLowerCase() && tx.approvedAt === 0) return false;
+  return true;
 }
 
 /** Can the user revoke their approval? */

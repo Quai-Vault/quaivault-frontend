@@ -8,7 +8,8 @@ import { Modal } from './Modal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
 import { isAddress, formatQuai, getAddress } from 'quais';
-import { formatDuration } from '../utils/formatting';
+import { formatDuration, formatAddress } from '../utils/formatting';
+import { CopyButton } from './CopyButton';
 
 interface SocialRecoveryManagementProps {
   walletAddress: string;
@@ -340,6 +341,11 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
           )}
         </CollapsibleNotice>
 
+        <CollapsibleNotice title="Recovery Clears Configuration" variant="warning">
+          After a successful recovery, the guardian configuration is automatically cleared.
+          New owners must reconfigure Social Recovery with fresh guardians and threshold.
+        </CollapsibleNotice>
+
         {/* Current Configuration Summary */}
         {isLoadingConfig ? (
           <div className="text-center py-4">
@@ -517,11 +523,22 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                             <span className="text-xs font-mono text-primary-600 dark:text-primary-300">{recovery.recoveryHash.slice(0, 10)}...{recovery.recoveryHash.slice(-8)}</span>
                           </div>
                           <div className="text-sm text-dark-400 dark:text-dark-400 mb-2">
-                            <div className="mb-1">
-                              <strong>New Owners:</strong> {recovery.newOwners.length}
+                            <div className="mb-2">
+                              <strong>New Owners ({recovery.newOwners.length}):</strong>
+                              <div className="mt-1 space-y-1 pl-2">
+                                {recovery.newOwners.map((owner, i) => (
+                                  <div key={owner} className="flex items-center gap-2 bg-dark-200 dark:bg-vault-dark-3 rounded px-2 py-1 border border-dark-300 dark:border-dark-600">
+                                    <span className="text-xs font-bold text-dark-500 w-4">{i + 1}.</span>
+                                    <span className="font-mono text-xs text-primary-600 dark:text-primary-300 truncate flex-1" title={owner}>
+                                      {formatAddress(owner)}
+                                    </span>
+                                    <CopyButton text={owner} size="sm" />
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                             <div className="mb-1">
-                              <strong>New Threshold:</strong> {recovery.newThreshold.toString()}
+                              <strong>New Threshold:</strong> {recovery.newThreshold.toString()} of {recovery.newOwners.length}
                             </div>
                             <div>
                               <strong>Approvals:</strong> {currentApprovals} / {requiredApprovals}

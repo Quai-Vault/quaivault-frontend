@@ -9,6 +9,7 @@ export const WalletSchema = z.object({
   threshold: z.number(),
   owner_count: z.number(),
   min_execution_delay: z.number().default(0), // seconds, 0 = no timelock
+  delegatecall_disabled: z.boolean().nullable().default(true).transform(v => v ?? true),
   created_at_block: z.number(),
   created_at_tx: z.string(),
   created_at: z.string(),
@@ -126,6 +127,7 @@ export const SocialRecoveryConfigSchema = z.object({
   wallet_address: z.string(),
   threshold: z.number(),
   recovery_period: z.number(),
+  is_active: z.boolean().nullable().default(true).transform(v => v ?? true),
   setup_at_block: z.number(),
   setup_at_tx: z.string(),
   created_at: z.string(),

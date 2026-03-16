@@ -206,6 +206,7 @@ export class MultisigService {
             threshold: wallet.threshold,
             balance: balance.toString(),
             minExecutionDelay: wallet.min_execution_delay ?? 0,
+            delegatecallDisabled: wallet.delegatecall_disabled ?? true,
           };
         }
       } catch (err) {
@@ -229,7 +230,7 @@ export class MultisigService {
         // Return checksummed addresses for display and blockchain compatibility
         return wallets.map((w) => getAddress(w.address));
       },
-      () => this.wallet.getWalletsForOwner(ownerAddress),
+      null, // SA-4-I-7: factory.getWalletsByCreator removed — indexer-only
       []
     );
   }
@@ -407,6 +408,15 @@ export class MultisigService {
   async proposeSetMinExecutionDelay(walletAddress: string, delaySeconds: number): Promise<string> {
     const validatedWallet = validateAddress(walletAddress);
     const data = transactionBuilderService.buildSetMinExecutionDelay(delaySeconds);
+    return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
+  /**
+   * Propose toggling the delegatecall-disabled flag (self-call, requires consensus).
+   */
+  async proposeSetDelegatecallDisabled(walletAddress: string, disabled: boolean): Promise<string> {
+    const validatedWallet = validateAddress(walletAddress);
+    const data = transactionBuilderService.buildSetDelegatecallDisabled(disabled);
     return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
   }
 

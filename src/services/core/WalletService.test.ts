@@ -17,6 +17,7 @@ vi.mock('quais', () => {
     this.isOwner = vi.fn();
     this.isModuleEnabled = vi.fn();
     this.minExecutionDelay = vi.fn().mockResolvedValue(0n);
+    this.delegatecallDisabled = vi.fn().mockResolvedValue(true);
   });
 
   const MockJsonRpcProvider = vi.fn().mockImplementation(function(this: any) {
@@ -233,6 +234,7 @@ describe('WalletService', () => {
         getOwners: vi.fn().mockResolvedValue(mockOwners),
         threshold: vi.fn().mockResolvedValue(mockThreshold),
         minExecutionDelay: vi.fn().mockResolvedValue(0n),
+        delegatecallDisabled: vi.fn().mockResolvedValue(true),
       };
 
       // Mock getWalletContract to return our mock
@@ -247,6 +249,7 @@ describe('WalletService', () => {
         threshold: 2,
         balance: mockBalance.toString(),
         minExecutionDelay: 0,
+        delegatecallDisabled: true,
       });
     });
 
@@ -256,6 +259,7 @@ describe('WalletService', () => {
         getOwners: vi.fn().mockRejectedValue(new Error('Contract error')),
         threshold: vi.fn(),
         minExecutionDelay: vi.fn(),
+        delegatecallDisabled: vi.fn(),
       };
 
       vi.spyOn(service as any, 'getWalletContract').mockReturnValue(mockWallet);
@@ -265,21 +269,10 @@ describe('WalletService', () => {
   });
 
   describe('getWalletsForOwner', () => {
-    it('should return list of wallet addresses', async () => {
-      const ownerAddress = '0xOwnerAddress';
-      const mockWallets = ['0xWallet1', '0xWallet2'];
-      service.getFactoryContract().getWalletsByCreator.mockResolvedValue(mockWallets);
-
-      const result = await service.getWalletsForOwner(ownerAddress);
-
-      expect(result).toEqual(mockWallets);
-      expect(service.getFactoryContract().getWalletsByCreator).toHaveBeenCalledWith(ownerAddress);
-    });
-
-    it('should throw when factory call fails', async () => {
-      service.getFactoryContract().getWalletsByCreator.mockRejectedValue(new Error('Network error'));
-
-      await expect(service.getWalletsForOwner('0xOwner')).rejects.toThrow();
+    it('should throw since factory.getWalletsByCreator was removed', async () => {
+      await expect(service.getWalletsForOwner('0xOwner')).rejects.toThrow(
+        'Requires indexer'
+      );
     });
   });
 

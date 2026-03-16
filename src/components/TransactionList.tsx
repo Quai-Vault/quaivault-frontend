@@ -109,7 +109,7 @@ const TransactionItem = memo(function TransactionItem({
       canExecuteIt: computeCanExecute(tx),
       approvalPercentage: percentage,
       canProposerCancelIt: computeCanProposerCancel(tx, addr),
-      canConsensusCancelIt: computeCanConsensusCancel(tx),
+      canConsensusCancelIt: computeCanConsensusCancel(tx, addr),
       canRevokeApproval: computeCanRevoke(tx, addr),
       canApproveIt: computeCanApprove(tx, addr),
       timelocked: computeIsTimelocked(tx),
