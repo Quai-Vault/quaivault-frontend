@@ -206,7 +206,6 @@ export class MultisigService {
             threshold: wallet.threshold,
             balance: balance.toString(),
             minExecutionDelay: wallet.min_execution_delay ?? 0,
-            delegatecallDisabled: wallet.delegatecall_disabled ?? true,
           };
         }
       } catch (err) {
@@ -412,12 +411,35 @@ export class MultisigService {
   }
 
   /**
-   * Propose toggling the delegatecall-disabled flag (self-call, requires consensus).
+   * Propose adding a delegatecall target to the whitelist (self-call, requires consensus).
    */
-  async proposeSetDelegatecallDisabled(walletAddress: string, disabled: boolean): Promise<string> {
+  async proposeAddDelegatecallTarget(walletAddress: string, targetAddress: string): Promise<string> {
     const validatedWallet = validateAddress(walletAddress);
-    const data = transactionBuilderService.buildSetDelegatecallDisabled(disabled);
+    const validatedTarget = validateAddress(targetAddress);
+    const data = transactionBuilderService.buildAddDelegatecallTarget(validatedTarget);
     return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
+  /**
+   * Propose removing a delegatecall target from the whitelist (self-call, requires consensus).
+   */
+  async proposeRemoveDelegatecallTarget(walletAddress: string, targetAddress: string): Promise<string> {
+    const validatedWallet = validateAddress(walletAddress);
+    const validatedTarget = validateAddress(targetAddress);
+    const data = transactionBuilderService.buildRemoveDelegatecallTarget(validatedTarget);
+    return this.transaction.proposeTransaction(validatedWallet, validatedWallet, BigInt(0), data);
+  }
+
+  /**
+   * Get active delegatecall targets for a wallet (indexer-first, no blockchain fallback).
+   */
+  async getDelegatecallTargets(walletAddress: string) {
+    return this.indexerFirst(
+      'getDelegatecallTargets',
+      async () => indexerService.module.getDelegatecallTargets(walletAddress),
+      null,
+      []
+    );
   }
 
   /**

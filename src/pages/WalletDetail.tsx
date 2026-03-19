@@ -44,9 +44,11 @@ export function WalletDetail() {
   const [showChangeTimelock, setShowChangeTimelock] = useState(false);
   const [showReceive, setShowReceive] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showDelegatecallConfirm, setShowDelegatecallConfirm] = useState(false);
-  const [isProposingDelegatecall, setIsProposingDelegatecall] = useState(false);
-  const [delegatecallError, setDelegatecallError] = useState<string | null>(null);
+  const [newTargetAddress, setNewTargetAddress] = useState('');
+  const [showAddTargetConfirm, setShowAddTargetConfirm] = useState(false);
+  const [showRemoveTargetConfirm, setShowRemoveTargetConfirm] = useState<{ address: string } | null>(null);
+  const [isProposingTarget, setIsProposingTarget] = useState(false);
+  const [targetError, setTargetError] = useState<string | null>(null);
 
   // Check if connected user is a Social Recovery guardian
   const { data: isGuardian } = useQuery({
@@ -66,6 +68,14 @@ export function WalletDetail() {
       return await multisigService.isModuleEnabled(walletAddress, CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE);
     },
     enabled: !!walletAddress,
+  });
+
+  // Fetch delegatecall targets (poll every 30s to catch executed proposals)
+  const { data: delegatecallTargets = [], refetch: refetchTargets } = useQuery({
+    queryKey: ['delegatecallTargets', walletAddress],
+    queryFn: () => multisigService.getDelegatecallTargets(walletAddress!),
+    enabled: !!walletAddress,
+    refetchInterval: 30_000,
   });
 
   // Fetch pending recoveries to alert owners
@@ -293,7 +303,7 @@ export function WalletDetail() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-2 text-base font-mono text-dark-500 uppercase tracking-wider hover:text-dark-700 dark:hover:text-dark-300 transition-colors"
+                className="flex items-center gap-2 text-xs font-mono text-dark-500 uppercase tracking-wider hover:text-dark-700 dark:hover:text-dark-300 transition-colors"
                 aria-expanded={showAdvanced}
               >
                 <svg
@@ -308,7 +318,7 @@ export function WalletDetail() {
               </button>
 
               {showAdvanced && (
-                <div className="mt-3 space-y-4 pl-5">
+                <div className="mt-2 space-y-4 p-3 rounded bg-dark-100/60 dark:bg-vault-dark-4/40 border border-dark-200 dark:border-dark-600/30">
                   {/* Timelock */}
                   <div className="flex items-center justify-between">
                     <div>
@@ -335,28 +345,50 @@ export function WalletDetail() {
                     )}
                   </div>
 
-                  {/* DelegateCall */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">DelegateCall</h3>
-                      {walletInfo.delegatecallDisabled ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-900/30 text-green-400 border border-green-700/50">
-                          Blocked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
-                          Allowed
-                        </span>
+                  {/* DelegateCall Whitelist */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider">
+                        DelegateCall Whitelist
+                        <span className="ml-2 text-sm text-dark-400">({delegatecallTargets.length})</span>
+                      </h3>
+                      {isOwner && (
+                        <button
+                          onClick={() => {
+                            setNewTargetAddress('');
+                            setTargetError(null);
+                            setShowAddTargetConfirm(true);
+                          }}
+                          className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        >
+                          Add Target
+                        </button>
                       )}
                     </div>
-                    {isOwner && (
-                      <button
-                        onClick={() => setShowDelegatecallConfirm(true)}
-                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
-                        title="Toggle DelegateCall"
-                      >
-                        Change
-                      </button>
+                    {delegatecallTargets.length === 0 ? (
+                      <p className="text-sm text-green-400">No targets whitelisted — DelegateCall blocked for all addresses</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {delegatecallTargets.map((t) => (
+                          <div key={t.target_address} className="flex items-center justify-between bg-vault-dark-4/50 rounded px-3 py-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-mono text-sm text-dark-300 truncate">{t.target_address}</span>
+                              <CopyButton text={t.target_address} />
+                            </div>
+                            {isOwner && (
+                              <button
+                                onClick={() => {
+                                  setTargetError(null);
+                                  setShowRemoveTargetConfirm({ address: t.target_address });
+                                }}
+                                className="text-xs text-red-400 hover:text-red-300 ml-2 shrink-0"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -367,6 +399,8 @@ export function WalletDetail() {
             <div className="col-span-2">
               <IndexerStatusBanner />
             </div>
+
+            <hr className="col-span-2 border-dark-200 dark:border-dark-600/40" />
 
             {/* Token Balances */}
             {walletAddress && <TokenBalancePanel walletAddress={walletAddress} isOwner={isOwner} />}
@@ -520,43 +554,87 @@ export function WalletDetail() {
         currentDelay={walletInfo.minExecutionDelay}
       />
 
-      {/* DelegateCall Toggle Confirmation */}
+      {/* Add DelegateCall Target Confirmation */}
       <ConfirmDialog
-        isOpen={showDelegatecallConfirm}
+        isOpen={showAddTargetConfirm}
         onClose={() => {
-          if (!isProposingDelegatecall) {
-            setShowDelegatecallConfirm(false);
-            setDelegatecallError(null);
+          if (!isProposingTarget) {
+            setShowAddTargetConfirm(false);
+            setTargetError(null);
           }
         }}
         onConfirm={async () => {
-          setIsProposingDelegatecall(true);
-          setDelegatecallError(null);
+          if (!newTargetAddress || !isQuaiAddress(newTargetAddress)) {
+            setTargetError('Please enter a valid Quai address');
+            return;
+          }
+          setIsProposingTarget(true);
+          setTargetError(null);
           try {
-            const newValue = !walletInfo.delegatecallDisabled;
-            await multisigService.proposeSetDelegatecallDisabled(walletAddress, newValue);
-            setShowDelegatecallConfirm(false);
+            await multisigService.proposeAddDelegatecallTarget(walletAddress, newTargetAddress);
+            setShowAddTargetConfirm(false);
             refresh();
+            refetchTargets();
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Transaction failed';
-            setDelegatecallError(message);
-            console.error('Failed to propose DelegateCall change:', err);
+            setTargetError(message);
+            console.error('Failed to propose add DelegateCall target:', err);
           } finally {
-            setIsProposingDelegatecall(false);
+            setIsProposingTarget(false);
           }
         }}
-        title={walletInfo.delegatecallDisabled ? 'Enable DelegateCall?' : 'Disable DelegateCall?'}
+        title="Whitelist DelegateCall Target"
         message={
-          (delegatecallError
-            ? `Error: ${delegatecallError}\n\n`
-            : '') +
-          (walletInfo.delegatecallDisabled
-            ? 'Enabling DelegateCall allows modules to execute DelegateCall operations. This is required for DAO governance via MultiSend but reduces security. This change requires owner consensus.'
-            : 'Disabling DelegateCall blocks modules from executing DelegateCall operations. This is the secure default. This change requires owner consensus.')
+          (targetError ? `Error: ${targetError}\n\n` : '') +
+          'Enter the contract address to allow DelegateCall operations to. This change requires owner consensus.'
         }
-        confirmText={isProposingDelegatecall ? 'Proposing...' : 'Propose Change'}
-        isLoading={isProposingDelegatecall}
-        variant={walletInfo.delegatecallDisabled ? 'warning' : 'info'}
+        confirmText={isProposingTarget ? 'Proposing...' : 'Propose Add'}
+        isLoading={isProposingTarget}
+        variant="warning"
+      >
+        <input
+          type="text"
+          value={newTargetAddress}
+          onChange={(e) => setNewTargetAddress(e.target.value)}
+          placeholder="0x... target address"
+          className="w-full mt-3 px-3 py-2 rounded bg-dark-100 dark:bg-vault-dark-4 border border-dark-300 dark:border-dark-600 text-dark-700 dark:text-dark-200 font-mono text-sm focus:border-primary-500 focus:outline-none"
+        />
+      </ConfirmDialog>
+
+      {/* Remove DelegateCall Target Confirmation */}
+      <ConfirmDialog
+        isOpen={!!showRemoveTargetConfirm}
+        onClose={() => {
+          if (!isProposingTarget) {
+            setShowRemoveTargetConfirm(null);
+            setTargetError(null);
+          }
+        }}
+        onConfirm={async () => {
+          if (!showRemoveTargetConfirm) return;
+          setIsProposingTarget(true);
+          setTargetError(null);
+          try {
+            await multisigService.proposeRemoveDelegatecallTarget(walletAddress, showRemoveTargetConfirm.address);
+            setShowRemoveTargetConfirm(null);
+            refresh();
+            refetchTargets();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Transaction failed';
+            setTargetError(message);
+            console.error('Failed to propose remove DelegateCall target:', err);
+          } finally {
+            setIsProposingTarget(false);
+          }
+        }}
+        title="Remove DelegateCall Target"
+        message={
+          (targetError ? `Error: ${targetError}\n\n` : '') +
+          `Revoke DelegateCall permission for ${showRemoveTargetConfirm?.address ? `${showRemoveTargetConfirm.address.substring(0, 10)}...${showRemoveTargetConfirm.address.slice(-6)}` : ''}. This change requires owner consensus.`
+        }
+        confirmText={isProposingTarget ? 'Proposing...' : 'Propose Remove'}
+        isLoading={isProposingTarget}
+        variant="warning"
       />
 
       {/* Pending Transactions - Compact */}

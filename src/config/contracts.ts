@@ -5,7 +5,7 @@ export const CONTRACT_ADDRESSES = {
   QUAIVAULT_IMPLEMENTATION: import.meta.env.VITE_QUAIVAULT_IMPLEMENTATION || '',
   QUAIVAULT_FACTORY: import.meta.env.VITE_QUAIVAULT_FACTORY || '',
   SOCIAL_RECOVERY_MODULE: import.meta.env.VITE_SOCIAL_RECOVERY_MODULE || '',
-  MULTISEND: import.meta.env.VITE_MULTISEND || '',
+  MULTISEND_CALL_ONLY: import.meta.env.VITE_MULTISEND_CALL_ONLY || '',
 };
 
 // Network configuration

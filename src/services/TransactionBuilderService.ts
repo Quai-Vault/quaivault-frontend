@@ -46,10 +46,17 @@ export class TransactionBuilderService {
   }
 
   /**
-   * Build calldata for setDelegatecallDisabled self-call
+   * Build calldata for addDelegatecallTarget self-call
    */
-  buildSetDelegatecallDisabled(disabled: boolean): string {
-    return quaiVaultInterface.encodeFunctionData('setDelegatecallDisabled', [disabled]);
+  buildAddDelegatecallTarget(target: string): string {
+    return quaiVaultInterface.encodeFunctionData('addDelegatecallTarget', [target]);
+  }
+
+  /**
+   * Build calldata for removeDelegatecallTarget self-call
+   */
+  buildRemoveDelegatecallTarget(target: string): string {
+    return quaiVaultInterface.encodeFunctionData('removeDelegatecallTarget', [target]);
   }
 
   /**

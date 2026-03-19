@@ -270,18 +270,28 @@ export function decodeTransaction(
             textColor: 'text-blue-200',
           };
         }
-        case 'setDelegatecallDisabled': {
-          const disabled = decoded.args[0] as boolean;
+        case 'addDelegatecallTarget': {
+          const target = decoded.args[0] as string;
           return {
             type: 'walletAdmin' as const,
-            description: disabled ? 'Disable DelegateCall' : 'Enable DelegateCall',
-            details: disabled
-              ? 'Block modules from executing DelegateCall operations (secure default)'
-              : 'Allow modules to execute DelegateCall operations (required for MultiSend)',
+            description: 'Whitelist DelegateCall Target',
+            details: `Allow DelegateCall to ${target}`,
+            icon: '🔓',
+            bgColor: 'bg-green-100 dark:bg-green-900/30',
+            textColor: 'text-green-800 dark:text-green-300',
+            borderColor: 'border-green-300 dark:border-green-700/50',
+          };
+        }
+        case 'removeDelegatecallTarget': {
+          const target = decoded.args[0] as string;
+          return {
+            type: 'walletAdmin' as const,
+            description: 'Remove DelegateCall Target',
+            details: `Revoke DelegateCall permission for ${target}`,
             icon: '🔒',
-            bgColor: disabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30',
-            textColor: disabled ? 'text-green-800 dark:text-green-300' : 'text-yellow-800 dark:text-yellow-300',
-            borderColor: disabled ? 'border-green-300 dark:border-green-700/50' : 'border-yellow-300 dark:border-yellow-700/50',
+            bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+            textColor: 'text-orange-800 dark:text-orange-300',
+            borderColor: 'border-orange-300 dark:border-orange-700/50',
           };
         }
         case 'signMessage': {

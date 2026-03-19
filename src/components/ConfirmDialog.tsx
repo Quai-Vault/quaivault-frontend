@@ -37,6 +37,7 @@ interface ConfirmDialogProps {
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
   isLoading?: boolean;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -49,6 +50,7 @@ export function ConfirmDialog({
   cancelText = 'Cancel',
   variant = 'info',
   isLoading = false,
+  children,
 }: ConfirmDialogProps) {
   const styles = variantStyles[variant];
 
@@ -59,6 +61,7 @@ export function ConfirmDialog({
           <div className="flex-shrink-0">{styles.icon}</div>
           <div className="flex-1">
             <p className="text-base text-dark-600 dark:text-dark-300 leading-relaxed">{message}</p>
+            {children}
           </div>
         </div>
 

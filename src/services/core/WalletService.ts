@@ -121,13 +121,11 @@ export class WalletService extends BaseService {
 
       const signerAddress = await signer.getAddress();
       const minDelay = config.minExecutionDelay ?? 0;
-      const delegatecallDisabled = config.delegatecallDisabled ?? true;
       const { salt, expectedAddress } = await this.mineSalt(
         signerAddress,
         owners,
         threshold,
         minDelay,
-        delegatecallDisabled,
         (attempts) => {
           onProgress?.({
             step: 'mining',
@@ -150,8 +148,8 @@ export class WalletService extends BaseService {
         message: 'Please approve the transaction in your wallet',
       });
 
-      const tx = (minDelay > 0 || !delegatecallDisabled)
-        ? await this.factoryContract['createWallet(address[],uint256,bytes32,uint32,bool)'](owners, threshold, salt, minDelay, delegatecallDisabled)
+      const tx = minDelay > 0
+        ? await this.factoryContract['createWallet(address[],uint256,bytes32,uint32)'](owners, threshold, salt, minDelay)
         : await this.factoryContract['createWallet(address[],uint256,bytes32)'](owners, threshold, salt);
       const txHash = tx.hash;
 
@@ -202,7 +200,6 @@ export class WalletService extends BaseService {
     owners: string[],
     threshold: number,
     minExecutionDelay: number,
-    delegatecallDisabled: boolean,
     onProgress?: (attempts: number) => void
   ): Promise<{ salt: string; expectedAddress: string }> {
     const MAX_ATTEMPTS = 100_000;
@@ -214,7 +211,7 @@ export class WalletService extends BaseService {
 
     // Compute initData exactly as the factory does
     const vaultIface = new Interface(QuaiVaultABI.abi);
-    const initData = vaultIface.encodeFunctionData('initialize', [owners, threshold, minExecutionDelay, delegatecallDisabled]);
+    const initData = vaultIface.encodeFunctionData('initialize', [owners, threshold, minExecutionDelay, [], []]);
 
     // Compute the full bytecode hash (proxy creation code + constructor args)
     const encodedArgs = AbiCoder.defaultAbiCoder().encode(
@@ -274,12 +271,11 @@ export class WalletService extends BaseService {
   async getWalletInfo(walletAddress: string): Promise<WalletInfo> {
     const wallet = this.getWalletContract(walletAddress);
 
-    const [owners, threshold, balance, minExecutionDelay, delegatecallDisabled] = await Promise.all([
+    const [owners, threshold, balance, minExecutionDelay] = await Promise.all([
       wallet.getOwners(),
       wallet.threshold(),
       this.requireProvider().getBalance(walletAddress),
       wallet.minExecutionDelay().catch(() => 0n),
-      wallet.delegatecallDisabled().catch(() => true),
     ]);
 
     return {
@@ -288,7 +284,6 @@ export class WalletService extends BaseService {
       threshold: Number(threshold),
       balance: balance.toString(),
       minExecutionDelay: Number(minExecutionDelay),
-      delegatecallDisabled: Boolean(delegatecallDisabled),
     };
   }
 

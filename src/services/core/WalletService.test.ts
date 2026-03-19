@@ -17,7 +17,6 @@ vi.mock('quais', () => {
     this.isOwner = vi.fn();
     this.isModuleEnabled = vi.fn();
     this.minExecutionDelay = vi.fn().mockResolvedValue(0n);
-    this.delegatecallDisabled = vi.fn().mockResolvedValue(true);
   });
 
   const MockJsonRpcProvider = vi.fn().mockImplementation(function(this: any) {
@@ -88,11 +87,19 @@ describe('WalletService', () => {
   let service: WalletService;
   let mockSigner: any;
 
+  const mockProvider = {
+    getNetwork: vi.fn().mockResolvedValue({ chainId: 1 }),
+    getCode: vi.fn().mockResolvedValue('0x1234'),
+    getBalance: vi.fn().mockResolvedValue(1000n),
+    getTransactionCount: vi.fn().mockResolvedValue(0),
+  } as any;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new WalletService();
+    service = new WalletService(mockProvider);
     mockSigner = {
       getAddress: vi.fn().mockResolvedValue('0xSignerAddress'),
+      provider: mockProvider,
     };
   });
 
@@ -234,7 +241,6 @@ describe('WalletService', () => {
         getOwners: vi.fn().mockResolvedValue(mockOwners),
         threshold: vi.fn().mockResolvedValue(mockThreshold),
         minExecutionDelay: vi.fn().mockResolvedValue(0n),
-        delegatecallDisabled: vi.fn().mockResolvedValue(true),
       };
 
       // Mock getWalletContract to return our mock
@@ -249,7 +255,6 @@ describe('WalletService', () => {
         threshold: 2,
         balance: mockBalance.toString(),
         minExecutionDelay: 0,
-        delegatecallDisabled: true,
       });
     });
 
@@ -259,7 +264,6 @@ describe('WalletService', () => {
         getOwners: vi.fn().mockRejectedValue(new Error('Contract error')),
         threshold: vi.fn(),
         minExecutionDelay: vi.fn(),
-        delegatecallDisabled: vi.fn(),
       };
 
       vi.spyOn(service as any, 'getWalletContract').mockReturnValue(mockWallet);

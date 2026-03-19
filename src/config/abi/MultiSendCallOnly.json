@@ -1,4 +1,7 @@
 {
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MultiSendCallOnly",
+  "sourceName": "contracts/libraries/MultiSendCallOnly.sol",
   "abi": [
     {
       "inputs": [],

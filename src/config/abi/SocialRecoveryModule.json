@@ -1,4 +1,7 @@
 {
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SocialRecoveryModule",
+  "sourceName": "contracts/modules/SocialRecoveryModule.sol",
   "abi": [
     {
       "inputs": [],

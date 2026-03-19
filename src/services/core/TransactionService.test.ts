@@ -36,13 +36,20 @@ describe('TransactionService', () => {
   let mockSigner: any;
   let mockWallet: any;
 
+  const mockProvider = {
+    getNetwork: vi.fn().mockResolvedValue({ chainId: 1 }),
+    getTransactionCount: vi.fn().mockResolvedValue(0),
+    getBalance: vi.fn().mockResolvedValue(0n),
+  } as any;
+
   beforeEach(() => {
     vi.clearAllMocks();
 
-    service = new TransactionService();
+    service = new TransactionService(mockProvider);
 
     mockSigner = {
       getAddress: vi.fn().mockResolvedValue(ADDR.SIGNER),
+      provider: mockProvider,
     };
 
     const proposeTxResult = Object.assign(
