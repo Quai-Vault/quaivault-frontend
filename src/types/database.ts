@@ -9,7 +9,6 @@ export const WalletSchema = z.object({
   threshold: z.number(),
   owner_count: z.number(),
   min_execution_delay: z.number().default(0), // seconds, 0 = no timelock
-  delegatecall_disabled: z.boolean().nullable().default(true).transform(v => v ?? true),
   created_at_block: z.number(),
   created_at_tx: z.string(),
   created_at: z.string(),
@@ -20,6 +19,18 @@ export const WalletOwnerSchema = z.object({
   id: z.string(),
   wallet_address: z.string(),
   owner_address: z.string(),
+  added_at_block: z.number(),
+  added_at_tx: z.string(),
+  removed_at_block: z.number().nullable(),
+  removed_at_tx: z.string().nullable(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+});
+
+export const WalletDelegatecallTargetSchema = z.object({
+  id: z.string(),
+  wallet_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  target_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   added_at_block: z.number(),
   added_at_tx: z.string(),
   removed_at_block: z.number().nullable(),
@@ -260,6 +271,7 @@ export const TokenTransferSchema = z.object({
 
 export type Wallet = z.infer<typeof WalletSchema>;
 export type WalletOwner = z.infer<typeof WalletOwnerSchema>;
+export type WalletDelegatecallTarget = z.infer<typeof WalletDelegatecallTargetSchema>;
 export type IndexerTransaction = z.infer<typeof TransactionSchema>;
 export type Confirmation = z.infer<typeof ConfirmationSchema>;
 export type Deposit = z.infer<typeof DepositSchema>;

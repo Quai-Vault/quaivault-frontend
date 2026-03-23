@@ -5,7 +5,7 @@ import { getActiveProvider } from '../../config/provider';
 import QuaiVaultABI from '../../config/abi/QuaiVault.json';
 import QuaiVaultFactoryABI from '../../config/abi/QuaiVaultFactory.json';
 import SocialRecoveryModuleABI from '../../config/abi/SocialRecoveryModule.json';
-import MultiSendABI from '../../config/abi/MultiSend.json';
+import MultiSendCallOnlyABI from '../../config/abi/MultiSendCallOnly.json';
 
 const IPFS_GATEWAY = NETWORK_CONFIG.IPFS_GATEWAY;
 const FETCH_TIMEOUT_MS = 10000;
@@ -26,7 +26,7 @@ function registerKnownAbi(address: string | undefined, abi: { abi: any[] }, name
 registerKnownAbi(CONTRACT_ADDRESSES.QUAIVAULT_IMPLEMENTATION, QuaiVaultABI, 'QuaiVault');
 registerKnownAbi(CONTRACT_ADDRESSES.QUAIVAULT_FACTORY, QuaiVaultFactoryABI, 'QuaiVault Factory');
 registerKnownAbi(CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE, SocialRecoveryModuleABI, 'Social Recovery');
-registerKnownAbi(CONTRACT_ADDRESSES.MULTISEND, MultiSendABI, 'MultiSend');
+registerKnownAbi(CONTRACT_ADDRESSES.MULTISEND_CALL_ONLY, MultiSendCallOnlyABI, 'MultiSendCallOnly');
 
 export interface AbiResult {
   abi: any[] | null;

@@ -15,7 +15,8 @@ const { mockTransactionBuilder } = vi.hoisted(() => ({
     buildRemoveOwner: vi.fn().mockReturnValue('0xencoded'),
     buildSwapOwner: vi.fn().mockReturnValue('0xencoded'),
     buildSetMinExecutionDelay: vi.fn().mockReturnValue('0xencoded'),
-    buildSetDelegatecallDisabled: vi.fn().mockReturnValue('0xencoded'),
+    buildAddDelegatecallTarget: vi.fn().mockReturnValue('0xencoded'),
+    buildRemoveDelegatecallTarget: vi.fn().mockReturnValue('0xencoded'),
     buildCancelByConsensus: vi.fn().mockReturnValue('0xencoded'),
     buildEnableModule: vi.fn().mockReturnValue('0xencoded'),
     buildDisableModule: vi.fn().mockReturnValue('0xencoded'),
@@ -66,6 +67,7 @@ vi.mock('./indexer', () => ({
       isModuleEnabled: vi.fn(),
       getRecoveryConfig: vi.fn(),
       getPendingRecoveries: vi.fn(),
+      getDelegatecallTargets: vi.fn(),
     },
   },
 }));
@@ -90,6 +92,14 @@ vi.mock('../config/contracts', () => ({
 
 vi.mock('../config/abi/QuaiVault.json', () => ({
   default: { abi: [] },
+}));
+
+vi.mock('../config/provider', () => ({
+  getActiveProvider: vi.fn().mockReturnValue({
+    getBalance: vi.fn().mockResolvedValue(1000n),
+    getNetwork: vi.fn().mockResolvedValue({ chainId: 1 }),
+  }),
+  hasWalletProvider: vi.fn().mockReturnValue(true),
 }));
 
 import { indexerService } from './indexer';
@@ -151,7 +161,6 @@ describe('MultisigService', () => {
         threshold: 2,
         owner_count: 3,
         min_execution_delay: 0,
-        delegatecall_disabled: true,
         created_at_block: 1,
         created_at_tx: '0xtx',
         created_at: '2026-01-01',
@@ -177,7 +186,6 @@ describe('MultisigService', () => {
         threshold: 2,
         balance: '5000',
         minExecutionDelay: 0,
-        delegatecallDisabled: true,
       });
 
       const result = await service.getWalletInfo(WALLET);
@@ -197,7 +205,6 @@ describe('MultisigService', () => {
         threshold: 2,
         balance: '5000',
         minExecutionDelay: 0,
-        delegatecallDisabled: true,
       });
 
       const result = await service.getWalletInfo(WALLET);
@@ -314,11 +321,12 @@ describe('MultisigService', () => {
     });
   });
 
-  describe('proposeSetDelegatecallDisabled', () => {
-    it('should encode and propose a self-call to toggle delegatecall', async () => {
+  describe('proposeAddDelegatecallTarget', () => {
+    it('should encode and propose a self-call to add a delegatecall target', async () => {
       vi.mocked(service.transaction.proposeTransaction).mockResolvedValue(TX_HASH);
 
-      const result = await service.proposeSetDelegatecallDisabled(WALLET, false);
+      const target = '0x1234567890123456789012345678901234567890';
+      const result = await service.proposeAddDelegatecallTarget(WALLET, target);
 
       expect(result).toBe(TX_HASH);
       expect(service.transaction.proposeTransaction).toHaveBeenCalledWith(
@@ -327,6 +335,55 @@ describe('MultisigService', () => {
         BigInt(0),
         '0xencoded'
       );
+    });
+  });
+
+  describe('proposeRemoveDelegatecallTarget', () => {
+    it('should encode and propose a self-call to remove a delegatecall target', async () => {
+      vi.mocked(service.transaction.proposeTransaction).mockResolvedValue(TX_HASH);
+
+      const target = '0x1234567890123456789012345678901234567890';
+      const result = await service.proposeRemoveDelegatecallTarget(WALLET, target);
+
+      expect(result).toBe(TX_HASH);
+      expect(service.transaction.proposeTransaction).toHaveBeenCalledWith(
+        WALLET,
+        WALLET,
+        BigInt(0),
+        '0xencoded'
+      );
+    });
+  });
+
+  describe('getDelegatecallTargets', () => {
+    it('should return targets from indexer when available', async () => {
+      vi.mocked(indexerService.isAvailable).mockResolvedValue(true);
+      const mockTargets = [
+        { id: '1', wallet_address: WALLET.toLowerCase(), target_address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', added_at_block: 1, added_at_tx: '0xtx', removed_at_block: null, removed_at_tx: null, is_active: true, created_at: '2026-01-01' },
+      ];
+      vi.mocked(indexerService.module.getDelegatecallTargets).mockResolvedValue(mockTargets as any);
+
+      const result = await service.getDelegatecallTargets(WALLET);
+
+      expect(result).toEqual(mockTargets);
+      expect(indexerService.module.getDelegatecallTargets).toHaveBeenCalledWith(WALLET);
+    });
+
+    it('should return empty array when indexer unavailable', async () => {
+      vi.mocked(indexerService.isAvailable).mockResolvedValue(false);
+
+      const result = await service.getDelegatecallTargets(WALLET);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty array when indexer throws', async () => {
+      vi.mocked(indexerService.isAvailable).mockResolvedValue(true);
+      vi.mocked(indexerService.module.getDelegatecallTargets).mockRejectedValue(new Error('table not found'));
+
+      const result = await service.getDelegatecallTargets(WALLET);
+
+      expect(result).toEqual([]);
     });
   });
 

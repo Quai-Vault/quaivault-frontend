@@ -3,8 +3,10 @@ import {
   SocialRecoveryConfigSchema,
   SocialRecoverySchema,
   RecoveryApprovalSchema,
+  WalletDelegatecallTargetSchema,
   type SocialRecovery,
   type RecoveryApproval,
+  type WalletDelegatecallTarget,
 } from '../../types/database';
 import { validateAddress, validateTxHash } from '../utils/TransactionErrorHandler';
 
@@ -106,6 +108,29 @@ export class IndexerModuleService {
     }
 
     return data[0]?.is_active ?? false;
+  }
+
+  /**
+   * Get active delegatecall targets for a wallet
+   */
+  async getDelegatecallTargets(walletAddress: string): Promise<WalletDelegatecallTarget[]> {
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client
+      .from('wallet_delegatecall_targets')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase())
+      .eq('is_active', true);
+
+    if (error) {
+      if (this.isTableNotFoundError(error)) {
+        throw new Error('wallet_delegatecall_targets table not available');
+      }
+      throw new Error(`Indexer query failed: ${error.message}`);
+    }
+
+    return (data ?? []).map((row: unknown) => WalletDelegatecallTargetSchema.parse(row));
   }
 
   /**
