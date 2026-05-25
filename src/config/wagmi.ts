@@ -81,6 +81,10 @@ if (projectId) {
     enableEIP6963: true,
     enableCoinbase: false,
     featuredWalletIds: [],
+    // Dummy non-empty allowlist filters out all explorer-sourced recommended
+    // wallets (MetaMask, Trust, Rainbow, etc.). EIP-6963 announced wallets
+    // (Pelagus) bypass this filter because enableEIP6963 is true.
+    includeWalletIds: ['none'],
     allWallets: 'HIDE',
     features: {
       analytics: false,
