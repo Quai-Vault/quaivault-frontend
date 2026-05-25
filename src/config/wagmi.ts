@@ -1,6 +1,8 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { defineChain, type AppKitNetwork } from '@reown/appkit/networks';
+import { ApiController } from '@reown/appkit-controllers';
+import { subscribe } from 'valtio/vanilla';
 
 const projectId = import.meta.env.VITE_WC_PROJECT_ID || '';
 
@@ -82,25 +84,28 @@ if (projectId) {
     enableCoinbase: false,
     featuredWalletIds: [],
     allWallets: 'HIDE',
-    // Suppress every explorer-sourced recommended wallet — Quai isn't supported
-    // by any of them, only Pelagus (EIP-6963) and Tangem (WC QR) are useful.
-    // These are the canonical WalletConnect explorer IDs.
-    excludeWalletIds: [
-      'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
-      '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust
-      'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase
-      '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
-      '8a0ee50d1f22f6651afcae7eb4253e52a3310b90af5daef78a8c4929a9bb99d4', // Binance Web3
-      'a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393', // Phantom
-      '19177a98252e07ddfc9af2083ba8e07ef627cb6103467ffebb3f8f4205fd7927', // Ledger Live
-      'ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18', // Zerion
-    ],
     features: {
       analytics: false,
       email: false,
       socials: false,
     },
   });
+
+  // Pelagus isn't in the WalletConnect explorer (621 wallets, none for Quai),
+  // and includeWalletIds is only an API-side filter — neither can express
+  // "only show Pelagus and WC QR". Instead, force the explorer-sourced wallet
+  // arrays to stay empty. Pelagus shows via EIP-6963 (ANNOUNCED connector
+  // type), which is independent of these arrays.
+  const clearExplorerWallets = () => {
+    if (ApiController.state.recommended.length) ApiController.state.recommended = [];
+    if (ApiController.state.allRecommended.length) ApiController.state.allRecommended = [];
+    if (ApiController.state.featured.length) ApiController.state.featured = [];
+    if (ApiController.state.allFeatured.length) ApiController.state.allFeatured = [];
+    if (ApiController.state.wallets.length) ApiController.state.wallets = [];
+    if (ApiController.state.filteredWallets.length) ApiController.state.filteredWallets = [];
+  };
+  clearExplorerWallets();
+  subscribe(ApiController.state, clearExplorerWallets);
 } else {
   console.error('[QuaiVault] Missing VITE_WC_PROJECT_ID. WalletConnect will not work.');
 }
