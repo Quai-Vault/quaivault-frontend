@@ -1,8 +1,6 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { defineChain, type AppKitNetwork } from '@reown/appkit/networks';
-import { ApiController } from '@reown/appkit-controllers';
-import { subscribe } from 'valtio/vanilla';
 
 const projectId = import.meta.env.VITE_WC_PROJECT_ID || '';
 
@@ -72,15 +70,16 @@ if (projectId) {
       url: import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org',
       icons: [`${import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org'}/quai-multisig-icon-final.png`],
     },
-    // Only show Pelagus (via EIP-6963 announcement) + WalletConnect QR (Tangem).
-    // Quai Network is not supported by other wallets. enableEIP6963 defaults to
-    // false in current AppKit releases — without it, Pelagus's announce event
-    // is ignored even though Pelagus broadcasts it correctly.
+    // Only show Pelagus (via EIP-6963) + WalletConnect QR (Tangem). Quai
+    // Network is not supported by any explorer-listed wallet. AppKit 1.8.20
+    // wired enableInjected/EIP6963 through the connect view so these flags
+    // now actually filter the modal's wallet list (earlier 1.8.x did not).
     // Suppress "Switch Network" dialog - Pelagus reports a zone-specific
-    // chain ID that may not exactly match our configured caipNetworkId.
-    // Network validation is handled by the quais bridge layer.
+    // chain ID that may not match our configured caipNetworkId. Network
+    // validation is handled by the quais bridge layer.
     allowUnsupportedChain: true,
     enableEIP6963: true,
+    enableInjected: false,
     enableCoinbase: false,
     featuredWalletIds: [],
     allWallets: 'HIDE',
@@ -90,22 +89,6 @@ if (projectId) {
       socials: false,
     },
   });
-
-  // Pelagus isn't in the WalletConnect explorer (621 wallets, none for Quai),
-  // and includeWalletIds is only an API-side filter — neither can express
-  // "only show Pelagus and WC QR". Instead, force the explorer-sourced wallet
-  // arrays to stay empty. Pelagus shows via EIP-6963 (ANNOUNCED connector
-  // type), which is independent of these arrays.
-  const clearExplorerWallets = () => {
-    if (ApiController.state.recommended.length) ApiController.state.recommended = [];
-    if (ApiController.state.allRecommended.length) ApiController.state.allRecommended = [];
-    if (ApiController.state.featured.length) ApiController.state.featured = [];
-    if (ApiController.state.allFeatured.length) ApiController.state.allFeatured = [];
-    if (ApiController.state.wallets.length) ApiController.state.wallets = [];
-    if (ApiController.state.filteredWallets.length) ApiController.state.filteredWallets = [];
-  };
-  clearExplorerWallets();
-  subscribe(ApiController.state, clearExplorerWallets);
 } else {
   console.error('[QuaiVault] Missing VITE_WC_PROJECT_ID. WalletConnect will not work.');
 }
