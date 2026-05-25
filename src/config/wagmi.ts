@@ -70,17 +70,17 @@ if (projectId) {
       url: import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org',
       icons: [`${import.meta.env.VITE_SITE_URL || 'https://testnet.quaivault.org'}/quai-multisig-icon-final.png`],
     },
-    // Only show injected wallets (Pelagus) + WalletConnect QR (Tangem).
-    // Quai Network is not supported by other wallets.
-    // NOTE: includeWalletIds must contain a non-empty dummy value because
-    // the AppKit API treats an empty array as "no filter" and returns
-    // default recommended wallets (MetaMask, Binance, etc.).
+    // Only show Pelagus (via EIP-6963 announcement) + WalletConnect QR (Tangem).
+    // Quai Network is not supported by other wallets. enableEIP6963 defaults to
+    // false in current AppKit releases — without it, Pelagus's announce event
+    // is ignored even though Pelagus broadcasts it correctly.
     // Suppress "Switch Network" dialog - Pelagus reports a zone-specific
     // chain ID that may not exactly match our configured caipNetworkId.
     // Network validation is handled by the quais bridge layer.
     allowUnsupportedChain: true,
+    enableEIP6963: true,
+    enableCoinbase: false,
     featuredWalletIds: [],
-    includeWalletIds: ['none'],
     allWallets: 'HIDE',
     features: {
       analytics: false,
