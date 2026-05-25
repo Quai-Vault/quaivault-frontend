@@ -11,6 +11,8 @@ out/
 
 # Environment variables
 .env
+.env.testnet.bak
+.env.mainnet.bak
 .env.local
 .env.*.local
 
