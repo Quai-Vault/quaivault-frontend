@@ -24,9 +24,11 @@ interface WalletState {
   // UI state
   isLoading: boolean;
   error: string | null;
+  connectModalOpen: boolean;
 
   // Actions
   setConnected: (connected: boolean, address: string | null) => void;
+  setConnectModalOpen: (open: boolean) => void;
   setCurrentWallet: (walletAddress: string | null) => void;
   setCurrentWalletInfo: (info: WalletInfo | null) => void;
   addWallet: (walletAddress: string) => void;
@@ -48,6 +50,7 @@ const initialState = {
   pendingTransactions: {} as Record<string, PendingTransaction[]>,
   isLoading: false,
   error: null,
+  connectModalOpen: false,
 };
 
 /** Enforce max size on a Record by removing oldest keys (FIFO by insertion order). */
@@ -68,6 +71,9 @@ export const useWalletStore = create<WalletState>()(
 
       setConnected: (connected, address) =>
         set({ connected, address }),
+
+      setConnectModalOpen: (open) =>
+        set({ connectModalOpen: open }),
 
       setCurrentWallet: (walletAddress) =>
         set({ currentWallet: walletAddress }),

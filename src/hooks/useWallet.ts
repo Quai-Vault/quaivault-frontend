@@ -1,8 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useWalletStore } from '../store/walletStore';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { useAccount, useDisconnect } from 'wagmi';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
 import { providerToQuaisSigner } from '../config/walletBridge';
@@ -15,29 +14,21 @@ export function useWallet() {
     setConnected,
     setError,
     setLoading,
+    setConnectModalOpen,
   } = useWalletStore();
 
-  // AppKit hooks for connection state
-  const { address, isConnected } = useAppKitAccount();
-  const { open } = useAppKit();
+  const { address, isConnected, connector } = useAccount();
+  const { connectAsync, connectors } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
 
-  // Get the active connector (provides raw EIP-1193 provider, no chain validation)
-  const { connector } = useAccount();
-
-  // Keep a ref to the signer for signMessage
   const signerRef = useRef<Signer | null>(null);
-  // Track previous address to detect account switches vs initial connect
   const prevAddressRef = useRef<string | null>(null);
 
-  // Sync connection state immediately so wallet list loads without waiting for the signer bridge.
-  // The signer bridge can fail if the wallet's chain ID doesn't match wagmi's configured chain,
-  // but read-only operations (wallet list, balances) only need the address.
+  // Mirror wagmi connection state into our store so the rest of the app
+  // (which reads from zustand) stays in sync. Clear stale signer/provider on
+  // account switch so queries don't briefly use the previous account's signer.
   useEffect(() => {
     if (isConnected && address) {
-      // On account switch (not initial connect), clear stale signer/provider
-      // from previous account so queries don't use the old provider during
-      // the async signer bridge. The bridge effect re-establishes them.
       if (prevAddressRef.current && prevAddressRef.current !== address) {
         signerRef.current = null;
         multisigService.setSigner(null);
@@ -55,17 +46,13 @@ export function useWallet() {
     }
   }, [isConnected, address, setConnected]);
 
-  // Bridge connector raw EIP-1193 provider -> quais Signer -> multisigService (for signing txs).
-  // Uses connector.getProvider() directly to bypass wagmi's chain validation, which blocks
-  // useConnectorClient() when the wallet reports a chain ID not in wagmi's configured list.
-  // NOTE: no ref-guard here — the isActive flag handles cancellation. A ref guard would cause
-  // the signer to never be set under React 18 strict mode (effects run twice, second run skipped).
+  // Bridge connector raw EIP-1193 provider -> quais Signer.
+  // We call getProvider() directly to bypass wagmi's chain validation, which
+  // would otherwise reject Pelagus's zone-specific chain IDs.
   useEffect(() => {
     if (!connector || !isConnected || !address) return;
-    // Connector may not have getProvider (e.g. during HMR or with certain connector types)
     if (typeof connector.getProvider !== 'function') return;
 
-    // Guard against stale async callbacks during rapid account switches / strict mode double-invoke
     let isActive = true;
 
     connector.getProvider()
@@ -79,8 +66,6 @@ export function useWallet() {
         signerRef.current = signer;
         setWalletProvider(signer.provider as Provider);
         multisigService.setSigner(signer);
-        // Provider is now ready — refetch wallet info so balances update
-        // from the 0n placeholder set during the bridge window.
         queryClient.invalidateQueries({ queryKey: ['walletInfo'] });
       })
       .catch((err) => {
@@ -90,24 +75,33 @@ export function useWallet() {
       });
 
     return () => { isActive = false; };
-  }, [connector, isConnected, address, setError]);
+  }, [connector, isConnected, address, setError, queryClient]);
 
-  // Connect: open the AppKit modal
-  const connect = useCallback(async () => {
+  const connect = useCallback(() => {
+    setError(null);
+    setConnectModalOpen(true);
+  }, [setError, setConnectModalOpen]);
+
+  const connectWith = useCallback(async (connectorId: 'injected' | 'walletConnect') => {
+    const target = connectors.find((c) => c.id === connectorId);
+    if (!target) {
+      setError(`Connector "${connectorId}" not available`);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await open();
+      await connectAsync({ connector: target });
+      setConnectModalOpen(false);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
-      setError(errorMessage);
+      const message = error instanceof Error ? error.message : 'Failed to connect wallet';
+      setError(message);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [open, setError, setLoading]);
+  }, [connectAsync, connectors, setError, setLoading, setConnectModalOpen]);
 
-  // Disconnect: use wagmi disconnect
   const disconnect = useCallback(() => {
     wagmiDisconnect();
     signerRef.current = null;
@@ -117,7 +111,6 @@ export function useWallet() {
     setConnected(false, null);
   }, [wagmiDisconnect, setConnected]);
 
-  // Sign message using the bridged quais signer
   const signMessage = useCallback(async (message: string) => {
     if (!signerRef.current) {
       throw new Error('Wallet not connected');
@@ -135,6 +128,7 @@ export function useWallet() {
     connected: isConnected,
     address: address ?? null,
     connect,
+    connectWith,
     disconnect,
     signMessage,
   };
