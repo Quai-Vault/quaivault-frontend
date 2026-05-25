@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { wagmiConfig } from './config/wagmi';
 import { Layout } from './components/Layout';
+import { ConnectModal } from './components/ConnectModal';
 import { Dashboard } from './pages/Dashboard';
 import { WalletDetail } from './pages/WalletDetail';
 import { CreateWallet } from './pages/CreateWallet';
@@ -136,6 +137,7 @@ function App() {
         <Router>
           <ErrorBoundary>
             <Layout>
+              <ConnectModal />
               <Routes>
                 <Route path="/" element={<RouteErrorBoundaryWrapper><Dashboard /></RouteErrorBoundaryWrapper>} />
                 <Route path="/create" element={<RouteErrorBoundaryWrapper><CreateWallet /></RouteErrorBoundaryWrapper>} />
