@@ -84,11 +84,11 @@ export function EnableModuleModal({
           </div>
 
           <div className="vault-divider pt-6">
-            <div className="flex gap-4 justify-end">
-              <button onClick={handleCancel} className="btn-secondary">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end">
+              <button onClick={handleCancel} className="btn-secondary w-full sm:w-auto">
                 Cancel
               </button>
-              <button onClick={startFlow} className="btn-primary">
+              <button onClick={startFlow} className="btn-primary w-full sm:w-auto">
                 Propose Enable Module
               </button>
             </div>

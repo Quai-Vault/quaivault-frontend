@@ -114,7 +114,7 @@ export function WalletDetail() {
   if (!walletInfo) {
     return (
       <div className="text-center py-20">
-        <div className="vault-panel max-w-md mx-auto p-12">
+        <div className="vault-panel max-w-md mx-auto p-6 sm:p-12">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-100 dark:bg-vault-dark-4 border-2 border-primary-600/30 mb-6">
             <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -139,8 +139,8 @@ export function WalletDetail() {
   return (
     <div className="space-y-2">
       {/* Header - Compact */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Link to="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-600 dark:text-primary-300 transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -151,7 +151,7 @@ export function WalletDetail() {
             <p className="text-base font-mono text-dark-600 uppercase tracking-wider">Secure QuaiVault</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-2 sm:gap-4">
           {isOwner && (
             <Link
               to={`/wallet/${walletAddress}/transaction/new`}
@@ -248,11 +248,11 @@ export function WalletDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left Column: Wallet Info */}
         <div className="vault-panel p-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Address - Full width */}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1.5">Address</h3>
-              <div className="flex items-center gap-4 bg-dark-100 dark:bg-vault-dark-4 px-5 py-3 rounded-md border border-dark-300 dark:border-dark-600">
+              <div className="flex items-center gap-2 sm:gap-4 bg-dark-100 dark:bg-vault-dark-4 px-3 sm:px-5 py-3 rounded-md border border-dark-300 dark:border-dark-600">
                 <p className="text-base font-mono text-primary-600 dark:text-primary-300 truncate flex-1">
                   {walletAddress}
                 </p>
@@ -289,7 +289,7 @@ export function WalletDetail() {
                 {isOwner && (
                   <button
                     onClick={() => setShowChangeThreshold(true)}
-                    className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                    className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
                     title="Change threshold"
                   >
                     Change
@@ -299,7 +299,7 @@ export function WalletDetail() {
             </div>
             
             {/* Advanced Settings Collapsible */}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
@@ -337,7 +337,7 @@ export function WalletDetail() {
                     {isOwner && (
                       <button
                         onClick={() => setShowChangeTimelock(true)}
-                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
                         title="Change timelock"
                       >
                         Change
@@ -359,7 +359,7 @@ export function WalletDetail() {
                             setTargetError(null);
                             setShowAddTargetConfirm(true);
                           }}
-                          className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-2 py-1 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                          className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
                         >
                           Add Target
                         </button>
@@ -396,11 +396,11 @@ export function WalletDetail() {
             </div>
 
             {/* Indexer status warning */}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <IndexerStatusBanner />
             </div>
 
-            <hr className="col-span-2 border-dark-200 dark:border-dark-600/40" />
+            <hr className="sm:col-span-2 border-dark-200 dark:border-dark-600/40" />
 
             {/* Token Balances */}
             {walletAddress && <TokenBalancePanel walletAddress={walletAddress} isOwner={isOwner} />}

@@ -214,7 +214,7 @@ export function TransactionFlow({
 
       {/* Actions */}
       <div className="vault-divider pt-6">
-        <div className="flex gap-4 justify-end">
+        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end [&_.btn-primary]:w-full [&_.btn-secondary]:w-full sm:[&_.btn-primary]:w-auto sm:[&_.btn-secondary]:w-auto">
           {progress.step === 'error' && (
             <>
               <button

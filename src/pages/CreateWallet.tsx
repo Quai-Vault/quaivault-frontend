@@ -181,7 +181,7 @@ export function CreateWallet() {
         <p className="text-lg font-mono text-dark-500 uppercase tracking-wider">Configure your secure multisig wallet</p>
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); handleStartFlow(); }} className="vault-panel p-8">
+      <form onSubmit={(e) => { e.preventDefault(); handleStartFlow(); }} className="vault-panel p-4 sm:p-8">
         {/* Owners Section */}
         <div className="mb-8">
           <div className="mb-4">
@@ -195,8 +195,8 @@ export function CreateWallet() {
 
           <div className="space-y-3">
             {ownerInputs.map((owner, index) => (
-              <div key={owner.id} className="flex gap-4">
-                <div className="flex-1 relative">
+              <div key={owner.id} className="flex flex-wrap gap-2 sm:gap-4 sm:flex-nowrap">
+                <div className="flex-1 min-w-0 relative w-full sm:w-auto">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-dark-100 dark:bg-vault-dark-4 border border-dark-300 dark:border-dark-600 flex items-center justify-center flex-shrink-0">
                     <span className="text-base font-bold text-primary-600 dark:text-primary-400">{index + 1}</span>
                   </div>
@@ -365,7 +365,7 @@ export function CreateWallet() {
           <div className="flex flex-wrap gap-4">
             <button
               type="submit"
-              className="btn-primary flex-1 min-w-[200px] inline-flex items-center justify-center gap-4"
+              className="btn-primary flex-1 min-w-0 sm:min-w-[200px] inline-flex items-center justify-center gap-4"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

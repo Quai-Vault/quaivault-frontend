@@ -114,12 +114,12 @@ export function WalletCreationFlow({
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-4xl font-display font-bold text-gradient-red vault-text-glow mb-2">Create QuaiVault</h1>
+      <h1 className="text-2xl sm:text-4xl font-display font-bold text-gradient-red vault-text-glow mb-2">Create QuaiVault</h1>
       <p className="text-lg font-mono text-dark-500 uppercase tracking-wider mb-8">Deploy a new secure QuaiVault</p>
 
       {/* Configuration Summary */}
       {progress.step === 'preparing' && (
-        <div className="vault-panel p-8 mb-8">
+        <div className="vault-panel p-4 sm:p-8 mb-8">
           <h2 className="text-2xl font-display font-bold text-dark-700 dark:text-dark-200 mb-6">Configuration Summary</h2>
 
           <div className="space-y-6">
@@ -175,7 +175,7 @@ export function WalletCreationFlow({
             <div className="flex flex-wrap gap-4">
               <button
                 onClick={startDeployment}
-                className="btn-primary flex-1 min-w-[200px]"
+                className="btn-primary flex-1 min-w-0 sm:min-w-[200px]"
               >
                 <span className="flex items-center justify-center gap-4">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,10 +197,10 @@ export function WalletCreationFlow({
 
       {/* Deployment Steps */}
       {progress.step !== 'preparing' && progress.step !== 'error' && (
-        <div className="vault-panel p-8">
+        <div className="vault-panel p-4 sm:p-8">
           <div className="space-y-8">
             {/* Step 1: Mine Address */}
-            <div className="flex gap-6">
+            <div className="flex gap-3 sm:gap-6">
               <div className="flex-shrink-0">
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${
@@ -250,7 +250,7 @@ export function WalletCreationFlow({
             </div>
 
             {/* Step 2: Deploy & Register QuaiVault */}
-            <div className="flex gap-6">
+            <div className="flex gap-3 sm:gap-6">
               <div className="flex-shrink-0">
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${
@@ -399,7 +399,7 @@ export function WalletCreationFlow({
 
       {/* Error State */}
       {progress.step === 'error' && (
-        <div className="vault-panel p-8">
+        <div className="vault-panel p-4 sm:p-8">
           <div className="bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-l-4 border-primary-600 rounded-md p-6 shadow-red-glow">
             <div className="flex items-start gap-4 mb-6">
               <div className="flex-shrink-0">

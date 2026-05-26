@@ -68,9 +68,9 @@ export function OwnerManagement({ walletAddress, owners, threshold, onUpdate, is
           {owners.map((owner, index) => (
           <div
             key={owner}
-            className="flex items-center justify-between p-4.5 bg-dark-100 dark:bg-vault-dark-4 rounded-md border border-dark-300 dark:border-dark-600 hover:border-primary-600/30 hover:bg-dark-50 dark:hover:bg-vault-dark-3 transition-all"
+            className="flex items-center justify-between p-3 sm:p-4.5 bg-dark-100 dark:bg-vault-dark-4 rounded-md border border-dark-300 dark:border-dark-600 hover:border-primary-600/30 hover:bg-dark-50 dark:hover:bg-vault-dark-3 transition-all"
           >
-            <div className="flex items-center gap-4.5 flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-4.5 flex-1 min-w-0">
               <div className="w-7 h-7 bg-gradient-to-br from-primary-700 to-primary-900 rounded-full flex items-center justify-center border border-primary-600/50 flex-shrink-0">
                 <span className="text-base font-bold text-primary-200">
                   {index + 1}
@@ -78,7 +78,7 @@ export function OwnerManagement({ walletAddress, owners, threshold, onUpdate, is
               </div>
               <span className="font-mono text-base text-primary-600 dark:text-primary-300 truncate">{owner}</span>
             </div>
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               {owner.toLowerCase() === connectedAddress?.toLowerCase() && (
                 <span className="vault-badge text-base border-primary-600/50 text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30">
                   You
