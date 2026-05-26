@@ -32,7 +32,7 @@ class SidebarErrorBoundary extends Component<{ children: ReactNode }, { hasError
   render() {
     if (this.state.hasError) {
       return (
-        <aside className="hidden lg:flex fixed top-14 left-0 bottom-0 w-16 z-20 vault-panel border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center pt-4 gap-4">
+        <aside className="hidden lg:flex fixed top-14 left-0 bottom-0 w-16 z-40 vault-panel border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center pt-4 gap-4">
           <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center" title="Sidebar unavailable">
             <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
@@ -97,7 +97,7 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Top Navbar - Full width, branding and minimal nav */}
-      <header className="fixed top-0 left-0 right-0 h-14 vault-panel border-b-2 border-dark-200 dark:border-dark-700 z-30">
+      <header className="fixed top-0 left-0 right-0 h-14 vault-panel border-b-2 border-dark-200 dark:border-dark-700 z-50">
         <nav className="h-full px-3 sm:px-6">
           <div className="flex justify-between h-full items-center">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -181,7 +181,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Error Banner - Fixed below navbar */}
       {error && (
-        <div className={`fixed top-14 right-0 z-20 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-3 sm:p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0 lg:left-16' : 'left-0 lg:left-64'}`}>
+        <div className={`fixed top-14 right-0 z-40 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-3 sm:p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0 lg:left-16' : 'left-0 lg:left-64'}`}>
           <div className="flex max-w-full mx-auto px-3 sm:px-5 items-center">
             <div className="flex-1">
               <p className="text-base font-semibold text-primary-100 flex items-center gap-4.5">

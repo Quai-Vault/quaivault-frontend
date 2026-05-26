@@ -58,6 +58,19 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
     localStorage.setItem(GUARDIAN_VAULTS_COLLAPSED_KEY, String(guardianVaultsCollapsed));
   }, [guardianVaultsCollapsed]);
 
+  // Lock body scroll when the mobile slide-in sidebar is open. Prevents the
+  // page underneath from scrolling beneath the backdrop on mobile webviews.
+  useEffect(() => {
+    if (collapsed) return;
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [collapsed]);
+
   // Deduplicate: vaults where user is both owner and guardian show only in "Your Vaults"
   const { guardianOnlyWallets, dualRoleAddresses } = useDeduplicatedWallets(userWallets, guardianWallets);
 
@@ -72,7 +85,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
       {/* Overlay for mobile when sidebar is open */}
       {!collapsed && (
         <div
-          className="fixed inset-0 bg-black/50 z-10 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={onToggle}
         />
       )}
@@ -80,7 +93,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
       {/* Icon rail — visible only on lg+ when collapsed */}
       {collapsed && (
         <aside
-          className="hidden lg:flex fixed left-0 top-14 sidebar-h w-16 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center z-20 py-3 gap-2"
+          className="hidden lg:flex fixed left-0 top-14 sidebar-h w-16 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center z-40 py-3 gap-2"
           aria-label="Sidebar icon rail"
         >
           {/* Expand chevron */}
@@ -182,7 +195,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
       )}
 
       {/* Full sidebar — slides off on mobile, collapses to w-0 (hidden behind icon rail) on lg */}
-      <aside className={`fixed left-0 top-14 sidebar-h w-64 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex flex-col z-20 overflow-hidden transition-transform duration-300 ${collapsed ? '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-r-0' : 'translate-x-0'}`}>
+      <aside className={`fixed left-0 top-14 sidebar-h w-64 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex flex-col z-40 overflow-hidden transition-transform duration-300 ${collapsed ? '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-r-0' : 'translate-x-0'}`}>
 
       {/* Wallet Connect/Disconnect */}
       <div className="px-4 py-4 border-b border-dark-200 dark:border-dark-700">
