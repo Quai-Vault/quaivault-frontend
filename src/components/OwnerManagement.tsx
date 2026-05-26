@@ -63,7 +63,7 @@ export function OwnerManagement({ walletAddress, owners, threshold, onUpdate, is
       </div>
 
       {/* Owners List - Grid Layout with scroll for many owners */}
-      <div className="max-h-[400px] overflow-y-auto pr-1">
+      <div className="sm:max-h-[400px] sm:overflow-y-auto sm:pr-1">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {owners.map((owner, index) => (
           <div

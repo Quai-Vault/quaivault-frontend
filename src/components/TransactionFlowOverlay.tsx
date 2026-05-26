@@ -30,12 +30,19 @@ export function TransactionFlowOverlay({ children, onClose }: TransactionFlowOve
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
+  // NOTE: do not nest this component inside <Modal> — both set
+  // document.body.style.overflow and would fight on unmount.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm">
-      <div className="vault-panel max-w-lg w-full mx-4 p-6">
-        {children}
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50 dark:bg-black/80 backdrop-blur-sm" aria-hidden="true" />
+      <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
+        <div className="min-h-full flex items-center justify-center p-2 sm:p-5">
+          <div className="vault-panel max-w-lg w-full my-4 sm:my-8 p-4 sm:p-6">
+            {children}
+          </div>
+        </div>
       </div>
-    </div>,
+    </>,
     document.body
   );
 }

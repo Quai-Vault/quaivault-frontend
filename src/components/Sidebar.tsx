@@ -80,7 +80,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
       {/* Icon rail — visible only on lg+ when collapsed */}
       {collapsed && (
         <aside
-          className="hidden lg:flex fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-16 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center z-20 py-3 gap-2"
+          className="hidden lg:flex fixed left-0 top-14 sidebar-h w-16 bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center z-20 py-3 gap-2"
           aria-label="Sidebar icon rail"
         >
           {/* Expand chevron */}
@@ -182,7 +182,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
       )}
 
       {/* Full sidebar — slides off on mobile, collapses to w-0 (hidden behind icon rail) on lg */}
-      <aside className={`fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex flex-col z-20 overflow-hidden transition-all duration-300 ${collapsed ? '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-r-0' : 'w-64 translate-x-0'}`}>
+      <aside className={`fixed left-0 top-14 sidebar-h bg-white dark:bg-vault-dark-2 border-r-2 border-dark-200 dark:border-dark-700 flex flex-col z-20 overflow-hidden transition-all duration-300 ${collapsed ? '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-r-0' : 'w-64 translate-x-0'}`}>
 
       {/* Wallet Connect/Disconnect */}
       <div className="px-4 py-4 border-b border-dark-200 dark:border-dark-700">

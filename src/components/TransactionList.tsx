@@ -556,7 +556,7 @@ export function TransactionList({ transactions, walletAddress, isOwner, refreshT
         {filteredTransactions.length > 0 && shouldVirtualize && (
           <div
             ref={parentRef}
-            className="max-h-[calc(100vh-300px)] overflow-auto scrollbar-thin"
+            className="max-h-[calc(100dvh-300px)] overflow-auto scrollbar-thin"
             style={{ contain: 'strict' }}
           >
             <div
