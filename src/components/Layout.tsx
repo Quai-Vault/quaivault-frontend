@@ -10,7 +10,6 @@ import { SyncStatusBadge } from './SyncStatusBadge';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationToggle } from './NotificationToggle';
-import { MobileSidebarDebug } from './MobileSidebarDebug';
 
 /**
  * Isolates Sidebar failures so the main content area remains usable.
@@ -218,9 +217,6 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Notification Container */}
       <NotificationContainer />
-
-      {/* Temporary mobile sidebar diagnostic overlay. Remove once resolved. */}
-      <MobileSidebarDebug sidebarCollapsed={sidebarCollapsed} />
 
       {/* Footer */}
       <footer className={`relative z-10 vault-panel border-t-2 border-dark-200 dark:border-dark-700 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
