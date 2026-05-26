@@ -115,6 +115,13 @@
    ============================================ */
 
 @layer components {
+  /* Sidebar viewport-bound height. dvh is preferred on mobile (excludes
+     dynamic browser chrome); vh is the fallback for older webviews. */
+  .sidebar-h {
+    height: calc(100vh - 3.5rem);
+    height: calc(100dvh - 3.5rem);
+  }
+
   /* Primary Button - Red gradient works for both themes */
   .btn-primary {
     @apply px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-base font-semibold text-white

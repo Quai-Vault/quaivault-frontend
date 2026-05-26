@@ -273,7 +273,7 @@ export function ContractInteractionBuilder({
               onChange={(e) => setPasteAbiText(e.target.value)}
               placeholder='[{"type":"function","name":"...","inputs":[...]}]'
               rows={6}
-              className="input-field w-full font-mono text-sm"
+              className="input-field w-full font-mono text-base sm:text-sm"
             />
             {pasteAbiError && (
               <p className="text-sm text-red-600 dark:text-red-400">{pasteAbiError}</p>
@@ -490,7 +490,7 @@ export function ContractInteractionBuilder({
           value={rawData}
           onChange={(e) => handleRawDataChange(e.target.value)}
           rows={4}
-          className="input-field w-full font-mono text-sm mt-2"
+          className="input-field w-full font-mono text-base sm:text-sm mt-2"
         />
       )}
     </div>

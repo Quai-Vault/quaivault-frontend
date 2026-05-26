@@ -166,7 +166,7 @@ export function SendErc1155Form({
         <label className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
           Select Token
         </label>
-        <div className="max-h-64 overflow-y-auto rounded-md border border-dark-300 dark:border-dark-600 p-2">
+        <div className="sm:max-h-64 sm:overflow-y-auto rounded-md border border-dark-300 dark:border-dark-600 p-2">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {holdings.map((item) => {
               const key = `${item.tokenAddress.toLowerCase()}:${item.tokenId}`;

@@ -441,7 +441,7 @@ export function WalletDetail() {
                 )}
               </div>
             </div>
-            <div className="max-h-[400px] overflow-y-auto pr-1">
+            <div className="sm:max-h-[400px] sm:overflow-y-auto sm:pr-1">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {walletInfo.owners.map((owner, index) => (
                   <div
@@ -597,7 +597,7 @@ export function WalletDetail() {
           value={newTargetAddress}
           onChange={(e) => setNewTargetAddress(e.target.value)}
           placeholder="0x... target address"
-          className="w-full mt-3 px-3 py-2 rounded bg-dark-100 dark:bg-vault-dark-4 border border-dark-300 dark:border-dark-600 text-dark-700 dark:text-dark-200 font-mono text-sm focus:border-primary-500 focus:outline-none"
+          className="input-field w-full mt-3 font-mono"
         />
       </ConfirmDialog>
 
