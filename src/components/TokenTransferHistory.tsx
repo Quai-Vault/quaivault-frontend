@@ -66,7 +66,7 @@ export function TokenTransferHistory({ walletAddress }: TokenTransferHistoryProp
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div>
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-1">Token Transfers</h2>
           <p className="text-base font-mono text-dark-500 uppercase tracking-wider">

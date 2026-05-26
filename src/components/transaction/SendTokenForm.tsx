@@ -141,7 +141,7 @@ export function SendTokenForm({
 
   if (isLoadingTokens || isLoadingBalances) {
     return (
-      <div className="mb-8 flex items-center justify-center p-8">
+      <div className="mb-8 flex items-center justify-center p-4 sm:p-8">
         <div className="flex items-center gap-3 text-dark-500">
           <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-base font-mono">Loading token balances...</span>

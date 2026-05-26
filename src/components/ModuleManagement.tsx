@@ -165,7 +165,7 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
             {enabledModules.map((module) => (
               <div
                 key={module.address}
-                className="flex items-center justify-between p-3 bg-primary-50 dark:bg-vault-dark-4 rounded-md border border-primary-600/50"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-primary-50 dark:bg-vault-dark-4 rounded-md border border-primary-600/50 gap-3"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-primary-700 to-primary-900 border border-primary-600/50 flex items-center justify-center">
@@ -181,7 +181,7 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
                     <p className="text-sm text-dark-500 truncate">{module.description}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                   {module.address === CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE && (
                     <>
                       <button

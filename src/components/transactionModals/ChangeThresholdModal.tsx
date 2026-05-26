@@ -159,11 +159,11 @@ export function ChangeThresholdModal({
           )}
 
           <div className="vault-divider pt-6">
-            <div className="flex gap-4 justify-end">
-              <button onClick={handleCancel} className="btn-secondary">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end">
+              <button onClick={handleCancel} className="btn-secondary w-full sm:w-auto">
                 Cancel
               </button>
-              <button onClick={handleStart} className="btn-primary">
+              <button onClick={handleStart} className="btn-primary w-full sm:w-auto">
                 Propose Change Threshold
               </button>
             </div>

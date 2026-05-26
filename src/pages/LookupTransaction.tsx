@@ -86,7 +86,7 @@ export function LookupTransaction() {
   if (!walletAddress) {
     return (
       <div className="text-center py-20">
-        <div className="vault-panel max-w-md mx-auto p-12">
+        <div className="vault-panel max-w-md mx-auto p-6 sm:p-12">
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Invalid Wallet Address</h2>
           <p className="text-dark-500">The requested vault address is invalid.</p>
         </div>
@@ -179,7 +179,7 @@ export function LookupTransaction() {
             <label className="block text-base font-mono text-dark-500 uppercase tracking-wider mb-3">
               Transaction Hash
             </label>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <input
                 type="text"
                 value={txHash}
@@ -199,7 +199,7 @@ export function LookupTransaction() {
               <button
                 onClick={handleLookup}
                 disabled={isLoading || !txHash.trim()}
-                className="btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <span className="inline-flex items-center gap-4">
@@ -301,7 +301,7 @@ export function LookupTransaction() {
               <div className="bg-dark-100 dark:bg-vault-dark-4 rounded-md px-5 py-3 border border-dark-300 dark:border-dark-600">
                 <p className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">Hash</p>
                 <div className="flex items-center gap-4">
-                  <p className="text-base font-mono text-primary-600 dark:text-primary-400 break-all max-w-[200px] flex-1">
+                  <p className="text-base font-mono text-primary-600 dark:text-primary-400 break-all max-w-[60%] sm:max-w-[200px] flex-1">
                     {transaction.hash}
                   </p>
                   <CopyButton text={transaction.hash} size="sm" />
@@ -322,7 +322,7 @@ export function LookupTransaction() {
                 {transaction.data !== '0x' && (
                   <div className="flex justify-between items-center text-lg">
                     <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Data:</span>
-                    <span className="font-mono text-primary-600 dark:text-primary-400 truncate max-w-xs">
+                    <span className="font-mono text-primary-600 dark:text-primary-400 truncate max-w-[60%] sm:max-w-xs">
                       {transaction.data.slice(0, 20)}...
                     </span>
                   </div>
@@ -389,7 +389,7 @@ export function LookupTransaction() {
               {/* Actions */}
               {isOwner && (
                 <div className="pt-5 border-t border-dark-200 dark:border-dark-700">
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-4">
                     {txCanApprove && (
                       <button
                         onClick={() => handleApprove(transaction)}

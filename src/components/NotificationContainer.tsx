@@ -96,7 +96,7 @@ export function NotificationContainer() {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-[7.5rem] right-5 z-50 w-[28rem] max-w-[calc(100vw-18rem)]">
+    <div className="fixed top-20 right-2 left-2 sm:top-[7.5rem] sm:right-5 sm:left-auto z-50 sm:w-[28rem] sm:max-w-[calc(100vw-18rem)]">
       {notifications.map((notification) => (
         <NotificationToast
           key={notification.id}

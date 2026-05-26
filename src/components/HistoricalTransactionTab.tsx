@@ -45,7 +45,7 @@ export function HistoricalTransactionTab({
   isRefreshing,
 }: HistoricalTransactionTabProps) {
   return (
-    <div className="vault-panel p-8">
+    <div className="vault-panel p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-lg font-display font-bold text-dark-600 dark:text-dark-300 mb-1">{config.title}</h2>
@@ -120,7 +120,7 @@ export function HistoricalTransactionTab({
                       )}
                       <p className="text-base font-mono text-dark-600 mt-2 uppercase tracking-wider" title={formatTimestamp(tx.timestamp)}>{formatRelativeTime(tx.timestamp)}</p>
                     </div>
-                    <div className="flex items-start gap-3 ml-4 flex-shrink-0">
+                    <div className="flex items-start gap-3 ml-2 sm:ml-4 flex-shrink-0">
                       <div className="text-right">
                         {tx.value !== '0' && (
                           <p className="text-base font-display font-bold text-dark-500 dark:text-dark-400">

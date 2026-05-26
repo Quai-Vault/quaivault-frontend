@@ -89,22 +89,22 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       {/* Modal container - centered over full viewport */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
-        className="fixed inset-0 z-50 overflow-y-auto pointer-events-none pt-20 pb-12"
+        className="fixed inset-0 z-50 overflow-y-auto pointer-events-none pt-4 pb-4 sm:pt-20 sm:pb-12"
         onClick={onClose}
         onKeyDown={handleKeyDown}
       >
-        <div className="flex min-h-[calc(100vh-5rem-3rem)] items-start justify-center p-5 pointer-events-none">
+        <div className="flex min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-5rem-3rem)] items-start justify-center p-2 sm:p-5 pointer-events-none">
           <div
             ref={modalRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            className={`relative w-full ${sizeClasses[size]} vault-panel shadow-vault-outer border-2 border-dark-200 dark:border-dark-700 max-h-[calc(100vh-5rem-6rem)] flex flex-col pointer-events-auto`}
+            className={`relative w-full ${sizeClasses[size]} vault-panel shadow-vault-outer border-2 border-dark-200 dark:border-dark-700 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-5rem-6rem)] flex flex-col pointer-events-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header - Fixed */}
-            <div className="flex items-center justify-between p-5 border-b-2 border-dark-200 dark:border-dark-700 relative flex-shrink-0">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b-2 border-dark-200 dark:border-dark-700 relative flex-shrink-0">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary-600/50 to-transparent"></div>
               <h2 id={titleId} className="text-lg font-display font-bold text-gradient-red vault-text-glow">{title}</h2>
               <button
@@ -129,7 +129,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             </div>
 
             {/* Content - Scrollable */}
-            <div className="p-5 overflow-y-auto flex-1 min-h-0">
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0">
               {children}
             </div>
           </div>

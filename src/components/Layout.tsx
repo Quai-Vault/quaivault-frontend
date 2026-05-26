@@ -32,7 +32,7 @@ class SidebarErrorBoundary extends Component<{ children: ReactNode }, { hasError
   render() {
     if (this.state.hasError) {
       return (
-        <aside className="fixed top-14 left-0 bottom-0 w-16 z-20 vault-panel border-r-2 border-dark-200 dark:border-dark-700 flex flex-col items-center pt-4 gap-4">
+        <aside className="hidden lg:flex fixed top-14 left-0 bottom-0 w-16 z-20 vault-panel border-r-2 border-dark-200 dark:border-dark-700 flex-col items-center pt-4 gap-4">
           <div className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center" title="Sidebar unavailable">
             <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
@@ -56,7 +56,12 @@ export function Layout({ children }: LayoutProps) {
   const queryClient = useQueryClient();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored !== null) return stored === 'true';
+      if (typeof window !== 'undefined') {
+        return window.matchMedia('(max-width: 1023px)').matches;
+      }
+      return false;
     } catch {
       return false;
     }
@@ -93,12 +98,12 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Top Navbar - Full width, branding and minimal nav */}
       <header className="fixed top-0 left-0 right-0 h-14 vault-panel border-b-2 border-dark-200 dark:border-dark-700 z-30">
-        <nav className="h-full px-6">
+        <nav className="h-full px-3 sm:px-6">
           <div className="flex justify-between h-full items-center">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={toggleSidebar}
-                className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
+                className="p-2.5 min-h-[40px] min-w-[40px] rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors flex items-center justify-center"
                 title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               >
@@ -108,26 +113,26 @@ export function Layout({ children }: LayoutProps) {
               </button>
               <Link
                 to="/"
-                className="flex items-center gap-3 group"
+                className="flex items-center gap-2 sm:gap-3 group min-w-0"
               >
-                <div className="relative flex items-center justify-center w-9 h-9">
+                <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0">
                   <div className="absolute inset-0 bg-primary-600/20 blur-lg group-hover:bg-primary-600/30 transition-all rounded-full"></div>
-                  <Logo className="relative w-9 h-9 transition-transform group-hover:scale-110" />
+                  <Logo className="relative w-8 h-8 sm:w-9 sm:h-9 transition-transform group-hover:scale-110" />
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center min-w-0">
                   <div className="relative">
                     <div className="absolute inset-0 bg-primary-600/20 blur-xl group-hover:bg-primary-600/30 transition-all"></div>
-                    <span className="relative text-base font-display font-bold text-gradient-red vault-text-glow">
+                    <span className="relative text-sm sm:text-base font-display font-bold text-gradient-red vault-text-glow whitespace-nowrap">
                       QUAI VAULT
                     </span>
                   </div>
-                  <span className="ml-2 text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">
+                  <span className="hidden sm:inline ml-2 text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">
                     Multisig
                   </span>
                 </div>
               </Link>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 sm:gap-4 flex-shrink-0">
               {Number(import.meta.env.VITE_CHAIN_ID) === 15000 && (
                 <div
                   className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-300 dark:border-yellow-700/50"
@@ -155,7 +160,7 @@ export function Layout({ children }: LayoutProps) {
                 href="https://quaivault.org/docs"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
+                className="p-2.5 min-h-[40px] min-w-[40px] rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors flex items-center justify-center"
                 title="Documentation"
                 aria-label="Documentation"
               >
@@ -176,8 +181,8 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Error Banner - Fixed below navbar */}
       {error && (
-        <div className={`fixed top-14 right-0 z-20 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0 lg:left-16' : 'left-64'}`}>
-          <div className="flex max-w-full mx-auto px-5 items-center">
+        <div className={`fixed top-14 right-0 z-20 bg-gradient-to-r from-primary-900/90 via-primary-800/90 to-primary-900/90 border-b-2 border-primary-600 p-3 sm:p-4.5 shadow-red-glow-lg backdrop-blur-sm transition-all duration-300 ${sidebarCollapsed ? 'left-0 lg:left-16' : 'left-0 lg:left-64'}`}>
+          <div className="flex max-w-full mx-auto px-3 sm:px-5 items-center">
             <div className="flex-1">
               <p className="text-base font-semibold text-primary-100 flex items-center gap-4.5">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -204,8 +209,8 @@ export function Layout({ children }: LayoutProps) {
       )}
 
       {/* Main Content Area - Offset by sidebar and navbar */}
-      <main id="main-content" className={`relative z-0 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-64'} ${error ? 'pt-24' : 'pt-14'} min-h-screen pb-6`}>
-        <div className="px-5 py-4">
+      <main id="main-content" className={`relative z-0 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'} ${error ? 'pt-24' : 'pt-14'} min-h-screen pb-6`}>
+        <div className="px-3 sm:px-5 py-4">
           {children}
         </div>
       </main>
@@ -214,7 +219,7 @@ export function Layout({ children }: LayoutProps) {
       <NotificationContainer />
 
       {/* Footer */}
-      <footer className={`relative z-10 vault-panel border-t-2 border-dark-200 dark:border-dark-700 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-64'}`}>
+      <footer className={`relative z-10 vault-panel border-t-2 border-dark-200 dark:border-dark-700 transition-all duration-300 ${sidebarCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         <div className="flex items-center justify-between py-2 px-4">
           <div className="flex items-center gap-2">
             <Logo className="w-5 h-5 opacity-70" />

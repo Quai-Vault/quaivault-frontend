@@ -65,18 +65,18 @@ export function ConfirmDialog({
           </div>
         </div>
 
-        <div className="flex gap-4 justify-end pt-4 border-t border-dark-200 dark:border-dark-600">
+        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end pt-4 border-t border-dark-200 dark:border-dark-600">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="btn-secondary px-6 py-2.5"
+            className="btn-secondary px-4 sm:px-6 py-2.5 w-full sm:w-auto"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`${styles.button} px-6 py-2.5 rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+            className={`${styles.button} px-4 sm:px-6 py-2.5 rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full sm:w-auto`}
           >
             {isLoading && (
               <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

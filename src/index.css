@@ -117,7 +117,7 @@
 @layer components {
   /* Primary Button - Red gradient works for both themes */
   .btn-primary {
-    @apply px-5 py-2.5 text-base font-semibold text-white
+    @apply px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-base font-semibold text-white
            bg-gradient-to-b from-primary-600 to-primary-700
            rounded-md border border-primary-500
            hover:from-primary-500 hover:to-primary-600
@@ -144,7 +144,7 @@
 
   /* Secondary Button - Theme-aware */
   .btn-secondary {
-    @apply px-5 py-2.5 text-base font-semibold
+    @apply px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-base font-semibold
            text-dark-700 dark:text-dark-100
            bg-dark-100 dark:bg-vault-dark-4
            rounded-md
@@ -199,7 +199,7 @@
 
   /* Input Field - Theme-aware */
   .input-field {
-    @apply px-4 py-2.5
+    @apply px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0
            bg-white dark:bg-vault-dark-3
            border border-dark-300 dark:border-dark-600
            rounded-md

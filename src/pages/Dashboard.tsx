@@ -50,7 +50,7 @@ export function Dashboard() {
   if (!connected) {
     return (
       <div className="max-w-xl mx-auto">
-        <div className="vault-panel p-8 text-center">
+        <div className="vault-panel p-4 sm:p-8 text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
             <div className="relative w-20 h-20">
               <div className="absolute inset-0 bg-primary-600/20 blur-xl rounded-full"></div>
@@ -63,7 +63,7 @@ export function Dashboard() {
           <p className="text-base text-dark-500 dark:text-dark-400 mb-6">
             Secure multisig wallet solution for Quai Network. Connect your wallet to manage your vaults.
           </p>
-          <div className="grid grid-cols-3 gap-4 mb-6 max-w-md mx-auto text-sm text-dark-500 dark:text-dark-400">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 max-w-md mx-auto text-sm text-dark-500 dark:text-dark-400">
             <div className="text-center space-y-2">
               <svg className="w-6 h-6 mx-auto text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -95,7 +95,7 @@ export function Dashboard() {
   if (isLoadingWallets || isLoadingGuardianWallets) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="vault-panel p-8 text-center">
+        <div className="vault-panel p-4 sm:p-8 text-center">
           <div className="relative inline-block">
             <div className="absolute inset-0 bg-primary-600/20 blur-xl animate-pulse"></div>
             <div className="relative inline-block h-12 w-12 animate-spin rounded-full border-2 border-solid border-primary-600 border-r-transparent"></div>
@@ -122,7 +122,7 @@ export function Dashboard() {
             label: 'Create Vault',
             to: '/create',
           }}
-          className="vault-panel p-8"
+          className="vault-panel p-4 sm:p-8"
         />
       </div>
     );

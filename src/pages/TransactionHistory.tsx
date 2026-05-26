@@ -166,7 +166,7 @@ export function TransactionHistory() {
   if (!walletAddress) {
     return (
       <div className="text-center py-20">
-        <div className="vault-panel max-w-md mx-auto p-12">
+        <div className="vault-panel max-w-md mx-auto p-6 sm:p-12">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-100 dark:bg-vault-dark-4 border-2 border-primary-600/30 mb-6">
             <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -227,7 +227,7 @@ export function TransactionHistory() {
       <div className="flex overflow-x-auto scrollbar-hide border-b border-dark-300 dark:border-dark-600 mb-8">
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'transactions'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -240,7 +240,7 @@ export function TransactionHistory() {
         </button>
         <button
           onClick={() => setActiveTab('cancelled')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'cancelled'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -253,7 +253,7 @@ export function TransactionHistory() {
         </button>
         <button
           onClick={() => setActiveTab('expired')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'expired'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -266,7 +266,7 @@ export function TransactionHistory() {
         </button>
         <button
           onClick={() => setActiveTab('failed')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'failed'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -279,7 +279,7 @@ export function TransactionHistory() {
         </button>
         <button
           onClick={() => setActiveTab('recovery')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'recovery'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -292,7 +292,7 @@ export function TransactionHistory() {
         </button>
         <button
           onClick={() => setActiveTab('tokens')}
-          className={`px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-6 py-3 text-base font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap ${
             activeTab === 'tokens'
               ? 'border-primary-600 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-dark-500 hover:text-dark-700 dark:hover:text-dark-300'
@@ -303,7 +303,7 @@ export function TransactionHistory() {
       </div>
 
       {/* Executed Transactions */}
-      {activeTab === 'transactions' && <div className="vault-panel p-8">
+      {activeTab === 'transactions' && <div className="vault-panel p-4 sm:p-8">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-1">Executed Transactions</h2>
@@ -395,7 +395,7 @@ export function TransactionHistory() {
                         )}
                         <p className="text-base font-mono text-dark-500 mt-2 uppercase tracking-wider" title={formatTimestamp(tx.timestamp)}>{formatRelativeTime(tx.timestamp)}</p>
                       </div>
-                      <div className="flex items-start gap-3 ml-4 flex-shrink-0">
+                      <div className="flex items-start gap-3 ml-2 sm:ml-4 flex-shrink-0">
                         <div className="text-right">
                           {tx.value !== '0' && (
                             <p className="text-base font-display font-bold text-gradient-red vault-text-glow">
@@ -530,7 +530,7 @@ export function TransactionHistory() {
       )}
 
       {/* Social Recovery Operations */}
-      {activeTab === 'recovery' && <div className="vault-panel p-8">
+      {activeTab === 'recovery' && <div className="vault-panel p-4 sm:p-8">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-1">Social Recovery Operations</h2>
@@ -636,7 +636,7 @@ export function TransactionHistory() {
                           {formatDateString(recovery.created_at)}
                         </p>
                       </div>
-                      <div className="flex items-start gap-3 ml-4 flex-shrink-0">
+                      <div className="flex items-start gap-3 ml-2 sm:ml-4 flex-shrink-0">
                         <div className="text-right">
                           <p className={`text-base font-semibold ${
                             recovery.approval_count >= recovery.required_threshold
@@ -775,7 +775,7 @@ export function TransactionHistory() {
       </div>}
 
       {/* Token Transfers */}
-      {activeTab === 'tokens' && walletAddress && <div className="vault-panel p-8">
+      {activeTab === 'tokens' && walletAddress && <div className="vault-panel p-4 sm:p-8">
         <TokenTransferHistory walletAddress={walletAddress} />
       </div>}
     </div>

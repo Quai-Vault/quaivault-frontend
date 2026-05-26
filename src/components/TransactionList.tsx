@@ -119,11 +119,11 @@ const TransactionItem = memo(function TransactionItem({
   }, [tx, connectedAddress, timelockTick]);
 
   return (
-    <div className="vault-panel p-5 hover:border-primary-600/50 transition-all duration-300">
+    <div className="vault-panel p-3 sm:p-5 hover:border-primary-600/50 transition-all duration-300">
       {/* Transaction Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 mb-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-3 sm:gap-4 mb-3">
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-4 mb-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2.5">
             <span className={`inline-flex items-center px-3 py-1.5 rounded text-base font-semibold ${decoded.bgColor} ${decoded.textColor} border ${decoded.borderColor} shadow-vault-inner`}>
               <span className="mr-2">{decoded.icon}</span>
               {decoded.description}
@@ -197,7 +197,7 @@ const TransactionItem = memo(function TransactionItem({
           )}
           <div className="bg-dark-100 dark:bg-vault-dark-4 rounded px-4 py-2.5 border border-dark-300 dark:border-dark-600">
             <p className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">Hash</p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <p className="text-base font-mono text-primary-600 dark:text-primary-400 break-all max-w-[120px] flex-1">
                 {formatAddress(tx.hash)}
               </p>
@@ -273,7 +273,7 @@ const TransactionItem = memo(function TransactionItem({
       {/* Actions */}
       {isOwner && (
         <div className="pt-3 border-t border-dark-200 dark:border-dark-700">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4">
             {canApproveIt && (
               <button
                 onClick={() => onApprove(tx)}
