@@ -320,10 +320,10 @@ export function WalletDetail() {
               {showAdvanced && (
                 <div className="mt-2 space-y-4 p-3 rounded bg-dark-100/60 dark:bg-vault-dark-4/40 border border-dark-200 dark:border-dark-600/30">
                   {/* Timelock */}
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">Timelock</h3>
-                      <p className="text-lg font-semibold text-dark-700 dark:text-dark-200">
+                      <p className="text-lg font-semibold text-dark-700 dark:text-dark-200 break-words">
                         {walletInfo.minExecutionDelay > 0 ? (
                           <>
                             {formatDuration(walletInfo.minExecutionDelay)}
@@ -337,7 +337,7 @@ export function WalletDetail() {
                     {isOwner && (
                       <button
                         onClick={() => setShowChangeTimelock(true)}
-                        className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        className="flex-shrink-0 text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
                         title="Change timelock"
                       >
                         Change
@@ -347,8 +347,8 @@ export function WalletDetail() {
 
                   {/* DelegateCall Whitelist */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider">
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                      <h3 className="text-base font-mono text-dark-500 uppercase tracking-wider min-w-0">
                         DelegateCall Whitelist
                         <span className="ml-2 text-sm text-dark-400">({delegatecallTargets.length})</span>
                       </h3>
@@ -359,7 +359,7 @@ export function WalletDetail() {
                             setTargetError(null);
                             setShowAddTargetConfirm(true);
                           }}
-                          className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                          className="flex-shrink-0 text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
                         >
                           Add Target
                         </button>
@@ -480,19 +480,19 @@ export function WalletDetail() {
       {/* Guardian Actions - For guardians who are not owners */}
       {!isOwner && isGuardian && isSocialRecoveryEnabled && (
         <div className="vault-panel p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-700 to-blue-900 border border-blue-600/50 flex items-center justify-center">
                 <svg className="w-4 h-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Guardian Actions</h2>
                 <p className="text-base text-dark-500">You are a Social Recovery guardian for this vault</p>
               </div>
             </div>
-            <span className="vault-badge text-base border-blue-600/50 text-blue-400 bg-blue-900/30">
+            <span className="flex-shrink-0 vault-badge text-base border-blue-600/50 text-blue-400 bg-blue-900/30">
               Guardian
             </span>
           </div>

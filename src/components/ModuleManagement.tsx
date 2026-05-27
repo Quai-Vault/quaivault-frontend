@@ -118,14 +118,14 @@ export function ModuleManagement({ walletAddress, onUpdate }: ModuleManagementPr
 
   return (
     <div className="vault-panel p-4">
-      <div className={`flex items-center justify-between${enabledCount > 0 ? ' mb-2' : ''}`}>
-        <div className="flex items-center gap-4">
+      <div className={`flex items-center justify-between gap-3 flex-wrap${enabledCount > 0 ? ' mb-2' : ''}`}>
+        <div className="flex items-center gap-4 min-w-0">
           <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200">Modules</h2>
           {enabledCount > 0 && (
             <span className="vault-badge text-base">{enabledCount} Enabled</span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {enabledCount > 0 && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}

@@ -370,8 +370,8 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
         {/* Recovery Management Button */}
         {recoveryConfig && recoveryConfig.guardians.length > 0 && (
           <div className="border-t border-dark-200 dark:border-dark-700 pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h3 className="text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider mb-1">Recovery Management</h3>
                 <p className="text-sm text-dark-400 dark:text-dark-500">
                   Initiate, approve, or execute recovery processes
@@ -379,7 +379,7 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
               </div>
               <button
                 onClick={() => setShowRecoveryManagement(true)}
-                className="btn-primary text-base px-4 py-2.5 inline-flex items-center gap-2"
+                className="btn-primary text-base px-4 py-2.5 inline-flex items-center justify-center gap-2 flex-shrink-0 self-start sm:self-auto"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

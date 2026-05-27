@@ -375,11 +375,11 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
         {/* Initiate Recovery Section */}
         {recoveryConfig && recoveryConfig.guardians.length > 0 && isGuardian && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">Initiate Recovery</h3>
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+              <h3 className="text-base font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider min-w-0">Initiate Recovery</h3>
               <button
                 onClick={() => setShowInitiateRecovery(!showInitiateRecovery)}
-                className="btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2"
+                className="btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2 flex-shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -513,14 +513,14 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                     <div key={recovery.recoveryHash} className={`bg-dark-100 dark:bg-vault-dark-4 rounded-md p-4 border ${isExpired ? 'border-primary-500/50 opacity-75' : 'border-dark-300 dark:border-dark-600'}`}>
                       <div className="space-y-3">
                         <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <div className="flex items-center gap-2">
+                          <div className="flex justify-between items-center gap-2 flex-wrap mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
                               <span className="text-sm font-mono text-dark-400 dark:text-dark-500 uppercase tracking-wider">Recovery Hash:</span>
                               {isExpired && (
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase tracking-wider">Expired</span>
+                                <span className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase tracking-wider">Expired</span>
                               )}
                             </div>
-                            <span className="text-xs font-mono text-primary-600 dark:text-primary-300">{recovery.recoveryHash.slice(0, 10)}...{recovery.recoveryHash.slice(-8)}</span>
+                            <span className="text-xs font-mono text-primary-600 dark:text-primary-300 break-all">{recovery.recoveryHash.slice(0, 10)}...{recovery.recoveryHash.slice(-8)}</span>
                           </div>
                           <div className="text-sm text-dark-400 dark:text-dark-400 mb-2">
                             <div className="mb-2">

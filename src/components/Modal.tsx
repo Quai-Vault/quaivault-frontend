@@ -104,12 +104,12 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b-2 border-dark-200 dark:border-dark-700 relative">
+            <div className="flex items-center justify-between gap-2 p-4 sm:p-5 border-b-2 border-dark-200 dark:border-dark-700 relative">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary-600/50 to-transparent"></div>
-              <h2 id={titleId} className="text-lg font-display font-bold text-gradient-red vault-text-glow">{title}</h2>
+              <h2 id={titleId} className="text-lg font-display font-bold text-gradient-red vault-text-glow min-w-0 break-words">{title}</h2>
               <button
                 onClick={onClose}
-                className="text-dark-400 dark:text-dark-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2 rounded hover:bg-dark-100 dark:hover:bg-vault-dark-4"
+                className="flex-shrink-0 text-dark-400 dark:text-dark-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2 rounded hover:bg-dark-100 dark:hover:bg-vault-dark-4"
                 aria-label="Close"
               >
                 <svg
