@@ -62,11 +62,7 @@ export function NotificationToggle() {
     <button
       onClick={handleClick}
       disabled={permState === 'unsupported'}
-      className={`p-2 rounded-lg transition-colors ${
-        permState === 'unsupported'
-          ? 'text-dark-400 dark:text-dark-600 cursor-not-allowed opacity-60'
-          : 'text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4'
-      }`}
+      className="btn-icon"
       title={title}
       aria-label={title}
     >
