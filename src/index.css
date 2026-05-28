@@ -115,48 +115,148 @@
    ============================================ */
 
 @layer components {
-  /* Primary Button - Red gradient works for both themes */
+  /* Primary Button — Mission Console / Blast Door
+     Clipped corners (top-left + bottom-right), Orbitron uppercase tracked,
+     beveled inset edges, LED status pip, vertical scanline sweep on hover.
+     clip-path kills outer box-shadow, so outer red glow uses filter: drop-shadow. */
   .btn-primary {
-    @apply px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-base font-semibold text-white
-           bg-gradient-to-b from-primary-600 to-primary-700
-           rounded-md border border-primary-500
-           hover:from-primary-500 hover:to-primary-600
-           active:scale-[0.98] transition-all duration-200
+    @apply pl-10 pr-6 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0
+           font-display font-bold uppercase tracking-[0.15em] text-xs sm:text-sm text-white
+           bg-gradient-to-b from-primary-500 via-primary-600 to-primary-800
+           active:translate-y-[1px] transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed
            relative overflow-hidden;
-    box-shadow: var(--shadow-vault-button);
+    clip-path: polygon(
+      10px 0,
+      100% 0,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      0 100%,
+      0 10px
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.4),
+      inset 0 0 0 1px rgba(220, 38, 38, 0.6);
   }
 
   .btn-primary:hover:not(:disabled) {
-    box-shadow: var(--shadow-vault-button-hover);
+    filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.55));
   }
 
+  .btn-primary:active:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 2px 4px rgba(0, 0, 0, 0.45),
+      inset 0 0 0 1px rgba(220, 38, 38, 0.6);
+  }
+
+  /* LED status pip */
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fef2f2 0%, #ef4444 55%, #991b1b 100%);
+    box-shadow:
+      0 0 6px rgba(239, 68, 68, 0.95),
+      0 0 14px rgba(239, 68, 68, 0.5),
+      inset 0 0 2px rgba(255, 255, 255, 0.7);
+    z-index: 1;
+  }
+
+  .btn-primary:disabled::after {
+    background: radial-gradient(circle, #737373 0%, #404040 100%);
+    box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Vertical scanline sweep — matches body scanline language */
   .btn-primary::before {
     content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent;
-    transform: translateX(-100%);
-    transition: transform 0.6s;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(255, 255, 255, 0.14) 48%,
+      rgba(255, 255, 255, 0.18) 50%,
+      rgba(255, 255, 255, 0.14) 52%,
+      transparent 100%
+    );
+    transform: translateY(-110%);
+    transition: transform 0.7s ease-in-out;
+    pointer-events: none;
   }
 
-  .btn-primary:hover::before {
-    transform: translateX(100%);
+  .btn-primary:hover:not(:disabled)::before {
+    transform: translateY(110%);
   }
 
-  /* Secondary Button - Theme-aware */
+  /* Secondary Button — Mission Console / Blast Door (no LED, muted bevel) */
   .btn-secondary {
-    @apply px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-base font-semibold
+    @apply px-6 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0
+           font-display font-semibold uppercase tracking-[0.15em] text-xs sm:text-sm
            text-dark-700 dark:text-dark-100
-           bg-dark-100 dark:bg-vault-dark-4
-           rounded-md
-           border border-dark-300 dark:border-dark-600
-           hover:bg-dark-200 dark:hover:bg-vault-dark-3
-           hover:border-dark-400 dark:hover:border-dark-500
-           active:scale-[0.98] transition-all duration-200;
-    box-shadow: var(--shadow-vault-inner);
+           bg-gradient-to-b from-dark-100 to-dark-200
+           dark:from-vault-dark-3 dark:to-vault-dark-4
+           active:translate-y-[1px] transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed
+           relative overflow-hidden;
+    clip-path: polygon(
+      10px 0,
+      100% 0,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      0 100%,
+      0 10px
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+      inset 0 0 0 1px rgba(115, 115, 115, 0.45);
   }
 
-  .btn-secondary:hover {
-    box-shadow: var(--shadow-vault-outer);
+  .dark .btn-secondary {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+      inset 0 0 0 1px rgba(220, 38, 38, 0.22);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.25));
+  }
+
+  .btn-secondary:active:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 2px 4px rgba(0, 0, 0, 0.3),
+      inset 0 0 0 1px rgba(115, 115, 115, 0.45);
+  }
+
+  .btn-secondary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(220, 38, 38, 0.10) 48%,
+      rgba(220, 38, 38, 0.14) 50%,
+      rgba(220, 38, 38, 0.10) 52%,
+      transparent 100%
+    );
+    transform: translateY(-110%);
+    transition: transform 0.7s ease-in-out;
+    pointer-events: none;
+  }
+
+  .btn-secondary:hover:not(:disabled)::before {
+    transform: translateY(110%);
   }
 
   /* Card - Theme-aware */
