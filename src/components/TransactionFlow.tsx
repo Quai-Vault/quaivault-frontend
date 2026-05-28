@@ -242,7 +242,8 @@ export function TransactionFlow({
           {(progress.step === 'preparing' || progress.step === 'signing' || progress.step === 'waiting') && (
             <button
               onClick={onCancel}
-              className="btn-secondary"
+              className="btn-secondary btn-loading"
+              aria-busy
               disabled
             >
               Processing...

@@ -460,16 +460,10 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                   <button
                     onClick={handleInitiateRecovery}
                     disabled={initiateRecovery.isPending}
-                    className="btn-primary w-full text-sm px-4 py-2 inline-flex items-center justify-center gap-2"
+                    aria-busy={initiateRecovery.isPending || undefined}
+                    className={`btn-primary w-full inline-flex items-center justify-center gap-2 ${initiateRecovery.isPending ? 'btn-loading' : ''}`}
                   >
-                    {initiateRecovery.isPending ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        Initiating...
-                      </>
-                    ) : (
-                      'Initiate Recovery'
-                    )}
+                    {initiateRecovery.isPending ? 'Initiating...' : 'Initiate Recovery'}
                   </button>
                 </div>
               </div>
@@ -561,32 +555,22 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                             <button
                               onClick={() => approveRecovery.mutate(recovery.recoveryHash)}
                               disabled={approveRecovery.isPending || isLoadingApprovals}
-                              className="btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2"
+                              aria-busy={approveRecovery.isPending || undefined}
+                              className={`btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2 ${approveRecovery.isPending ? 'btn-loading' : ''}`}
                               title={isLoadingApprovals ? 'Checking approval status...' : ''}
                             >
-                              {approveRecovery.isPending ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                  Approving...
-                                </>
-                              ) : (
-                                'Approve'
-                              )}
+                              {approveRecovery.isPending ? 'Approving...' : 'Approve'}
                             </button>
                           )}
                           {isGuardian && hasApproved && (
                             <button
                               onClick={() => revokeApproval.mutate(recovery.recoveryHash)}
                               disabled={revokeApproval.isPending}
-                              className="btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2"
+                              aria-busy={revokeApproval.isPending || undefined}
+                              className={`btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2 ${revokeApproval.isPending ? 'btn-loading' : ''}`}
                               title="Revoke your approval for this recovery"
                             >
-                              {revokeApproval.isPending ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                  Revoking...
-                                </>
-                              ) : (
+                              {revokeApproval.isPending ? 'Revoking...' : (
                                 <>
                                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -600,47 +584,29 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                             <button
                               onClick={() => executeRecovery.mutate(recovery.recoveryHash)}
                               disabled={executeRecovery.isPending}
-                              className="btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2"
+                              aria-busy={executeRecovery.isPending || undefined}
+                              className={`btn-primary text-sm px-3 py-1.5 inline-flex items-center gap-2 ${executeRecovery.isPending ? 'btn-loading' : ''}`}
                             >
-                              {executeRecovery.isPending ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                  Executing...
-                                </>
-                              ) : (
-                                'Execute Recovery'
-                              )}
+                              {executeRecovery.isPending ? 'Executing...' : 'Execute Recovery'}
                             </button>
                           )}
                           <button
                             onClick={() => setConfirmCancelHash(recovery.recoveryHash)}
                             disabled={cancelRecovery.isPending}
-                            className="btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2"
+                            aria-busy={cancelRecovery.isPending && cancelRecovery.variables === recovery.recoveryHash || undefined}
+                            className={`btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2 ${cancelRecovery.isPending && cancelRecovery.variables === recovery.recoveryHash ? 'btn-loading' : ''}`}
                           >
-                            {cancelRecovery.isPending && cancelRecovery.variables === recovery.recoveryHash ? (
-                              <>
-                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                Cancelling...
-                              </>
-                            ) : (
-                              'Cancel'
-                            )}
+                            {cancelRecovery.isPending && cancelRecovery.variables === recovery.recoveryHash ? 'Cancelling...' : 'Cancel'}
                           </button>
                           {isExpired && (
                             <button
                               onClick={() => expireRecovery.mutate(recovery.recoveryHash)}
                               disabled={expireRecovery.isPending}
-                              className="btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2 text-primary-500"
+                              aria-busy={expireRecovery.isPending && expireRecovery.variables === recovery.recoveryHash || undefined}
+                              className={`btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-2 text-primary-500 ${expireRecovery.isPending && expireRecovery.variables === recovery.recoveryHash ? 'btn-loading' : ''}`}
                               title="Clean up this expired recovery on-chain"
                             >
-                              {expireRecovery.isPending && expireRecovery.variables === recovery.recoveryHash ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                  Expiring...
-                                </>
-                              ) : (
-                                'Expire'
-                              )}
+                              {expireRecovery.isPending && expireRecovery.variables === recovery.recoveryHash ? 'Expiring...' : 'Expire'}
                             </button>
                           )}
                         </div>

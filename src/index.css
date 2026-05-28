@@ -140,7 +140,7 @@
       inset 0 0 0 1px rgba(220, 38, 38, 0.6);
   }
 
-  .btn-primary:hover:not(:disabled) {
+  .dark .btn-primary:hover:not(:disabled) {
     filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.55));
   }
 
@@ -227,7 +227,7 @@
       inset 0 0 0 1px rgba(220, 38, 38, 0.22);
   }
 
-  .btn-secondary:hover:not(:disabled) {
+  .dark .btn-secondary:hover:not(:disabled) {
     filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.25));
   }
 
@@ -282,7 +282,7 @@
       inset 0 0 0 1px rgba(180, 50, 50, 0.7);
   }
 
-  .btn-danger:hover:not(:disabled) {
+  .dark .btn-danger:hover:not(:disabled) {
     filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.45));
   }
 
@@ -359,7 +359,7 @@
       inset 0 0 0 1px rgba(202, 138, 4, 0.7);
   }
 
-  .btn-warning:hover:not(:disabled) {
+  .dark .btn-warning:hover:not(:disabled) {
     filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.5));
   }
 
@@ -443,7 +443,7 @@
       inset 0 0 0 1px rgba(220, 38, 38, 0.2);
   }
 
-  .btn-icon:hover:not(:disabled) {
+  .dark .btn-icon:hover:not(:disabled) {
     filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.35));
   }
 
@@ -516,6 +516,37 @@
 
   .btn-ghost:hover:not(:disabled)::before {
     transform: translateY(110%);
+  }
+
+  /* Loading modifier — continuous scanline + pulsing LED.
+     Add alongside .btn-primary/.btn-danger/.btn-warning/.btn-secondary/.btn-ghost. */
+  .btn-loading {
+    cursor: progress !important;
+    pointer-events: none;
+  }
+
+  /* Continuous scanline sweep for any loading button */
+  .btn-loading::before {
+    animation: btn-scan 1.4s linear infinite;
+    transform: none;
+    transition: none;
+  }
+
+  /* Pulsing LED for variants that have one (.btn-primary, .btn-danger, .btn-warning) */
+  .btn-primary.btn-loading::after,
+  .btn-danger.btn-loading::after,
+  .btn-warning.btn-loading::after {
+    animation: btn-led-pulse 0.9s ease-in-out infinite;
+  }
+
+  @keyframes btn-scan {
+    0%   { transform: translateY(-110%); }
+    100% { transform: translateY(110%); }
+  }
+
+  @keyframes btn-led-pulse {
+    0%, 100% { opacity: 0.55; filter: brightness(0.85); }
+    50%      { opacity: 1;    filter: brightness(1.35); }
   }
 
   /* Card - Theme-aware */

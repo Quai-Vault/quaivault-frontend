@@ -198,16 +198,10 @@ export function LookupTransaction() {
               <button
                 onClick={handleLookup}
                 disabled={isLoading || !txHash.trim()}
-                className="btn-primary px-6 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-busy={isLoading || undefined}
+                className={`btn-primary px-6 w-full sm:w-auto ${isLoading ? 'btn-loading' : ''}`}
               >
-                {isLoading ? (
-                  <span className="inline-flex items-center gap-4">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Looking up...
-                  </span>
-                ) : (
-                  'Lookup'
-                )}
+                {isLoading ? 'Looking up...' : 'Lookup'}
               </button>
             </div>
           </div>
@@ -414,7 +408,7 @@ export function LookupTransaction() {
                     {txCanExecute && (
                       <button
                         onClick={() => handleExecute(transaction)}
-                        className="btn-primary inline-flex items-center gap-4 bg-gradient-to-r from-primary-500 to-primary-600"
+                        className="btn-primary inline-flex items-center gap-4"
                       >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
