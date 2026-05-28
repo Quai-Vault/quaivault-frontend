@@ -3,7 +3,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../hooks/useWallet';
 import type { PendingTransaction } from '../types';
-import { formatQuai } from 'quais';
 import {
   ApproveTransactionModal,
   ExecuteTransactionModal,
@@ -24,7 +23,7 @@ import {
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { TimelockCountdown } from './TimelockCountdown';
-import { formatAddress, formatTimestamp, formatRelativeTime, formatDuration } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime, formatDuration, formatBalance } from '../utils/formatting';
 import { indexerService } from '../services';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -191,7 +190,7 @@ const TransactionItem = memo(function TransactionItem({
             <div className="bg-dark-100 dark:bg-vault-dark-4 rounded px-4 py-2.5 border border-dark-300 dark:border-dark-600 mb-1.5">
               <p className="text-base font-mono text-dark-500 uppercase tracking-wider mb-0.5">Value</p>
               <p className="text-base font-display font-bold text-gradient-red vault-text-glow">
-                {parseFloat(formatQuai(tx.value)).toFixed(4)} QUAI
+                {formatBalance(tx.value)} QUAI
               </p>
             </div>
           )}

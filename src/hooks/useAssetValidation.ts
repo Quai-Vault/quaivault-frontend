@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { formatUnits, parseUnits } from 'quais';
+import { parseUnits } from 'quais';
 import { getTokenBalance, getNftOwner } from '../services/utils/ContractMetadataService';
 import type { ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
+import { formatBalance } from '../utils/formatting';
 
 const BALANCE_STALE_TIME = 15_000;
 const BALANCE_REFETCH_INTERVAL = 30_000;
@@ -107,9 +108,7 @@ export function useAssetValidation(
   const decimals = tokenMetadata?.decimals ?? 18;
   const erc20BalanceFormatted =
     erc20Balance != null && tokenMetadata?.decimals != null
-      ? parseFloat(formatUnits(erc20Balance, tokenMetadata.decimals)).toFixed(
-          tokenMetadata.decimals > 4 ? 4 : tokenMetadata.decimals,
-        )
+      ? formatBalance(erc20Balance, tokenMetadata.decimals)
       : null;
 
   const enteredAmount =

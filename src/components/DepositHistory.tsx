@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { indexerService } from '../services/indexer';
 import { useIndexerConnection } from '../hooks/useIndexerConnection';
-import { formatQuai } from 'quais';
+import { formatBalance } from '../utils/formatting';
 import type { Deposit } from '../types/database';
 
 const BLOCK_EXPLORER_URL = import.meta.env.VITE_BLOCK_EXPLORER_URL || 'https://quaiscan.io';
@@ -88,7 +88,7 @@ export function DepositHistory({ walletAddress, limit = 10 }: DepositHistoryProp
 }
 
 function DepositRow({ deposit }: { deposit: Deposit }) {
-  const amount = parseFloat(formatQuai(deposit.amount)).toFixed(4);
+  const amount = formatBalance(deposit.amount);
   const senderShort = `${deposit.sender_address.slice(0, 8)}...${deposit.sender_address.slice(-6)}`;
   const date = new Date(deposit.created_at);
 

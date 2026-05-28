@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useTokenBalances } from '../hooks/useTokenBalances';
-import { formatAddress } from '../utils/formatting';
+import { formatAddress, formatBalance } from '../utils/formatting';
 import { ExplorerLink } from './ExplorerLink';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
-import { formatUnits } from 'quais';
 import type { Token, TokenTransfer } from '../types/database';
 
 const PAGE_SIZE = 50;
@@ -14,17 +13,9 @@ interface TokenTransferHistoryProps {
 }
 
 function formatTokenAmount(value: string, decimals: number | null, hasTokenId: boolean): string {
-  try {
-    // ERC721/ERC1155 transfers (have token_id) use raw integer quantities, not decimal-scaled amounts
-    if (hasTokenId) {
-      return value;
-    }
-    return parseFloat(formatUnits(BigInt(value), decimals ?? 18)).toFixed(
-      (decimals ?? 18) > 4 ? 4 : (decimals ?? 18)
-    );
-  } catch {
-    return value;
-  }
+  // ERC721/ERC1155 transfers (have token_id) use raw integer quantities, not decimal-scaled amounts
+  if (hasTokenId) return value;
+  return formatBalance(value, decimals ?? 18);
 }
 
 export function TokenTransferHistory({ walletAddress }: TokenTransferHistoryProps) {

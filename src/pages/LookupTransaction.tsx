@@ -4,7 +4,7 @@ import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
 import { multisigService } from '../services/MultisigService';
 import { decodeTransaction } from '../utils/transactionDecoder';
-import { formatAddress, formatTimestamp, formatExpiration } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatExpiration, formatBalance } from '../utils/formatting';
 import {
   canApprove,
   canExecute as computeCanExecute,
@@ -25,7 +25,6 @@ import {
 import { CopyButton } from '../components/CopyButton';
 import { TimelockCountdown } from '../components/TimelockCountdown';
 import { extractErrorMessage } from '../services/utils/TransactionErrorHandler';
-import { formatQuai } from 'quais';
 import type { PendingTransaction } from '../types';
 
 export function LookupTransaction() {
@@ -294,7 +293,7 @@ export function LookupTransaction() {
                 <div className="bg-dark-100 dark:bg-vault-dark-4 rounded-md px-5 py-3 border border-dark-300 dark:border-dark-600 mb-2">
                   <p className="text-base font-mono text-dark-500 uppercase tracking-wider mb-1">Value</p>
                   <p className="text-base font-display font-bold text-gradient-red vault-text-glow">
-                    {parseFloat(formatQuai(transaction.value)).toFixed(4)} QUAI
+                    {formatBalance(transaction.value)} QUAI
                   </p>
                 </div>
               )}

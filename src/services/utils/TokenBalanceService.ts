@@ -1,5 +1,6 @@
-import { Contract as QuaisContract, formatUnits } from 'quais';
+import { Contract as QuaisContract } from 'quais';
 import { getActiveProvider } from '../../config/provider';
+import { formatBalance } from '../../utils/formatting';
 import type { Token } from '../../types/database';
 
 const ERC20_ABI = [
@@ -30,9 +31,7 @@ export async function getERC20Balance(
   const rawBalance: bigint = await contract.balanceOf(walletAddress);
 
   const decimals = token.decimals ?? 18;
-  const formatted = parseFloat(formatUnits(rawBalance, decimals)).toFixed(
-    decimals > 4 ? 4 : decimals
-  );
+  const formatted = formatBalance(rawBalance, decimals);
 
   return {
     tokenAddress: token.address,

@@ -1,6 +1,6 @@
-import { formatQuai, formatUnits, Interface } from 'quais';
+import { Interface } from 'quais';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
-import { formatAddress, formatDuration } from './formatting';
+import { formatAddress, formatDuration, formatBalance } from './formatting';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -106,9 +106,7 @@ function decodeModuleCall(data: string): { name: string; description: string } |
 function formatTokenAmount(raw: string | bigint, tokenMeta?: TokenMetadata | null): string {
   if (!tokenMeta?.decimals) return String(raw);
   try {
-    const formatted = parseFloat(formatUnits(BigInt(raw), tokenMeta.decimals)).toFixed(
-      tokenMeta.decimals > 4 ? 4 : tokenMeta.decimals,
-    );
+    const formatted = formatBalance(raw, tokenMeta.decimals);
     return tokenMeta.symbol ? `${formatted} ${tokenMeta.symbol}` : formatted;
   } catch {
     return String(raw);
@@ -218,7 +216,7 @@ export function decodeTransaction(
     return {
       type: 'transfer',
       description: 'Transfer QUAI',
-      details: `${parseFloat(formatQuai(tx.value)).toFixed(4)} QUAI`,
+      details: `${formatBalance(tx.value)} QUAI`,
       icon: '💸',
       bgColor: 'bg-primary-900',
       borderColor: 'border-primary-700',

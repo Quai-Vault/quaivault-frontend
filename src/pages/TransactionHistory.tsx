@@ -7,11 +7,10 @@ import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { getBlockRangeTimePeriod } from '../utils/blockTime';
-import { formatAddress, formatTimestamp, formatRelativeTime, formatDateString } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime, formatDateString, formatBalance } from '../utils/formatting';
 import { CopyButton } from '../components/CopyButton';
 import { EmptyState } from '../components/EmptyState';
 import { HistoricalTransactionTab, type HistoricalTabConfig } from '../components/HistoricalTransactionTab';
-import { formatQuai } from 'quais';
 import { TokenTransferHistory } from '../components/TokenTransferHistory';
 import type { RecoveryApproval } from '../types/database';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
@@ -399,7 +398,7 @@ export function TransactionHistory() {
                         <div className="text-right">
                           {tx.value !== '0' && (
                             <p className="text-base font-display font-bold text-gradient-red vault-text-glow">
-                              {parseFloat(formatQuai(tx.value)).toFixed(4)}
+                              {formatBalance(tx.value)}
                               <span className="text-lg text-primary-600 dark:text-primary-400 ml-1">QUAI</span>
                             </p>
                           )}

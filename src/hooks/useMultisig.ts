@@ -15,9 +15,8 @@ import { useModuleStatus } from './useModuleStatus';
 import type { DeploymentConfig, TransactionData, PendingTransaction } from '../types';
 import type { WalletModule, Confirmation } from '../types/database';
 import type { WalletSubscriptionCallbacks } from '../services/indexer';
-import { formatQuai } from 'quais';
 import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/notifications';
-import { formatDuration } from '../utils/formatting';
+import { formatDuration, formatBalance } from '../utils/formatting';
 import { getModuleName } from '../utils/transactionDecoder';
 
 // Maximum number of wallets to track in memory (LRU eviction after this limit)
@@ -201,8 +200,8 @@ function useWalletNotifications(
 
         if (hasIncreased && !alreadyNotified) {
           const increase = currentBigInt - prevBigInt;
-          const increaseFormatted = parseFloat(formatQuai(increase)).toFixed(4);
-          const totalFormatted = parseFloat(formatQuai(currentBigInt)).toFixed(4);
+          const increaseFormatted = formatBalance(increase);
+          const totalFormatted = formatBalance(currentBigInt);
 
           lastNotifiedBalances.set(normalizedAddr, currentBalance);
 

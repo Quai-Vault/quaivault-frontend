@@ -1,8 +1,7 @@
 import { type ReactNode } from 'react';
-import { formatAddress, formatTimestamp, formatRelativeTime } from '../utils/formatting';
+import { formatAddress, formatTimestamp, formatRelativeTime, formatBalance } from '../utils/formatting';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { CopyButton } from './CopyButton';
-import { formatQuai } from 'quais';
 import type { PendingTransaction } from '../types';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 
@@ -124,7 +123,7 @@ export function HistoricalTransactionTab({
                       <div className="text-right">
                         {tx.value !== '0' && (
                           <p className="text-base font-display font-bold text-dark-500 dark:text-dark-400">
-                            {parseFloat(formatQuai(tx.value)).toFixed(4)}
+                            {formatBalance(tx.value)}
                             <span className="text-lg text-dark-500 ml-1">QUAI</span>
                           </p>
                         )}

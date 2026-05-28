@@ -114,7 +114,7 @@ export function TokenBalancePanel({ walletAddress, isOwner }: TokenBalancePanelP
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                   <p className={`text-sm ${bal ? 'font-display font-bold text-dark-700 dark:text-dark-200' : 'font-mono text-dark-500'}`}>
-                    {bal ? bal.formatted : '0.0000'}
+                    {bal ? bal.formatted : '0'}
                   </p>
                   {isOwner && bal && BigInt(bal.balance) > 0n && (
                     <Link

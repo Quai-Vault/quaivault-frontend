@@ -69,6 +69,22 @@ vi.mock('quais', () => ({
     const paddedFrac = fracPart.padEnd(18, '0').slice(0, 18);
     return BigInt(intPart + paddedFrac);
   }),
+  formatUnits: vi.fn((value: string | bigint, decimals: number = 18) => {
+    const str = typeof value === 'string' ? value : value.toString();
+    const negative = str.startsWith('-');
+    const digits = negative ? str.slice(1) : str;
+    if (decimals === 0) return (negative ? '-' : '') + digits;
+    const padded = digits.padStart(decimals + 1, '0');
+    const intPart = padded.slice(0, padded.length - decimals) || '0';
+    const fracPart = padded.slice(padded.length - decimals).replace(/0+$/, '');
+    const result = fracPart ? `${intPart}.${fracPart}` : intPart;
+    return negative ? `-${result}` : result;
+  }),
+  parseUnits: vi.fn((value: string, decimals: number = 18) => {
+    const [intPart, fracPart = ''] = value.split('.');
+    const paddedFrac = fracPart.padEnd(decimals, '0').slice(0, decimals);
+    return BigInt(intPart + paddedFrac);
+  }),
   Interface: vi.fn().mockImplementation(() => ({
     parseTransaction: vi.fn(),
     parseError: vi.fn(),

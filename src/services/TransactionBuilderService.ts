@@ -1,5 +1,6 @@
-import { formatQuai, parseQuai, Interface } from 'quais';
+import { parseQuai, Interface } from 'quais';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
+import { formatBalance } from '../utils/formatting';
 
 // Hoisted — reuse across calls
 const quaiVaultInterface = new Interface(QuaiVaultABI.abi);
@@ -24,8 +25,8 @@ export class TransactionBuilderService {
   /**
    * Format value for display
    */
-  formatValue(value: bigint, decimals: number = 4): string {
-    return parseFloat(formatQuai(value)).toFixed(decimals);
+  formatValue(value: bigint): string {
+    return formatBalance(value);
   }
 
   /**

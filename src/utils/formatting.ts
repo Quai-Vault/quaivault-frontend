@@ -1,7 +1,7 @@
 /**
  * Common formatting utilities
  */
-import { formatQuai as formatQuaiImport } from 'quais';
+import { formatQuai as formatQuaiImport, formatUnits } from 'quais';
 
 /** Zero address constant for null transaction detection */
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -91,16 +91,40 @@ export function formatExpiration(timestamp: number): string {
 }
 
 /**
+ * Format a token balance for display.
+ * Whole numbers render with no decimals ("1"); fractional values render with
+ * up to 3 decimal places and trailing zeros trimmed ("1.5", "1.234").
+ * Non-zero values below the 3-decimal threshold show "<0.001".
+ *
+ * @param wei      Raw amount as a bigint or decimal-string in base units.
+ * @param decimals Token decimals (default 18 for QUAI).
+ */
+export function formatBalance(wei: bigint | string, decimals = 18): string {
+  let val: number;
+  try {
+    const big = typeof wei === 'string' ? BigInt(wei) : wei;
+    val = parseFloat(formatUnits(big, decimals));
+  } catch {
+    return '0';
+  }
+  if (!Number.isFinite(val) || val === 0) return '0';
+  if (Number.isInteger(val)) return val.toString();
+  if (val > 0 && val < 0.001) return '<0.001';
+  if (val < 0 && val > -0.001) return '>-0.001';
+  return val.toFixed(3).replace(/\.?0+$/, '');
+}
+
+/**
  * Format a QUAI balance compactly for space-constrained UI (e.g. sidebar).
  * Abbreviates large values: 1,234,567.89 → "1.23M", 45,678 → "45.7K".
- * Values under 1000 are shown with up to 3 decimal places.
+ * Values under 1000 delegate to formatBalance for consistent decimal handling.
  */
 export function formatCompactBalance(weiString: string): string {
   const val = parseFloat(formatQuaiImport(weiString));
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
   if (val >= 10_000) return `${(val / 1_000).toFixed(1)}K`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(2)}K`;
-  return val.toFixed(3);
+  return formatBalance(weiString);
 }
 
 /**
