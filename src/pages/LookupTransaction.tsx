@@ -425,7 +425,7 @@ export function LookupTransaction() {
                     {txCanProposerCancel && (
                       <button
                         onClick={() => handleCancel(transaction)}
-                        className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
+                        className="btn-danger inline-flex items-center gap-4"
                       >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -436,7 +436,7 @@ export function LookupTransaction() {
                     {txCanConsensusCancel && (
                       <button
                         onClick={() => handleCancel(transaction)}
-                        className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
+                        className="btn-danger inline-flex items-center gap-4"
                       >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -447,7 +447,7 @@ export function LookupTransaction() {
                     {txCanExpire && (
                       <button
                         onClick={() => setExpireModalTx(transaction)}
-                        className="px-4 py-2 text-lg font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg border border-orange-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-4"
+                        className="btn-warning inline-flex items-center gap-4"
                       >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

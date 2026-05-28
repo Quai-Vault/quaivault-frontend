@@ -55,25 +55,25 @@ describe('ConfirmDialog', () => {
   });
 
   describe('variants', () => {
-    it('should render danger variant with red button', () => {
+    it('should render danger variant with btn-danger', () => {
       render(<ConfirmDialog {...defaultProps} variant="danger" />);
 
       const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-      expect(confirmButton).toHaveClass('bg-red-600');
+      expect(confirmButton).toHaveClass('btn-danger');
     });
 
-    it('should render warning variant with yellow button', () => {
+    it('should render warning variant with btn-warning', () => {
       render(<ConfirmDialog {...defaultProps} variant="warning" />);
 
       const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-      expect(confirmButton).toHaveClass('bg-yellow-600');
+      expect(confirmButton).toHaveClass('btn-warning');
     });
 
-    it('should render info variant by default with primary button', () => {
+    it('should render info variant by default with btn-primary', () => {
       render(<ConfirmDialog {...defaultProps} />);
 
       const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-      expect(confirmButton).toHaveClass('bg-primary-600');
+      expect(confirmButton).toHaveClass('btn-primary');
     });
   });
 

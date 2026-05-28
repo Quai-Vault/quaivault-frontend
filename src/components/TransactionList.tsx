@@ -312,7 +312,7 @@ const TransactionItem = memo(function TransactionItem({
             {canProposerCancelIt && (
               <button
                 onClick={() => onCancel(tx)}
-                className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                className="btn-danger"
                 aria-label={`Cancel transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -326,7 +326,7 @@ const TransactionItem = memo(function TransactionItem({
             {canConsensusCancelIt && (
               <button
                 onClick={() => onCancel(tx)}
-                className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded border border-red-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                className="btn-danger"
                 aria-label={`Cancel transaction ${tx.hash.slice(0, 10)}... by consensus`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -340,7 +340,7 @@ const TransactionItem = memo(function TransactionItem({
             {canExpireIt && (
               <button
                 onClick={() => onExpire(tx)}
-                className="px-5 py-2.5 text-base font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 rounded border border-orange-700 shadow-vault-button hover:shadow-red-glow transition-all duration-300"
+                className="btn-warning"
                 aria-label={`Expire transaction ${tx.hash.slice(0, 10)}...`}
               >
                 <span className="inline-flex items-center gap-2">

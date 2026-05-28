@@ -289,7 +289,7 @@ export function WalletDetail() {
                 {isOwner && (
                   <button
                     onClick={() => setShowChangeThreshold(true)}
-                    className="text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                    className="btn-ghost"
                     title="Change threshold"
                   >
                     Change
@@ -337,7 +337,7 @@ export function WalletDetail() {
                     {isOwner && (
                       <button
                         onClick={() => setShowChangeTimelock(true)}
-                        className="flex-shrink-0 text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                        className="btn-ghost flex-shrink-0"
                         title="Change timelock"
                       >
                         Change
@@ -359,7 +359,7 @@ export function WalletDetail() {
                             setTargetError(null);
                             setShowAddTargetConfirm(true);
                           }}
-                          className="flex-shrink-0 text-xs text-primary-500 hover:text-primary-400 transition-colors px-3 py-1.5 rounded border border-primary-600/30 hover:border-primary-600/50 bg-primary-900/20 hover:bg-primary-900/30"
+                          className="btn-ghost flex-shrink-0"
                         >
                           Add Target
                         </button>
