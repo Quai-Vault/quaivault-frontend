@@ -45,6 +45,13 @@ export class IndexerSubscriptionService {
   private reconnectTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private maxReconnectAttempts = 5;
   private reconnectDelayMs = 1000;
+  private subscriptionCounter = 0;
+
+  /** Generates a unique channel name so concurrent or rapidly-remounting subscribers
+      never collide with an already-subscribed Supabase channel of the same base name. */
+  private uniqueChannelName(base: string): string {
+    return `${base}:${++this.subscriptionCounter}`;
+  }
 
   private ensureClient() {
     if (!supabase) {
@@ -58,7 +65,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<IndexerTransaction>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `transactions:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`transactions:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -149,7 +156,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<Confirmation>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `confirmations:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`confirmations:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -239,7 +246,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<Deposit>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `deposits:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`deposits:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -312,7 +319,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<DailyLimitState>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `daily_limit_state:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`daily_limit_state:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -400,7 +407,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<WhitelistEntry>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `whitelist_entries:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`whitelist_entries:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -505,7 +512,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<WalletModule>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `wallet_modules:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`wallet_modules:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -593,7 +600,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<WalletOwner>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `wallet_owners:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`wallet_owners:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -681,7 +688,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<SocialRecovery>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `social_recoveries:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`social_recoveries:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -773,7 +780,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<unknown>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `recovery_config:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`recovery_config:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -895,7 +902,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<RecoveryApproval>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `recovery_approvals:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`recovery_approvals:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -983,7 +990,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<TokenTransfer>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `token_transfers:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`token_transfers:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
@@ -1053,7 +1060,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<IndexerState>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = 'indexer_state:main';
+    const channelName = this.uniqueChannelName('indexer_state:main');
 
     const subscribe = () => {
       const channel = client
@@ -1123,7 +1130,7 @@ export class IndexerSubscriptionService {
     callbacks: SubscriptionCallbacks<ModuleTransaction>
   ): () => void {
     const client = this.ensureClient();
-    const channelName = `module_transactions:${walletAddress.toLowerCase()}`;
+    const channelName = this.uniqueChannelName(`module_transactions:${walletAddress.toLowerCase()}`);
 
     const subscribe = () => {
       const channel = client
