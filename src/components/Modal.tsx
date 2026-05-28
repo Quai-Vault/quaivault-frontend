@@ -109,7 +109,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
               <h2 id={titleId} className="text-lg font-display font-bold text-gradient-red vault-text-glow min-w-0 break-words">{title}</h2>
               <button
                 onClick={onClose}
-                className="btn-icon flex-shrink-0"
+                className="flex-shrink-0 text-dark-400 dark:text-dark-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors p-2 rounded hover:bg-dark-100 dark:hover:bg-vault-dark-4"
                 aria-label="Close"
               >
                 <svg

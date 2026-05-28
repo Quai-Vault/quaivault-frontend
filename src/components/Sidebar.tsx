@@ -99,7 +99,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
           {/* Expand chevron */}
           <button
             onClick={onToggle}
-            className="btn-icon"
+            className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
             title="Expand sidebar"
             aria-label="Expand sidebar"
           >
@@ -171,7 +171,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
           {connected ? (
             <button
               onClick={disconnect}
-              className="btn-icon"
+              className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
               title="Disconnect wallet"
               aria-label="Disconnect wallet"
             >
@@ -182,7 +182,7 @@ export const Sidebar = memo(function Sidebar({ collapsed, onToggle }: SidebarPro
           ) : (
             <button
               onClick={connect}
-              className="btn-icon"
+              className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
               title="Connect wallet"
               aria-label="Connect wallet"
             >

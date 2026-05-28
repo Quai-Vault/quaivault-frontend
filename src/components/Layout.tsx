@@ -103,7 +103,7 @@ export function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={toggleSidebar}
-                className="btn-icon"
+                className="p-2.5 min-h-[40px] min-w-[40px] rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors flex items-center justify-center"
                 title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               >
@@ -160,7 +160,7 @@ export function Layout({ children }: LayoutProps) {
                 href="https://quaivault.org/docs"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-icon"
+                className="p-2.5 min-h-[40px] min-w-[40px] rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors flex items-center justify-center"
                 title="Documentation"
                 aria-label="Documentation"
               >

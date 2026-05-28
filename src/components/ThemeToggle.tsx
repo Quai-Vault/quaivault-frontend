@@ -10,7 +10,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={cycleTheme}
-      className="btn-icon"
+      className="p-2 rounded-lg text-dark-400 dark:text-dark-500 hover:text-primary-500 dark:hover:text-primary-400 hover:bg-dark-100 dark:hover:bg-vault-dark-4 transition-colors"
       title={`Switch to ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
       aria-label={`Switch to ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
     >
