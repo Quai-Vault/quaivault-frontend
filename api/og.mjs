@@ -196,11 +196,10 @@ export default async function handler(req, res) {
     );
     res.end(png);
   } catch (err) {
-    // Surface the real cause so a failed deploy is diagnosable.
-    // (Temporary — tighten to a generic 500 once the image is confirmed working.)
-    const detail = err && err.stack ? err.stack : String(err);
+    // Log full detail to the function logs; don't leak internals to clients.
+    console.error('og image generation failed:', err);
     res.statusCode = 500;
     res.setHeader('content-type', 'text/plain; charset=utf-8');
-    res.end(`OG_ERROR: ${detail}`);
+    res.end('Failed to generate image');
   }
 }
