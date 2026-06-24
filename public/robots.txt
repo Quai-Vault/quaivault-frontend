@@ -4,5 +4,32 @@ Allow: /
 Allow: /create
 Disallow: /wallet/
 
+# Link-preview / social crawlers: allow vault pages so shared links render
+# an OpenGraph preview. A named user-agent group fully overrides the "*" group,
+# so each must restate its rules (no Disallow: /wallet/ here = allowed).
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
 # Sitemap
 Sitemap: https://testnet.quaivault.org/sitemap.xml

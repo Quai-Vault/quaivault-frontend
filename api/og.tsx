@@ -1,12 +1,14 @@
 import { ImageResponse } from '@vercel/og';
 import { fetchVaultMeta, normalizeAddress, shortenAddress } from './_vault-data';
 
-export const config = { runtime: 'edge' };
-
 /**
  * Dynamic OpenGraph image for a vault: GET /api/og?address=0x...
  * Renders a 1200x630 branded card with the vault name, shortened address,
  * and signer threshold. No balances are exposed.
+ *
+ * Runs on the Node.js runtime (the default — no edge config). @vercel/og is
+ * only supported on Node.js outside Next.js; on the edge runtime it fails to
+ * bundle its font/WASM assets ("referencing unsupported modules").
  */
 export default async function handler(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
