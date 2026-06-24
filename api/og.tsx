@@ -1,4 +1,5 @@
 import { ImageResponse } from '@vercel/og';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { fetchVaultMeta, normalizeAddress, shortenAddress } from './_vault-data';
 
 /**
@@ -6,13 +7,14 @@ import { fetchVaultMeta, normalizeAddress, shortenAddress } from './_vault-data'
  * Renders a 1200x630 branded card with the vault name, shortened address,
  * and signer threshold. No balances are exposed.
  *
- * Runs on the Node.js runtime (the default — no edge config). @vercel/og is
- * only supported on Node.js outside Next.js; on the edge runtime it fails to
- * bundle its font/WASM assets ("referencing unsupported modules").
+ * Uses the Node.js runtime + the legacy (req, res) handler signature: this
+ * non-Next project's /api functions don't honor a returned web Response (a
+ * returned Response is silently dropped -> FUNCTION_INVOCATION_FAILED), so we
+ * write the PNG bytes to `res` directly. @vercel/og is only supported on the
+ * Node.js runtime outside Next.js (the edge runtime can't bundle its assets).
  *
  * We load an explicit font at runtime rather than relying on @vercel/og's
- * bundled fallback font, which the function bundler can prune (causing satori
- * to throw when it tries to render text -> FUNCTION_INVOCATION_FAILED).
+ * bundled fallback font, which the function bundler can prune.
  */
 
 const FONT_FAMILY = 'Inter';
@@ -35,11 +37,10 @@ async function loadFont(): Promise<ArrayBuffer | null> {
   }
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
-    // Works whether Vercel passes a Web Request (absolute url) or a legacy
-    // Node request (path-only url) — the base is ignored for absolute URLs.
-    const url = new URL((req as { url?: string }).url ?? '/', 'http://localhost');
+    // req.url is a path (e.g. "/api/og?address=0x..") in the legacy runtime.
+    const url = new URL(req.url ?? '/', 'http://localhost');
     const address = normalizeAddress(url.searchParams.get('address'));
 
     const vault = address ? await fetchVaultMeta(address) : null;
@@ -140,32 +141,21 @@ export default async function handler(req: Request): Promise<Response> {
           </div>
         </div>
       ),
-      {
-        width: 1200,
-        height: 630,
-        fonts,
-      },
+      { width: 1200, height: 630, fonts },
     );
 
-    // Force satori to render NOW (inside the try) so render errors are catchable
-    // — ImageResponse otherwise renders lazily while its stream is serialized,
-    // after this handler returns. Also return a simple buffered PNG response.
-    const png = await image.arrayBuffer();
-    return new Response(png, {
-      status: 200,
-      headers: {
-        'content-type': 'image/png',
-        // Cache at the CDN; vault metadata changes rarely.
-        'cache-control': 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800',
-      },
-    });
+    const png = Buffer.from(await image.arrayBuffer());
+    res.statusCode = 200;
+    res.setHeader('content-type', 'image/png');
+    // Cache at the CDN; vault metadata changes rarely.
+    res.setHeader('cache-control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800');
+    res.end(png);
   } catch (err) {
     // Surface the real cause in the body so a failed deploy is diagnosable.
     // (Temporary — tighten to a generic 500 once the image is confirmed working.)
     const detail = err instanceof Error ? err.stack || err.message : String(err);
-    return new Response(`OG_ERROR: ${detail}`, {
-      status: 500,
-      headers: { 'content-type': 'text/plain; charset=utf-8' },
-    });
+    res.statusCode = 500;
+    res.setHeader('content-type', 'text/plain; charset=utf-8');
+    res.end(`OG_ERROR: ${detail}`);
   }
 }
