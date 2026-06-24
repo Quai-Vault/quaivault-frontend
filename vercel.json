@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/wallet/:address([0-9a-fA-Fx]+)",
+      "destination": "/api/vault?address=:address"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
