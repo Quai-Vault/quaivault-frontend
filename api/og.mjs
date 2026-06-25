@@ -1,83 +1,54 @@
 import { ImageResponse } from '@vercel/og';
 import React from 'react';
+import {
+  canonicalOrigin,
+  fetchVaultMeta,
+  fetchWithTimeout,
+  normalizeAddress,
+  shortenAddress,
+} from './_vault-data.mjs';
 
 /**
  * Dynamic OpenGraph image for a vault: GET /api/og?address=0x...
  * Renders a 1200x630 branded card with the vault name, shortened address,
  * and signer threshold. No balances are exposed.
  *
- * Why this file is .mjs + React.createElement (not og.tsx + JSX):
- *  - @vercel/og only runs on the Node.js runtime outside Next.js (the edge
- *    runtime can't bundle its font/WASM assets).
- *  - On the Node.js runtime, this non-Next project compiled api/og.tsx to a
- *    .js emitted as ESM but loaded as CommonJS ("Cannot use import statement
- *    outside a module"), crashing at module load before the handler ran. The
- *    .mjs extension is always treated as ESM, which fixes it. .mjs can't hold
- *    JSX, so the element tree is built with React.createElement.
- *  - Helpers are inlined (no ./_vault-data import) so there's no .ts module to
- *    resolve from this .mjs file.
+ * Why .mjs + React.createElement (not og.tsx + JSX): @vercel/og only runs on
+ * the Node.js runtime outside Next.js, and a Node .tsx->.js was loaded as
+ * CommonJS ("Cannot use import statement outside a module") and crashed at
+ * module load. .mjs is always ESM; .mjs can't hold JSX, so the tree is built
+ * with React.createElement (react is already a dep). Uses the legacy (req, res)
+ * handler signature and writes the PNG to res.
  *
- * Uses the legacy (req, res) Node handler signature and writes the PNG to res.
+ * Unknown/invalid addresses redirect to the static og image so this CPU-heavy
+ * endpoint only renders for real vaults (bounds cost / abuse surface).
  */
 
 const h = React.createElement;
 const FONT_FAMILY = 'Inter';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const NETWORK_SCHEMA = process.env.VITE_NETWORK_SCHEMA || 'testnet';
-
-/** Quai/EVM address: 0x + 40 hex. Returns null if invalid. */
-function normalizeAddress(input) {
-  if (!input) return null;
-  const t = String(input).trim();
-  return /^0x[0-9a-fA-F]{40}$/.test(t) ? t : null;
-}
-
-function shortenAddress(a) {
-  return `${a.slice(0, 6)}…${a.slice(-4)}`;
-}
-
-/** Fetch vault details from the Supabase indexer via PostgREST. */
-async function fetchVaultMeta(address) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-  const url =
-    `${SUPABASE_URL}/rest/v1/wallets` +
-    `?address=eq.${address.toLowerCase()}` +
-    `&select=address,name,threshold,owner_count&limit=1`;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'Accept-Profile': NETWORK_SCHEMA,
-        Accept: 'application/json',
-      },
+// Memoize the font across invocations on a warm instance (one fetch, not one
+// per request). Cache the promise; on failure, reset so the next call retries.
+let fontPromise = null;
+function loadFont() {
+  if (!fontPromise) {
+    fontPromise = loadFontOnce().then((data) => {
+      if (!data) fontPromise = null;
+      return data;
     });
-    if (!res.ok) return null;
-    const rows = await res.json();
-    const row = rows && rows[0];
-    if (!row) return null;
-    return {
-      address: row.address,
-      name: row.name,
-      threshold: row.threshold,
-      ownerCount: row.owner_count,
-    };
-  } catch {
-    return null;
   }
+  return fontPromise;
 }
 
 /** Fetch a TTF for satori (no UA -> Google Fonts serves .ttf, which satori supports). */
-async function loadFont() {
+async function loadFontOnce() {
   try {
-    const cssRes = await fetch('https://fonts.googleapis.com/css2?family=Inter:wght@600');
+    const cssRes = await fetchWithTimeout('https://fonts.googleapis.com/css2?family=Inter:wght@600', {}, 2000);
     if (!cssRes.ok) return null;
     const css = await cssRes.text();
     const m = css.match(/url\((https:[^)]+\.ttf)\)/);
     if (!m) return null;
-    const fr = await fetch(m[1]);
+    const fr = await fetchWithTimeout(m[1], {}, 2000);
     if (!fr.ok) return null;
     return await fr.arrayBuffer();
   } catch {
@@ -85,16 +56,28 @@ async function loadFont() {
   }
 }
 
+function redirectToStatic(req, res) {
+  res.statusCode = 302;
+  res.setHeader('location', `${canonicalOrigin(req)}/og-image.png`);
+  res.setHeader('cache-control', 'public, max-age=300, s-maxage=86400');
+  res.end();
+}
+
 export default async function handler(req, res) {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
     const address = normalizeAddress(url.searchParams.get('address'));
-    const vault = address ? await fetchVaultMeta(address) : null;
+    if (!address) return redirectToStatic(req, res);
 
-    const title = (vault && vault.name && vault.name.trim()) || 'Multisig Vault';
-    const shortAddr = address ? shortenAddress(address) : 'QuaiVault';
+    const vault = await fetchVaultMeta(address);
+    // Only render for vaults that actually exist; everything else gets the
+    // static image, so attackers can't force unbounded unique renders.
+    if (!vault) return redirectToStatic(req, res);
+
+    const title = (vault.name && vault.name.trim()) || 'Multisig Vault';
+    const shortAddr = shortenAddress(address);
     const signers =
-      vault && vault.ownerCount > 0
+      vault.ownerCount > 0
         ? `${vault.threshold} of ${vault.ownerCount} signers`
         : 'Secure multisig wallet';
 

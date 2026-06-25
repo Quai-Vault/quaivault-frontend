@@ -1,9 +1,12 @@
 import {
+  canonicalOrigin,
   escapeHtmlAttr,
   fetchVaultMeta,
+  fetchWithTimeout,
   normalizeAddress,
+  selfOrigin,
   shortenAddress,
-} from './_vault-data';
+} from './_vault-data.mjs';
 
 export const config = { runtime: 'edge' };
 
@@ -12,19 +15,22 @@ export const config = { runtime: 'edge' };
  * injected, so social and chat crawlers (which don't run JS) render a vault-
  * specific link preview. Wired via a `/wallet/:address` -> `/api/vault` rewrite
  * in vercel.json. The React app still boots normally and takes over routing.
+ *
+ * Absolute URLs are pinned to the canonical site origin (not the request Host)
+ * so a spoofed Host can't poison the CDN-cached preview, and the template is
+ * fetched from this deployment's own origin (VERCEL_URL) rather than a
+ * Host-derived one.
  */
 export default async function handler(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const origin = url.origin;
-  const address = normalizeAddress(url.searchParams.get('address'));
+  const address = normalizeAddress(new URL(req.url).searchParams.get('address'));
+  const canonical = canonicalOrigin(req);
+  const self = selfOrigin(req);
 
   // Always serve the real built HTML so asset hashes / inline-script CSP hash
   // stay valid; fall back to passthrough on any fetch error.
   let html: string;
   try {
-    const res = await fetch(`${origin}/index.html`, {
-      headers: { 'x-og-passthrough': '1' },
-    });
+    const res = await fetchWithTimeout(`${self}/index.html`);
     html = await res.text();
     if (!res.ok || !html.includes('<head>')) {
       return new Response(html, {
@@ -33,7 +39,7 @@ export default async function handler(req: Request): Promise<Response> {
       });
     }
   } catch {
-    return Response.redirect(`${origin}/`, 302);
+    return Response.redirect(`${canonical}/`, 302);
   }
 
   // Invalid address -> serve the default (unmodified) document.
@@ -51,8 +57,10 @@ export default async function handler(req: Request): Promise<Response> {
       ? `${name} — a ${vault.threshold} of ${vault.ownerCount} multisig vault on Quai Network, secured by QuaiVault.`
       : `View this multisig vault (${shortAddr}) on QuaiVault — secure collaborative fund management on Quai Network.`;
 
-  const pageUrl = `${origin}/wallet/${address}`;
-  const imageUrl = `${origin}/api/og?address=${address}`;
+  const pageUrl = `${canonical}/wallet/${address}`;
+  // Only point at the dynamic renderer for real vaults; unknown vaults use the
+  // static image so /api/og isn't invoked for addresses that won't render.
+  const imageUrl = vault ? `${canonical}/api/og?address=${address}` : `${canonical}/og-image.png`;
 
   const safeTitle = escapeHtmlAttr(title);
   const safeDesc = escapeHtmlAttr(description);
