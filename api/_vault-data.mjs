@@ -10,16 +10,34 @@
  * avoids the schema-drift risk of duplicating fetchVaultMeta in both functions.
  */
 
-const SITE_URL = (process.env.VITE_SITE_URL || '').replace(/\/+$/, '');
-const SELF_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const NETWORK_SCHEMA = process.env.VITE_NETWORK_SCHEMA || 'testnet';
 
-/** Last-resort origin from the request (only when env vars are absent, e.g. local dev). */
-function reqOrigin(req) {
+/**
+ * The request's own origin, scheme forced to https. Works in both runtimes:
+ *  - edge: req.url is an absolute URL
+ *  - node: req.url is a path, so the host comes from the Host header
+ * https is forced because behind Vercel the function may observe http
+ * internally; fetching the http origin can resolve to the wrong site.
+ */
+function requestOrigin(req) {
   try {
-    return new URL((req && req.url) || '/', 'http://localhost').origin;
+    const u = new URL(req.url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return `https://${u.host}`;
+  } catch {
+    /* req.url was a path (node runtime) — fall through to the Host header */
+  }
+  const host = req && req.headers && req.headers.host;
+  return host ? `https://${host}` : '';
+}
+
+/** VITE_SITE_URL with the scheme forced to https; '' if unset/unparseable. */
+function httpsSiteUrl() {
+  const raw = (process.env.VITE_SITE_URL || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+  try {
+    return `https://${new URL(raw).host}`;
   } catch {
     return '';
   }
@@ -27,19 +45,21 @@ function reqOrigin(req) {
 
 /**
  * Canonical, trusted public origin for shareable absolute URLs (og:url, og:image).
- * Pinned to VITE_SITE_URL so a spoofed Host can't poison the CDN-cached preview.
+ * Prefers VITE_SITE_URL (forced https) so a spoofed Host can't poison the
+ * CDN-cached preview; falls back to the request's own https origin.
  */
 export function canonicalOrigin(req) {
-  return SITE_URL || SELF_URL || reqOrigin(req);
+  return httpsSiteUrl() || requestOrigin(req);
 }
 
 /**
- * This deployment's own origin, for fetching its own static assets. Uses the
- * Vercel-provided VERCEL_URL (deployment-pinned, not Host-derived) so preview
- * deployments fetch their own index.html with the correct asset hashes.
+ * Origin to fetch this deployment's own static assets from. Uses the request's
+ * own host (over https) so it always hits THIS deployment (preview-safe) and
+ * never the env's possibly-http or canonical-apex value, which can resolve to a
+ * different site internally.
  */
 export function selfOrigin(req) {
-  return SELF_URL || SITE_URL || reqOrigin(req);
+  return requestOrigin(req) || httpsSiteUrl();
 }
 
 /** fetch() with a hard timeout so a hung upstream can't stall the function. */
