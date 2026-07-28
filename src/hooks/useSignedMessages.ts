@@ -18,7 +18,10 @@ const SIGN_MESSAGE_SELECTOR = quaiVaultInterface.getFunction('signMessage')!.sel
 function tryDecodeUtf8(hexBytes: string): string | null {
   try {
     const text = toUtf8String(hexBytes);
-    // Reject if it contains control characters (not readable text)
+    // Reject if it contains control characters (not readable text). Matching
+    // them is the whole point here, so the usual warning does not apply: this
+    // is how arbitrary signed bytes are told apart from a readable message.
+    // eslint-disable-next-line no-control-regex -- intentional
     if (/[\x00-\x08\x0e-\x1f]/.test(text)) return null;
     return text;
   } catch {

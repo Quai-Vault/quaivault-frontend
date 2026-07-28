@@ -165,11 +165,17 @@ function useWalletNotifications(
     if (!walletAddress) return;
     const normalizedAddress = walletAddress.toLowerCase();
 
+    // Capture the maps now: reading .current in cleanup could see a different
+    // object than the effect ran against.
+    const prevPendingTxs = prevPendingTxsRef.current;
+    const prevBalances = prevBalancesRef.current;
+    const prevWalletInfo = prevWalletInfoRef.current;
+
     return () => {
       // Clean up per-instance refs for this wallet to prevent memory leaks
-      prevPendingTxsRef.current.delete(normalizedAddress);
-      prevBalancesRef.current.delete(normalizedAddress);
-      prevWalletInfoRef.current.delete(normalizedAddress);
+      prevPendingTxs.delete(normalizedAddress);
+      prevBalances.delete(normalizedAddress);
+      prevWalletInfo.delete(normalizedAddress);
     };
   }, [walletAddress]);
 
@@ -692,7 +698,7 @@ export function useMultisig(walletAddress?: string) {
   /** Create a standard mutation error handler */
   const mutationError = useCallback((fallbackMsg: string) => (error: unknown) => {
     setError(error instanceof Error ? error.message : fallbackMsg);
-  }, []);
+  }, [setError]);
 
   // Track active subscription count for cleanup
   useEffect(() => {
@@ -705,9 +711,11 @@ export function useMultisig(walletAddress?: string) {
       (activeWalletSubscriptions.get(normalizedAddress) ?? 0) + 1
     );
 
+    const walletThresholdCache = walletThresholdCacheRef.current;
+
     return () => {
       // Clean up per-instance refs for this wallet to prevent memory leaks
-      walletThresholdCacheRef.current.delete(normalizedAddress);
+      walletThresholdCache.delete(normalizedAddress);
 
       // Decrement subscription count on unmount
       const count = activeWalletSubscriptions.get(normalizedAddress) ?? 1;
@@ -1380,9 +1388,11 @@ export function useMultisig(walletAddress?: string) {
 
   // Cleanup mutation timeouts on unmount
   useEffect(() => {
+    const mutationTimeouts = mutationTimeoutsRef.current;
+
     return () => {
-      mutationTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
-      mutationTimeoutsRef.current.clear();
+      mutationTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      mutationTimeouts.clear();
     };
   }, []);
 

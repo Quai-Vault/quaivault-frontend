@@ -134,8 +134,9 @@ export function TransactionFlow({
     };
 
     execute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retryKey]); // Re-run on retry
+    // Intentionally keyed on retryKey alone: the callbacks are read through
+    // refs, so re-running on their identity would re-execute the transaction.
+  }, [retryKey]);
 
   const getStepIcon = () => {
     switch (progress.step) {

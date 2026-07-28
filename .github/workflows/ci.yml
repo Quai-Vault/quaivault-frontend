@@ -38,8 +38,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Not blocking yet — there is a backlog of pre-existing lint errors.
-      # Once it is cleared, drop continue-on-error to make this a real gate.
-      - name: Lint (informational)
+      - name: Lint
         run: npm run lint
-        continue-on-error: true

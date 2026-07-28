@@ -20,6 +20,11 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // Reports that the React compiler skipped optimizing a component because
+      // a third-party library (here @tanstack/react-virtual) is opaque to it.
+      // That is a fact about the dependency, not a defect we can act on, and
+      // leaving it on would keep lint permanently failing its own gate.
+      'react-hooks/incompatible-library': 'off',
       // The codebase already marks intentionally-unused bindings with a leading
       // underscore (matching what tsconfig's noUnusedParameters honours);
       // teach the lint rule the same convention instead of duplicating it.

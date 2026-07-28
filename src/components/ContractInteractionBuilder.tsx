@@ -155,8 +155,14 @@ export function ContractInteractionBuilder({
     }
   }, [abi, selectedFunction, argValues, allInputsFilled, onDataChange, contractType, tokenMetadata]);
 
+  // Unlike the other forms, the encoded result cannot simply be derived: it
+  // feeds `rawData`, which the user can also edit directly in raw-data mode, so
+  // the value is genuinely two-way. Making it one-way means redesigning how
+  // calldata is composed — worth doing, but not as an untested change to the
+  // path that decides what a transaction actually calls.
   useEffect(() => {
     if (selectedFunction) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       encodeCalldata();
     }
   }, [encodeCalldata, selectedFunction]);
