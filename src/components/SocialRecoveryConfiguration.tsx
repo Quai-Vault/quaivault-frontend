@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
@@ -48,19 +48,23 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
   });
 
 
-  // Initialize form with existing configuration
-  useEffect(() => {
-    if (recoveryConfig && recoveryConfig.guardians.length > 0) {
+  // Seed the form from the fetched configuration. Adjusted during render
+  // rather than in an effect, keyed on the query result's identity: react-query
+  // keeps that reference stable across refetches that return the same data, so
+  // polling cannot wipe what the user has typed.
+  const [seededFrom, setSeededFrom] = useState(recoveryConfig);
+  if (recoveryConfig && recoveryConfig !== seededFrom) {
+    setSeededFrom(recoveryConfig);
+    if (recoveryConfig.guardians.length > 0) {
       setGuardianInputs(recoveryConfig.guardians.map(g => ({ id: crypto.randomUUID(), value: g })));
       setThreshold(Number(recoveryConfig.threshold));
       setRecoveryPeriodDays(Number(recoveryConfig.recoveryPeriod) / 86400);
-    } else if (recoveryConfig && recoveryConfig.guardians.length === 0) {
-      // Reset form when config is cleared
+    } else {
       setGuardianInputs([{ id: crypto.randomUUID(), value: '' }]);
       setThreshold(1);
       setRecoveryPeriodDays(1);
     }
-  }, [recoveryConfig]);
+  }
 
   // Propose setup recovery mutation (now creates a multisig proposal)
   const proposeSetupRecovery = useMutation({

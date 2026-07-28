@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { transactionBuilderService } from '../services/TransactionBuilderService';
 import { Interface } from 'quais';
@@ -20,6 +19,39 @@ const moduleInterface = new Interface([
 interface DecodedCallData {
   name: string;
   args: readonly unknown[];
+}
+
+/**
+ * Best-effort decode of calldata against the ABIs we know about.
+ *
+ * A plain function rather than a memo inside the component: it is pure, so the
+ * React compiler can memoize the call site itself, and it is directly testable.
+ */
+function decodeCallData(data: string, contractAbi?: ContractAbi | null): DecodedCallData | null {
+  if (!data || data === '0x' || data.length <= 2) return null;
+
+  let fetched: Interface | null = null;
+  if (contractAbi) {
+    try {
+      fetched = new Interface(contractAbi);
+    } catch {
+      // Unusable ABI — the built-in candidates still apply.
+    }
+  }
+
+  // QuaiVault first (self-calls: addOwner, removeOwner, etc.), then known
+  // module ABIs (config proposals), then the ABI fetched for the target.
+  for (const candidate of [quaiVaultInterface, moduleInterface, fetched]) {
+    if (!candidate) continue;
+    try {
+      const result = candidate.parseTransaction({ data });
+      if (result) return { name: result.name, args: result.args };
+    } catch {
+      // Not decodable by this ABI — try the next.
+    }
+  }
+
+  return null;
 }
 
 interface TransactionPreviewProps {
@@ -67,7 +99,6 @@ export function TransactionPreview({
   executionDelay,
   minExecutionDelay,
 }: TransactionPreviewProps) {
-  const [decodedCall, setDecodedCall] = useState<DecodedCallData | null>(null);
   // Convert human-readable QUAI value to wei string for decodeTransaction
   const weiValue = (() => {
     try {
@@ -78,50 +109,8 @@ export function TransactionPreview({
   })();
   const decoded = decodeTransaction({ to, value: weiValue, data }, walletAddress, tokenMetadata);
 
-  useEffect(() => {
-    // Try to decode contract call data against known ABIs
-    if (data && data !== '0x' && data.length > 2) {
-      // Try QuaiVault ABI first (self-calls: addOwner, removeOwner, etc.)
-      try {
-        const result = quaiVaultInterface.parseTransaction({ data });
-        if (result) {
-          setDecodedCall({ name: result.name, args: result.args });
-          return;
-        }
-      } catch {
-        // Not a QuaiVault call — fall through
-      }
+  const decodedCall = decodeCallData(data, contractAbi);
 
-      // Try module ABIs (module config proposals: setDailyLimit, addToWhitelist, etc.)
-      try {
-        const result = moduleInterface.parseTransaction({ data });
-        if (result) {
-          setDecodedCall({ name: result.name, args: result.args });
-          return;
-        }
-      } catch {
-        // Not a known module call
-      }
-
-      // Try fetched contract ABI (for external contract calls)
-      if (contractAbi) {
-        try {
-          const contractInterface = new Interface(contractAbi);
-          const result = contractInterface.parseTransaction({ data });
-          if (result) {
-            setDecodedCall({ name: result.name, args: result.args });
-            return;
-          }
-        } catch {
-          // Not decodable with this ABI
-        }
-      }
-
-      setDecodedCall(null);
-    } else {
-      setDecodedCall(null);
-    }
-  }, [data, contractAbi]);
 
   return (
     <div className="space-y-6">
