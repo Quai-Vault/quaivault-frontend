@@ -19,6 +19,7 @@ import type { WalletSubscriptionCallbacks } from '../services/indexer';
 import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/notifications';
 import { formatDuration, formatBalance } from '../utils/formatting';
 import { getModuleName } from '../utils/transactionDecoder';
+import { diffModuleStatuses } from '../utils/moduleStatus';
 
 // Maximum number of wallets to track in memory (LRU eviction after this limit)
 // Prevents memory leaks in long-running sessions
@@ -348,51 +349,24 @@ function useWalletNotifications(
     const normalizedAddr = walletAddress.toLowerCase();
 
     const prevStatuses = lastNotifiedModuleStatus.get(normalizedAddr) || {};
-    // Seed from the previous state so modules whose status we couldn't read
-    // this round keep their last known-good value rather than being forgotten.
-    const nextStatuses: Record<string, boolean> = { ...prevStatuses };
+    const { changes, nextStatuses } = diffModuleStatuses(prevStatuses, moduleStatuses);
 
-    // Check each module for status changes
-    for (const [moduleAddress, isEnabled] of Object.entries(moduleStatuses)) {
-      // null means the status query failed — unknown, not disabled. Skipping it
-      // keeps a transient RPC failure from being reported as "module disabled"
-      // (and then "module enabled" again once the RPC recovers).
-      if (isEnabled === null) continue;
-
-      const prevEnabled = prevStatuses[moduleAddress];
+    for (const { moduleAddress, isEnabled } of changes) {
       const moduleName = getModuleName(moduleAddress) || 'Unknown Module';
-      nextStatuses[moduleAddress] = isEnabled;
+      const state = isEnabled ? 'enabled' : 'disabled';
 
-      // Only notify if status actually changed (not on first load)
-      if (prevEnabled !== undefined && prevEnabled !== isEnabled) {
-        if (isEnabled) {
-          notificationManager.add({
-            message: `✅ ${moduleName} module enabled`,
-            type: 'success',
-          });
+      notificationManager.add({
+        message: `✅ ${moduleName} module ${state}`,
+        type: 'success',
+      });
 
-          if (canShowBrowserNotifications()) {
-            sendBrowserNotification(`${moduleName} Module Enabled`, {
-              body: `The ${moduleName} module has been enabled for this vault`,
-            });
-          }
-        } else {
-          notificationManager.add({
-            message: `✅ ${moduleName} module disabled`,
-            type: 'success',
-          });
-
-          if (canShowBrowserNotifications()) {
-            sendBrowserNotification(`${moduleName} Module Disabled`, {
-              body: `The ${moduleName} module has been disabled for this vault`,
-            });
-          }
-        }
+      if (canShowBrowserNotifications()) {
+        sendBrowserNotification(`${moduleName} Module ${isEnabled ? 'Enabled' : 'Disabled'}`, {
+          body: `The ${moduleName} module has been ${state} for this vault`,
+        });
       }
     }
 
-    // Update last notified status — known values only, so an unknown reading
-    // never becomes the baseline a later change is compared against.
     lastNotifiedModuleStatus.set(normalizedAddr, nextStatuses);
   }, [moduleStatuses, walletAddress]);
 
