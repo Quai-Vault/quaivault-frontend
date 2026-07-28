@@ -23,7 +23,6 @@ export function SignMessageForm({
   const [message, setMessage] = useState('');
   const [action, setAction] = useState<'sign' | 'unsign'>('sign');
   const [inputMode, setInputMode] = useState<'text' | 'hex'>('text');
-  const [encodingError, setEncodingError] = useState<string | null>(null);
   const [showBrowser, setShowBrowser] = useState(false);
 
   const handleSelectSignedMessage = useCallback((messageBytes: string) => {
@@ -33,26 +32,34 @@ export function SignMessageForm({
     onActionChange?.('unsign');
   }, [onActionChange]);
 
-  // Encode calldata whenever inputs change
-  useEffect(() => {
+  /**
+   * The calldata for the current input, derived rather than stored.
+   *
+   * `to` and `value` are optional because the failure branches deliberately
+   * blank only the calldata, leaving the target and value as they were.
+   */
+  const encoded = useMemo((): {
+    to?: string;
+    value?: string;
+    data: string;
+    error: string | null;
+  } => {
     if (!message.trim()) {
-      onToChange('');
-      onValueChange('0');
-      onDataChange('0x');
-      setEncodingError(null);
-      return;
+      return { to: '', value: '0', data: '0x', error: null };
     }
 
     if (message.length > MAX_MESSAGE_LENGTH) {
-      onDataChange('0x');
-      setEncodingError(`Message too long (${message.length.toLocaleString()} chars). Maximum is ${MAX_MESSAGE_LENGTH.toLocaleString()}.`);
-      return;
+      return {
+        data: '0x',
+        error: `Message too long (${message.length.toLocaleString()} chars). Maximum is ${MAX_MESSAGE_LENGTH.toLocaleString()}.`,
+      };
     }
 
     if (inputMode === 'hex' && !isHexString(message.trim())) {
-      onDataChange('0x');
-      setEncodingError('Invalid hex string. Must start with 0x and contain only hex characters.');
-      return;
+      return {
+        data: '0x',
+        error: 'Invalid hex string. Must start with 0x and contain only hex characters.',
+      };
     }
 
     try {
@@ -60,19 +67,24 @@ export function SignMessageForm({
         ? message.trim()
         : hexlify(toUtf8Bytes(message));
 
-      const encoded = action === 'sign'
+      const data = action === 'sign'
         ? transactionBuilderService.buildSignMessage(messageBytes)
         : transactionBuilderService.buildUnsignMessage(messageBytes);
 
-      onToChange(walletAddress);
-      onValueChange('0');
-      onDataChange(encoded);
-      setEncodingError(null);
+      return { to: walletAddress, value: '0', data, error: null };
     } catch (e) {
-      onDataChange('0x');
-      setEncodingError(e instanceof Error ? e.message : 'Failed to encode message');
+      return { data: '0x', error: e instanceof Error ? e.message : 'Failed to encode message' };
     }
-  }, [message, action, inputMode, walletAddress, onToChange, onValueChange, onDataChange]);
+  }, [message, action, inputMode, walletAddress]);
+
+  const encodingError = encoded.error;
+
+  // The effect now only pushes the derived value outwards.
+  useEffect(() => {
+    if (encoded.to !== undefined) onToChange(encoded.to);
+    if (encoded.value !== undefined) onValueChange(encoded.value);
+    onDataChange(encoded.data);
+  }, [encoded, onToChange, onValueChange, onDataChange]);
 
   // Compute message hash for display
   const messageHash = useMemo(() => {
@@ -153,7 +165,7 @@ export function SignMessageForm({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => { setInputMode('text'); setMessage(''); setEncodingError(null); }}
+            onClick={() => { setInputMode('text'); setMessage(''); }}
             className={`px-4 py-2 rounded-md border text-sm font-mono uppercase tracking-wider transition-colors ${
               inputMode === 'text'
                 ? 'bg-primary-600 text-white border-primary-600'
@@ -164,7 +176,7 @@ export function SignMessageForm({
           </button>
           <button
             type="button"
-            onClick={() => { setInputMode('hex'); setMessage(''); setEncodingError(null); }}
+            onClick={() => { setInputMode('hex'); setMessage(''); }}
             className={`px-4 py-2 rounded-md border text-sm font-mono uppercase tracking-wider transition-colors ${
               inputMode === 'hex'
                 ? 'bg-primary-600 text-white border-primary-600'

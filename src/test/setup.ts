@@ -111,6 +111,15 @@ vi.mock('quais', () => ({
     })),
   },
   ZeroAddress: '0x0000000000000000000000000000000000000000',
+  isHexString: vi.fn((value: unknown) => typeof value === 'string' && /^0x[0-9a-fA-F]*$/.test(value)),
+  toUtf8Bytes: vi.fn((value: string) => new TextEncoder().encode(value)),
+  hexlify: vi.fn((bytes: Uint8Array | string) =>
+    typeof bytes === 'string'
+      ? bytes
+      : '0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
+  ),
+  // Not a real keccak — tests only assert that a hash is shown, never its value.
+  keccak256: vi.fn((value: string) => '0x' + 'ab'.repeat(32) + `:${String(value).length}`),
 }));
 
 // Clean up after each test
