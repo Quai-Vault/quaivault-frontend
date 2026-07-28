@@ -6,6 +6,7 @@ import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
 import { providerToQuaisSigner } from '../config/walletBridge';
 import { setWalletProvider } from '../config/provider';
+import type { ConnectorId } from '../config/wagmi';
 import type { Signer, Provider } from '../types';
 
 export function useWallet() {
@@ -19,7 +20,7 @@ export function useWallet() {
 
   const { address, isConnected, connector } = useAccount();
   const { connectAsync, connectors } = useConnect();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnectAsync, connectors: activeConnectors } = useDisconnect();
 
   const signerRef = useRef<Signer | null>(null);
   const prevAddressRef = useRef<string | null>(null);
@@ -82,7 +83,7 @@ export function useWallet() {
     setConnectModalOpen(true);
   }, [setError, setConnectModalOpen]);
 
-  const connectWith = useCallback(async (connectorId: 'injected' | 'walletConnect') => {
+  const connectWith = useCallback(async (connectorId: ConnectorId) => {
     const target = connectors.find((c) => c.id === connectorId);
     if (!target) {
       setError(`Connector "${connectorId}" not available`);
@@ -102,14 +103,28 @@ export function useWallet() {
     }
   }, [connectAsync, connectors, setError, setLoading, setConnectModalOpen]);
 
-  const disconnect = useCallback(() => {
-    wagmiDisconnect();
+  const disconnect = useCallback(async () => {
+    // wagmi supports simultaneous connections, and disconnecting without a
+    // connector only drops the current one — it then promotes a remaining
+    // connection to current, which would re-mark us as connected under a
+    // different account. Drop every live connection instead.
+    try {
+      if (activeConnectors.length > 0) {
+        for (const target of activeConnectors) {
+          await disconnectAsync({ connector: target });
+        }
+      } else {
+        await disconnectAsync();
+      }
+    } catch (err) {
+      console.error('Failed to disconnect wallet:', err);
+    }
     signerRef.current = null;
     multisigService.setSigner(null);
     setWalletProvider(null);
     indexerService.cleanup();
     setConnected(false, null);
-  }, [wagmiDisconnect, setConnected]);
+  }, [disconnectAsync, activeConnectors, setConnected]);
 
   const signMessage = useCallback(async (message: string) => {
     if (!signerRef.current) {

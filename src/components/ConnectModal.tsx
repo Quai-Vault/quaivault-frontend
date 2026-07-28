@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { useWallet } from '../hooks/useWallet';
+import { useInjectedWallets } from '../hooks/useInjectedWallets';
 import { useWalletStore } from '../store/walletStore';
-
-const PELAGUS_ICON = 'https://pelaguswallet.io/docs/img/PelagusLogoSquare.png';
+import { PELAGUS_ICON, PELAGUS_INSTALL_URL } from '../config/injectedWallets';
+import type { ConnectorId } from '../config/wagmi';
 
 function BlipPayIcon({ className }: { className?: string }) {
   return (
@@ -15,14 +16,18 @@ function BlipPayIcon({ className }: { className?: string }) {
   );
 }
 
+const buttonClass =
+  'flex items-center gap-4 p-4 rounded-lg border-2 border-dark-200 dark:border-dark-700 hover:border-primary-500 dark:hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
 export function ConnectModal() {
   const open = useWalletStore((s) => s.connectModalOpen);
   const setOpen = useWalletStore((s) => s.setConnectModalOpen);
   const error = useWalletStore((s) => s.error);
   const { connectWith } = useWallet();
-  const [busy, setBusy] = useState<'injected' | 'walletConnect' | null>(null);
+  const { pelagus, otherInjected } = useInjectedWallets();
+  const [busy, setBusy] = useState<ConnectorId | null>(null);
 
-  const handleClick = async (id: 'injected' | 'walletConnect') => {
+  const handleClick = async (id: ConnectorId) => {
     setBusy(id);
     try {
       await connectWith(id);
@@ -36,32 +41,74 @@ export function ConnectModal() {
   return (
     <Modal isOpen={open} onClose={() => setOpen(false)} title="Connect Wallet" size="sm">
       <div className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => handleClick('injected')}
-          disabled={busy !== null}
-          className="flex items-center gap-4 p-4 rounded-lg border-2 border-dark-200 dark:border-dark-700 hover:border-primary-500 dark:hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="flex -space-x-2 flex-shrink-0">
-            <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded ring-2 ring-white dark:ring-vault-dark-2 relative z-10" />
-            <BlipPayIcon className="w-10 h-10 rounded bg-white ring-2 ring-white dark:ring-vault-dark-2 p-1" />
-          </div>
-          <div className="flex-1 text-left">
-            <div className="font-semibold text-dark-800 dark:text-dark-100">Pelagus or Blip Pay</div>
-            <div className="text-xs text-dark-500 dark:text-dark-400">
-              Pelagus browser extension or Blip Pay mobile app
+        {/*
+          Pelagus is only offered when `window.pelagus` is actually present. The
+          generic injected connector is a separate entry rather than a fallback:
+          pointing a "Pelagus" button at `window.ethereum` is what opened
+          MetaMask/Phantom/Brave instead of Pelagus.
+        */}
+        {pelagus && (
+          <button
+            type="button"
+            onClick={() => handleClick('pelagus')}
+            disabled={busy !== null}
+            className={buttonClass}
+          >
+            <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded flex-shrink-0" />
+            <div className="flex-1 text-left">
+              <div className="font-semibold text-dark-800 dark:text-dark-100">Pelagus</div>
+              <div className="text-xs text-dark-500 dark:text-dark-400">
+                Browser extension or in-app browser
+              </div>
             </div>
-          </div>
-          {busy === 'injected' && (
-            <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
-          )}
-        </button>
+            {busy === 'pelagus' && (
+              <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
+            )}
+          </button>
+        )}
+
+        {!pelagus && otherInjected && (
+          <button
+            type="button"
+            onClick={() => handleClick('injected')}
+            disabled={busy !== null}
+            className={buttonClass}
+          >
+            <BlipPayIcon className="w-10 h-10 rounded bg-white p-1 flex-shrink-0" />
+            <div className="flex-1 text-left">
+              <div className="font-semibold text-dark-800 dark:text-dark-100">Blip Pay</div>
+              <div className="text-xs text-dark-500 dark:text-dark-400">
+                Browser wallet detected on this device
+              </div>
+            </div>
+            {busy === 'injected' && (
+              <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
+            )}
+          </button>
+        )}
+
+        {!pelagus && !otherInjected && (
+          <a
+            href={PELAGUS_INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass}
+          >
+            <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded flex-shrink-0" />
+            <div className="flex-1 text-left">
+              <div className="font-semibold text-dark-800 dark:text-dark-100">Install Pelagus</div>
+              <div className="text-xs text-dark-500 dark:text-dark-400">
+                No browser wallet detected — get the Pelagus extension
+              </div>
+            </div>
+          </a>
+        )}
 
         <button
           type="button"
           onClick={() => handleClick('walletConnect')}
           disabled={busy !== null}
-          className="flex items-center gap-4 p-4 rounded-lg border-2 border-dark-200 dark:border-dark-700 hover:border-primary-500 dark:hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={buttonClass}
         >
           <div className="w-10 h-10 rounded bg-[#3b99fc] flex items-center justify-center">
             <svg className="w-6 h-6 text-white" viewBox="0 0 40 40" fill="currentColor">
