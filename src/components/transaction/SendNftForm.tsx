@@ -47,12 +47,12 @@ export function SendNftForm({
     [holdings, selectedKey],
   );
 
-  // Clear selection if initial NFT not found in holdings
-  useEffect(() => {
-    if (initialKey && holdings.length > 0 && !selectedNft) {
-      setSelectedKey(null);
-    }
-  }, [initialKey, holdings, selectedNft]);
+  // Clear a deep-linked selection the vault turns out not to hold. Adjusted
+  // during render rather than in an effect: the condition stops holding once
+  // selectedKey is null, so this settles in a single extra render pass.
+  if (initialKey && selectedKey !== null && holdings.length > 0 && !selectedNft) {
+    setSelectedKey(null);
+  }
 
   // Notify parent of NFT metadata changes
   useEffect(() => {

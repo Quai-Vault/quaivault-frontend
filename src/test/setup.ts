@@ -85,12 +85,15 @@ vi.mock('quais', () => ({
     const paddedFrac = fracPart.padEnd(decimals, '0').slice(0, decimals);
     return BigInt(intPart + paddedFrac);
   }),
-  Interface: vi.fn().mockImplementation(() => ({
-    parseTransaction: vi.fn(),
-    parseError: vi.fn(),
-    encodeFunctionData: vi.fn(),
-    getFunction: vi.fn(),
-  })),
+  // Declared with `function` rather than an arrow so `new Interface(...)`
+  // works — several modules construct one at module scope.
+  Interface: vi.fn().mockImplementation(function (this: any) {
+    this.parseTransaction = vi.fn();
+    this.parseError = vi.fn();
+    this.encodeFunctionData = vi.fn(() => '0xENCODED');
+    this.getFunction = vi.fn();
+    this.forEachFunction = vi.fn();
+  }),
   Contract: vi.fn(),
   BrowserProvider: vi.fn(),
   JsonRpcProvider: vi.fn().mockImplementation(function(this: any) {

@@ -50,19 +50,23 @@ export function SendErc1155Form({
     [holdings, selectedKey],
   );
 
-  // Clear selection if initial item not found in holdings
-  useEffect(() => {
-    if (initialKey && holdings.length > 0 && !selectedItem) {
-      setSelectedKey(null);
-    }
-  }, [initialKey, holdings, selectedItem]);
+  // Clear a deep-linked item the vault turns out not to hold. Adjusted during
+  // render rather than in an effect: the condition stops holding once the
+  // selection is cleared, so this settles in a single extra render pass.
+  if (initialKey && selectedKey !== null && holdings.length > 0 && !selectedItem) {
+    setSelectedKey(null);
+  }
 
-  // Reset quantity when selection changes
-  useEffect(() => {
-    if (selectedItem) {
-      setQuantity('1');
-    }
-  }, [selectedItem?.tokenAddress, selectedItem?.tokenId]);
+  // Reset the quantity whenever a different item is picked, so a count valid
+  // for the previous item cannot carry over to one with a smaller balance.
+  const selectedItemKey = selectedItem
+    ? `${selectedItem.tokenAddress}:${selectedItem.tokenId}`
+    : null;
+  const [prevSelectedItemKey, setPrevSelectedItemKey] = useState(selectedItemKey);
+  if (selectedItemKey !== prevSelectedItemKey) {
+    setPrevSelectedItemKey(selectedItemKey);
+    if (selectedItemKey) setQuantity('1');
+  }
 
   // Notify parent of metadata changes
   useEffect(() => {

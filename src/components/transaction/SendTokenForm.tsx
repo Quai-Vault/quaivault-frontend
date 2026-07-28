@@ -33,7 +33,6 @@ export function SendTokenForm({
   const [selectedTokenAddress, setSelectedTokenAddress] = useState(initialToken ?? '');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
-  const [encodingError, setEncodingError] = useState<string | null>(null);
 
   // Build balance map for quick lookup
   const balanceMap = useMemo(
@@ -60,13 +59,12 @@ export function SendTokenForm({
     [availableTokens, selectedTokenAddress],
   );
 
-  // Auto-select initialToken if provided and available
-  useEffect(() => {
-    if (initialToken && availableTokens.length > 0 && !selectedEntry) {
-      // initialToken not found in available tokens — clear it
-      setSelectedTokenAddress('');
-    }
-  }, [initialToken, availableTokens, selectedEntry]);
+  // Clear a deep-linked token the vault turns out not to hold. Adjusted during
+  // render rather than in an effect: the condition stops holding once the
+  // selection is cleared, so this settles in a single extra render pass.
+  if (initialToken && selectedTokenAddress !== '' && availableTokens.length > 0 && !selectedEntry) {
+    setSelectedTokenAddress('');
+  }
 
   // Notify parent of token metadata changes
   useEffect(() => {
@@ -92,28 +90,38 @@ export function SendTokenForm({
     onAmountChange(amount);
   }, [amount, onAmountChange]);
 
-  // Encode transfer calldata
-  useEffect(() => {
+  /**
+   * The transfer calldata for the current inputs, derived rather than stored.
+   * `to` and `value` are optional because the failure branch blanks only the
+   * calldata, leaving the target and value as they were.
+   */
+  const encoded = useMemo((): {
+    to?: string;
+    value?: string;
+    data: string;
+    error: string | null;
+  } => {
     if (!selectedEntry || !recipient.trim() || !isQuaiAddress(recipient) || !amount.trim()) {
-      onToChange('');
-      onValueChange('0');
-      onDataChange('0x');
-      setEncodingError(null);
-      return;
+      return { to: '', value: '0', data: '0x', error: null };
     }
 
     try {
       const amountWei = parseUnits(amount, selectedEntry.balance.decimals);
-      const encoded = erc20TransferInterface.encodeFunctionData('transfer', [recipient.trim(), amountWei]);
-      onToChange(selectedEntry.token.address);
-      onValueChange('0');
-      onDataChange(encoded);
-      setEncodingError(null);
+      const data = erc20TransferInterface.encodeFunctionData('transfer', [recipient.trim(), amountWei]);
+      return { to: selectedEntry.token.address, value: '0', data, error: null };
     } catch (e) {
-      onDataChange('0x');
-      setEncodingError(e instanceof Error ? e.message : 'Invalid amount format');
+      return { data: '0x', error: e instanceof Error ? e.message : 'Invalid amount format' };
     }
-  }, [selectedEntry, recipient, amount, onToChange, onValueChange, onDataChange]);
+  }, [selectedEntry, recipient, amount]);
+
+  const encodingError = encoded.error;
+
+  // The effect now only pushes the derived value outwards.
+  useEffect(() => {
+    if (encoded.to !== undefined) onToChange(encoded.to);
+    if (encoded.value !== undefined) onValueChange(encoded.value);
+    onDataChange(encoded.data);
+  }, [encoded, onToChange, onValueChange, onDataChange]);
 
   // Check if entered amount exceeds balance
   const insufficientBalance = useMemo(() => {
@@ -135,8 +143,8 @@ export function SendTokenForm({
 
   const handleTokenSelect = (address: string) => {
     setSelectedTokenAddress(address);
+    // Clearing the amount clears the derived encoding error with it.
     setAmount('');
-    setEncodingError(null);
   };
 
   if (isLoadingTokens || isLoadingBalances) {
