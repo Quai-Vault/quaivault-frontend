@@ -117,17 +117,22 @@ describe('ConfirmDialog', () => {
       expect(screen.getByRole('button', { name: /Confirm/ })).toBeDisabled();
     });
 
-    it('should show spinner when isLoading is true', () => {
+    // The busy state is CSS-driven: `.btn-loading` animates the button's own
+    // pseudo-elements, so there is no separate spinner node to query for.
+    it('should mark the confirm button busy when isLoading is true', () => {
       render(<ConfirmDialog {...defaultProps} isLoading={true} />);
 
-      // ConfirmDialog renders via Modal portal — query document.body
-      expect(document.body.querySelector('.animate-spin')).toBeInTheDocument();
+      const confirm = screen.getByRole('button', { name: /Confirm/ });
+      expect(confirm).toHaveAttribute('aria-busy', 'true');
+      expect(confirm).toHaveClass('btn-loading');
     });
 
-    it('should not show spinner when isLoading is false', () => {
+    it('should not mark the confirm button busy when isLoading is false', () => {
       render(<ConfirmDialog {...defaultProps} isLoading={false} />);
 
-      expect(document.body.querySelector('.animate-spin')).not.toBeInTheDocument();
+      const confirm = screen.getByRole('button', { name: /Confirm/ });
+      expect(confirm).not.toHaveAttribute('aria-busy');
+      expect(confirm).not.toHaveClass('btn-loading');
     });
 
     it('should not trigger callbacks when disabled', () => {

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch/PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Vite 7 requires ^20.19.0 || >=22.12.0.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Run first: the fastest signal, and the gate that was a no-op until the
+      # root tsconfig's solution-style layout was accounted for (`tsc` without
+      # `-b` compiles nothing).
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:run
+
+      # Also runs `tsc -b`, but exercises the bundle that actually ships.
+      - name: Build
+        run: npm run build
+
+      # Not blocking yet — there is a backlog of pre-existing lint errors.
+      # Once it is cleared, drop continue-on-error to make this a real gate.
+      - name: Lint (informational)
+        run: npm run lint
+        continue-on-error: true
