@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { TransactionFlowOverlay } from '../TransactionFlowOverlay';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useMultisig } from '../../hooks/useMultisig';
@@ -39,7 +39,7 @@ export function RemoveOwnerModal({
     }
   }, [isOpen]);
 
-  const handleRemoveOwner = async (onProgress: (progress: any) => void) => {
+  const handleRemoveOwner = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the remove owner transaction in your wallet' });
     
     const txHash = await removeOwnerAsync({ walletAddress, owner: ownerToRemove });

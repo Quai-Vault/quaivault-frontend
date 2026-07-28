@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { TIMING } from '../../config/contracts';
 import { formatDuration } from '../../utils/formatting';
@@ -84,7 +84,7 @@ export function ChangeTimelockModal({
     return newErrors;
   };
 
-  const handleChangeTimelock = async (onProgress: (progress: any) => void) => {
+  const handleChangeTimelock = async (onProgress: (progress: TransactionProgress) => void) => {
     const errs = validate();
     if (errs.length > 0) {
       throw new Error(errs.join(', '));

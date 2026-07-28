@@ -1,5 +1,5 @@
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { useSimpleTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
@@ -27,7 +27,7 @@ export function ExecuteTransactionModal({
   const executable = canExecute(transaction);
   const expiresIn = expirationSecondsRemaining(transaction);
 
-  const handleExecute = async (onProgress: (progress: any) => void) => {
+  const handleExecute = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the execution transaction in your wallet' });
 
     // The mutation resolves void, so the vault tx hash is what we can report.

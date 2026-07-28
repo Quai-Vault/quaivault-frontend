@@ -5,7 +5,7 @@ import {
   isNotificationsEnabled,
   setNotificationsEnabled,
 } from '../utils/notifications';
-import { notificationManager } from './NotificationContainer';
+import { notificationManager } from './notificationManager';
 
 /**
  * Icon-only toggle button for browser notifications.

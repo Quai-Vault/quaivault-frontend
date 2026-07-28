@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { TIMING } from '../../config/contracts';
 import { isQuaiAddress } from 'quais';
@@ -78,7 +78,7 @@ export function AddOwnerModal({
     return newErrors;
   };
 
-  const handleAddOwner = async (onProgress: (progress: any) => void) => {
+  const handleAddOwner = async (onProgress: (progress: TransactionProgress) => void) => {
     const normalized = newOwnerAddress.trim();
     const validationErrors = validateOwnerAddress(normalized);
     if (validationErrors.length > 0) {

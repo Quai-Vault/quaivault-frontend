@@ -1,5 +1,5 @@
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
@@ -22,7 +22,7 @@ export function EnableModuleModal({
   const { enableModuleAsync } = useMultisig(walletAddress);
   const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({ isOpen });
 
-  const handleEnableModule = async (onProgress: (progress: any) => void) => {
+  const handleEnableModule = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the enable module transaction in your wallet' });
 
     const txHash = await enableModuleAsync({ walletAddress, moduleAddress });

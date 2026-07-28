@@ -1,5 +1,5 @@
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { useSimpleTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
@@ -21,7 +21,7 @@ export function ExpireTransactionModal({
   const { expireTransactionAsync } = useMultisig(walletAddress);
   const resetKey = useSimpleTransactionModalFlow(isOpen);
 
-  const handleExpire = async (onProgress: (progress: any) => void) => {
+  const handleExpire = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the expiration transaction in your wallet' });
 
     await expireTransactionAsync({ walletAddress, txHash: transaction.hash });

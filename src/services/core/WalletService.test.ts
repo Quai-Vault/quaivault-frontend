@@ -46,9 +46,6 @@ vi.mock('quais', () => {
     this.parseLog = vi.fn();
   });
 
-  // Counter to produce a valid address on the 2nd call
-  let saltCallCount = 0;
-
   return {
     Contract: MockContract,
     JsonRpcProvider: MockJsonRpcProvider,
@@ -56,11 +53,8 @@ vi.mock('quais', () => {
     ZeroAddress: '0x0000000000000000000000000000000000000000',
     keccak256: vi.fn().mockReturnValue('0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'),
     solidityPacked: vi.fn().mockReturnValue('0xpacked'),
-    getCreate2Address: vi.fn().mockImplementation(() => {
-      saltCallCount++;
-      // Return a valid 0x00-prefixed address on first call
-      return '0x00abcdef1234567890abcdef1234567890abcdef';
-    }),
+    // Always returns a valid 0x00-prefixed address.
+    getCreate2Address: vi.fn().mockReturnValue('0x00abcdef1234567890abcdef1234567890abcdef'),
     isAddress: vi.fn((address: string) => /^0x[a-fA-F0-9]{40}$/.test(address)),
     isQuaiAddress: vi.fn().mockReturnValue(true),
     randomBytes: vi.fn().mockReturnValue(new Uint8Array(32)),

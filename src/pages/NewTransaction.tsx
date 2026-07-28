@@ -9,7 +9,7 @@ import { transactionBuilderService } from '../services/TransactionBuilderService
 import { getNftOwner } from '../services/utils/ContractMetadataService';
 import { getERC1155Balance } from '../services/utils/TokenBalanceService';
 import { Modal } from '../components/Modal';
-import { TransactionFlow } from '../components/TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../components/TransactionFlow';
 import { TransactionPreview } from '../components/TransactionPreview';
 import { ContractInteractionBuilder } from '../components/ContractInteractionBuilder';
 import { TransactionModeSelector } from '../components/transaction/TransactionModeSelector';
@@ -352,7 +352,7 @@ export function NewTransaction() {
     setShowPreview(false);
   };
 
-  const handleProposeTransaction = async (onProgress: (progress: any) => void) => {
+  const handleProposeTransaction = async (onProgress: (progress: TransactionProgress) => void) => {
     if (!walletAddress) {
       throw new Error('Invalid wallet address');
     }

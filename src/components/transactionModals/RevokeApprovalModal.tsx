@@ -1,5 +1,5 @@
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import type { PendingTransaction } from '../../types';
 import { useMultisig } from '../../hooks/useMultisig';
 import { useSimpleTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
@@ -21,7 +21,7 @@ export function RevokeApprovalModal({
   const { revokeApprovalAsync, refreshTransactions } = useMultisig(walletAddress);
   const resetKey = useSimpleTransactionModalFlow(isOpen);
 
-  const handleRevoke = async (onProgress: (progress: any) => void) => {
+  const handleRevoke = async (onProgress: (progress: TransactionProgress) => void) => {
     try {
       onProgress({ step: 'signing', message: 'Please approve the revocation in your wallet' });
 

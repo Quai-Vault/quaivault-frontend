@@ -1,4 +1,4 @@
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { TransactionFlowOverlay } from '../TransactionFlowOverlay';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useMultisig } from '../../hooks/useMultisig';
@@ -28,7 +28,7 @@ export function CancelTransactionModal({
   const isProposerCancel = canProposerCancel(transaction, connectedAddress || '');
   const isConsensusCancel = canConsensusCancel(transaction, connectedAddress || '');
 
-  const handleCancel = async (onProgress: (progress: any) => void) => {
+  const handleCancel = async (onProgress: (progress: TransactionProgress) => void) => {
     if (isProposerCancel) {
       // Direct proposer cancel (pre-approval)
       onProgress({ step: 'signing', message: 'Please approve the cancellation transaction in your wallet' });

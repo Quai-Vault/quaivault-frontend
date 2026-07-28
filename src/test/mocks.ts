@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { QueryClient } from '@tanstack/react-query';
 import type { WalletInfo, PendingTransaction } from '../types';
 
 // Valid-format test addresses (40 hex chars after 0x)
@@ -76,7 +77,6 @@ export const mockUseWallet = {
 
 // Test render wrapper utilities
 export function createTestQueryClient() {
-  const { QueryClient } = require('@tanstack/react-query');
   return new QueryClient({
     defaultOptions: {
       queries: {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
 import { TIMING } from '../../config/contracts';
 
@@ -56,7 +56,7 @@ export function ChangeThresholdModal({
     return newErrors.length === 0;
   };
 
-  const handleChangeThreshold = async (onProgress: (progress: any) => void) => {
+  const handleChangeThreshold = async (onProgress: (progress: TransactionProgress) => void) => {
     if (!validateThreshold(newThreshold)) {
       throw new Error(errors.join(', '));
     }

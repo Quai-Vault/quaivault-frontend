@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePageVisibility } from '../hooks/usePageVisibility';
 import { multisigService } from '../services/MultisigService';
-import { notificationManager } from './NotificationContainer';
+import { notificationManager } from './notificationManager';
 import { Modal } from './Modal';
 import { CollapsibleNotice } from './CollapsibleNotice';
 import { SocialRecoveryManagement } from './SocialRecoveryManagement';

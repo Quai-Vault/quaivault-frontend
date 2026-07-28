@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { multisigService } from '../services/MultisigService';
-import { notificationManager } from './NotificationContainer';
+import { notificationManager } from './notificationManager';
 import { useWalletStore } from '../store/walletStore';
 import { usePageVisibility } from '../hooks/usePageVisibility';
 import { Modal } from './Modal';

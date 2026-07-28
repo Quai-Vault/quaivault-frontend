@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TransactionFlow } from '../TransactionFlow';
+import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { TransactionFlowOverlay } from '../TransactionFlowOverlay';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useMultisig } from '../../hooks/useMultisig';
@@ -40,7 +40,7 @@ export function DisableModuleModal({
     }
   }, [isOpen]);
 
-  const handleDisableModule = async (onProgress: (progress: any) => void) => {
+  const handleDisableModule = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the disable module transaction in your wallet' });
     
     const txHash = await disableModuleAsync({ walletAddress, moduleAddress });

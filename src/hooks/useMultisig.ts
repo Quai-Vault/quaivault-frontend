@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWalletStore } from '../store/walletStore';
 import { multisigService } from '../services/MultisigService';
-import { notificationManager } from '../components/NotificationContainer';
+import { notificationManager } from '../components/notificationManager';
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 import { INDEXER_CONFIG } from '../config/supabase';
 import { indexerService } from '../services/indexer';
@@ -787,7 +787,6 @@ export function useMultisig(walletAddress?: string) {
         (old = []) => old.map(tx => {
           if (tx.hash !== confirmation.tx_hash) return tx;
           if (!confirmation.is_active) {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [ownerKey]: _, ...remainingApprovals } = tx.approvals;
             return { ...tx, approvals: remainingApprovals, numApprovals: Object.values(remainingApprovals).filter(Boolean).length };
           }
