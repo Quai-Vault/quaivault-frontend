@@ -10,7 +10,7 @@ export const CONTRACT_ADDRESSES = {
 
 // Network configuration
 export const NETWORK_CONFIG = {
-  RPC_URL: import.meta.env.VITE_RPC_URL || 'https://rpc.orchard.quai.network',
+  RPC_URL: import.meta.env.VITE_RPC_URL || 'https://orchard.rpc.quai.network',
   CHAIN_ID: (() => {
     const raw = import.meta.env.VITE_CHAIN_ID;
     const parsed = Number(raw);

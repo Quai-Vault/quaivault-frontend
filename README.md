@@ -60,7 +60,7 @@ Required environment variables:
 
 ```env
 # Network
-VITE_RPC_URL=https://rpc.orchard.quai.network
+VITE_RPC_URL=https://orchard.rpc.quai.network
 VITE_CHAIN_ID=15000
 VITE_BLOCK_EXPLORER_URL=https://orchard.quaiscan.io
 

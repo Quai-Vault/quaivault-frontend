@@ -17,7 +17,7 @@ export const quaiOrchardTestnet = defineChain({
   name: 'Quai Network Orchard Testnet',
   nativeCurrency: { decimals: 18, name: 'Quai', symbol: 'QUAI' },
   rpcUrls: {
-    default: { http: [import.meta.env.VITE_RPC_URL || 'https://rpc.orchard.quai.network'] },
+    default: { http: [import.meta.env.VITE_RPC_URL || 'https://orchard.rpc.quai.network'] },
   },
   blockExplorers: {
     default: {
