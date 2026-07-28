@@ -24,13 +24,13 @@ export function ApproveTransactionModal({
   transaction,
 }: ApproveTransactionModalProps) {
   const { approveTransactionAsync, approveAndExecuteAsync } = useMultisig(walletAddress);
-  const { connectedAddress } = useWallet();
+  const { address } = useWallet();
   const resetKey = useSimpleTransactionModalFlow(isOpen);
   const [phase, setPhase] = useState<'choosing' | 'executing'>('choosing');
   const [executeMode, setExecuteMode] = useState<ExecuteMode>('approve');
   const [successMessage, setSuccessMessage] = useState('Transaction approved successfully!');
 
-  const showExecuteOption = canApproveAndExecute(transaction, connectedAddress || '');
+  const showExecuteOption = canApproveAndExecute(transaction, address || '');
 
   // Reset to choosing phase when modal reopens
   const handleClose = () => {
