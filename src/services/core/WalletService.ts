@@ -1,5 +1,5 @@
 import { Contract, ZeroAddress, Interface, keccak256, AbiCoder, isQuaiAddress } from 'quais';
-import type { Signer, Provider } from '../../types';
+import type { Signer } from '../../types';
 import type { WalletInfo, DeploymentConfig } from '../../types';
 import { CONTRACT_ADDRESSES } from '../../config/contracts';
 import { BaseService } from './BaseService';

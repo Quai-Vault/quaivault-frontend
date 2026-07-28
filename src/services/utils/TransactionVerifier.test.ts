@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { verifyTransactionOnChain, verifyTransactionsBatch, needsVerification } from './TransactionVerifier';
 import type { IndexerTransaction } from '../../types/database';
+import type { Transaction } from '../../types';
 
 // Mock MultisigService
 vi.mock('../MultisigService', () => ({
@@ -35,6 +36,33 @@ function makeIndexerTx(overrides: Partial<IndexerTransaction> = {}): IndexerTran
     cancelled_at_tx: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    // Schema defaults these, but z.infer still makes them required on output.
+    expiration: 0,
+    execution_delay: 0,
+    approved_at: 0,
+    executable_after: 0,
+    is_expired: false,
+    failed_return_data: null,
+    ...overrides,
+  };
+}
+
+/**
+ * A complete on-chain Transaction struct. The verifier only reads to/value/
+ * data/executed, but the mock has to satisfy the whole type.
+ */
+function makeOnChainTx(overrides: Partial<Transaction> = {}): Transaction {
+  return {
+    to: '0xrecipient0000000000000000000000000000000',
+    value: 0n,
+    data: '0x',
+    executed: false,
+    cancelled: false,
+    proposer: '0xsubmitter000000000000000000000000000000',
+    timestamp: 0n,
+    expiration: 0n,
+    approvedAt: 0n,
+    executionDelay: 0,
     ...overrides,
   };
 }
@@ -47,13 +75,12 @@ describe('TransactionVerifier', () => {
   describe('verifyTransactionOnChain', () => {
     it('should return verified when on-chain data matches indexer', async () => {
       const indexerTx = makeIndexerTx();
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: indexerTx.to_address,
         value: BigInt(indexerTx.value),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -63,13 +90,12 @@ describe('TransactionVerifier', () => {
 
     it('should detect recipient mismatch', async () => {
       const indexerTx = makeIndexerTx();
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: '0xDIFFERENT00000000000000000000000000000000',
         value: BigInt(indexerTx.value),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -80,13 +106,12 @@ describe('TransactionVerifier', () => {
 
     it('should detect value mismatch', async () => {
       const indexerTx = makeIndexerTx();
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: indexerTx.to_address,
         value: BigInt('999'),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -97,13 +122,12 @@ describe('TransactionVerifier', () => {
 
     it('should detect data mismatch', async () => {
       const indexerTx = makeIndexerTx({ data: '0xabcdef' });
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: indexerTx.to_address,
         value: BigInt(indexerTx.value),
         data: '0x112233',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -114,13 +138,12 @@ describe('TransactionVerifier', () => {
 
     it('should detect execution status mismatch', async () => {
       const indexerTx = makeIndexerTx({ status: 'executed' });
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: indexerTx.to_address,
         value: BigInt(indexerTx.value),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -131,13 +154,12 @@ describe('TransactionVerifier', () => {
 
     it('should detect multiple discrepancies at once', async () => {
       const indexerTx = makeIndexerTx({ status: 'executed' });
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: '0xDIFFERENT00000000000000000000000000000000',
         value: BigInt('0'),
         data: '0xdifferent',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -147,13 +169,12 @@ describe('TransactionVerifier', () => {
 
     it('should treat null indexer data as 0x', async () => {
       const indexerTx = makeIndexerTx({ data: null });
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: indexerTx.to_address,
         value: BigInt(indexerTx.value),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const result = await verifyTransactionOnChain(WALLET, indexerTx);
 
@@ -188,13 +209,12 @@ describe('TransactionVerifier', () => {
       const tx1 = makeIndexerTx({ tx_hash: '0xhash1' });
       const tx2 = makeIndexerTx({ tx_hash: '0xhash2' });
 
-      vi.mocked(multisigService.getTransaction).mockResolvedValue({
+      vi.mocked(multisigService.getTransaction).mockResolvedValue(makeOnChainTx({
         to: tx1.to_address,
         value: BigInt(tx1.value),
         data: '0x',
         executed: false,
-        numApprovals: 1,
-      });
+      }));
 
       const results = await verifyTransactionsBatch(WALLET, [tx1, tx2]);
 
@@ -214,13 +234,12 @@ describe('TransactionVerifier', () => {
       const tx2 = makeIndexerTx({ tx_hash: '0xhash2' });
 
       vi.mocked(multisigService.getTransaction)
-        .mockResolvedValueOnce({
+        .mockResolvedValueOnce(makeOnChainTx({
           to: tx1.to_address,
           value: BigInt(tx1.value),
           data: '0x',
           executed: false,
-          numApprovals: 1,
-        })
+        }))
         .mockRejectedValueOnce(new Error('Failed'));
 
       const results = await verifyTransactionsBatch(WALLET, [tx1, tx2]);

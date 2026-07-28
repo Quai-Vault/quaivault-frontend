@@ -234,6 +234,7 @@ describe('MultisigService', () => {
           created_at_block: 1,
           created_at_tx: '0xtx',
           created_at: '2026-01-01',
+          min_execution_delay: 0,
           updated_at: '2026-01-01',
         },
       ]);

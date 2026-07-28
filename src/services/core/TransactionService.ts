@@ -252,7 +252,8 @@ export class TransactionService extends BaseService {
     // Pre-validation — read on-chain state to give the user a clear error before
     // prompting wallet signature.  These reads are point-in-time snapshots; state
     // may change before the transaction is mined (see race condition note above).
-    const [txDetails, threshold, isOwner, hasApproved] = await Promise.all([
+    // `threshold` is read to surface RPC failures early but is not used here.
+    const [txDetails, , isOwner, hasApproved] = await Promise.all([
       wallet.transactions(normalizedHash),
       wallet.threshold(),
       wallet.isOwner(signerAddress),
@@ -406,9 +407,9 @@ export class TransactionService extends BaseService {
    */
   private async checkExistingTransaction(
     wallet: Contract,
-    to: string,
-    value: bigint,
-    data: string,
+    _to: string,
+    _value: bigint,
+    _data: string,
     walletAddress: string,
     txHash: string
   ): Promise<boolean> {
@@ -494,7 +495,8 @@ export class TransactionService extends BaseService {
     // Method 2: Parse logs using interface
     for (const log of receipt.logs) {
       try {
-        const parsed = wallet.interface.parseLog(log);
+        // `topics` is optional on this log shape; parseLog requires it.
+        const parsed = wallet.interface.parseLog({ topics: [...(log.topics ?? [])], data: log.data });
         if (parsed?.name === 'TransactionProposed' && parsed.args?.txHash) {
           return parsed.args.txHash;
         }
@@ -639,8 +641,9 @@ export class TransactionService extends BaseService {
         await this.validateDisableModulePrevModule(wallet, decoded.args);
       }
     } catch (error) {
-      if (error.message?.includes('Cannot remove owner') ||
-          error.message?.includes('module disable proposal is outdated')) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('Cannot remove owner') ||
+          message.includes('module disable proposal is outdated')) {
         throw error;
       }
     }
@@ -771,7 +774,7 @@ export class TransactionService extends BaseService {
     try {
       events = await wallet.queryFilter(filter, EVENT_QUERY_RANGE, 'latest');
     } catch (error) {
-      if (error.message?.includes('exceeds maximum limit')) {
+      if (error instanceof Error && error.message.includes('exceeds maximum limit')) {
         try {
           events = await wallet.queryFilter(filter, EVENT_QUERY_RANGE_FALLBACK, 'latest');
         } catch {

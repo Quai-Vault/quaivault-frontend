@@ -74,7 +74,6 @@ const TransactionItem = memo(function TransactionItem({
 
   // Memoize approval-related computed values using centralized transaction state logic
   const {
-    hasApproved,
     approvalCount,
     canExecuteIt,
     approvalPercentage,

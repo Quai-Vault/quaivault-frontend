@@ -1,6 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WalletService } from './WalletService';
 
+/**
+ * quais types the factory as a real Contract — its methods are
+ * `BaseContractMethod` and `interface` is readonly — but these tests replace it
+ * with a vi mock. This view exposes the parts the tests drive.
+ */
+type MockFactory = {
+  connect: ReturnType<typeof vi.fn>;
+  implementation: ReturnType<typeof vi.fn>;
+  createWallet: ReturnType<typeof vi.fn>;
+  interface: { parseLog: ReturnType<typeof vi.fn> };
+};
+
+function asMockFactory(contract: unknown): MockFactory {
+  return contract as MockFactory;
+}
+
 // Mock quais
 vi.mock('quais', () => {
   const MockContract = vi.fn().mockImplementation(function(this: any, address: string, abi: any, provider: any) {
@@ -134,18 +150,18 @@ describe('WalletService', () => {
   describe('getImplementationAddress', () => {
     it('should call factory implementation method', async () => {
       const mockAddress = '0xImplementationAddress';
-      service.getFactoryContract().implementation.mockResolvedValue(mockAddress);
+      asMockFactory(service.getFactoryContract()).implementation.mockResolvedValue(mockAddress);
 
       const result = await service.getImplementationAddress();
 
       expect(result).toBe(mockAddress);
-      expect(service.getFactoryContract().implementation).toHaveBeenCalled();
+      expect(asMockFactory(service.getFactoryContract()).implementation).toHaveBeenCalled();
     });
   });
 
   describe('verifyFactoryConfig', () => {
     it('should return valid when implementation is set and has code', async () => {
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.implementation.mockResolvedValue('0xValidImplementation');
       (service.getProvider() as any).getCode = vi.fn().mockResolvedValue('0x1234');
 
@@ -156,7 +172,7 @@ describe('WalletService', () => {
     });
 
     it('should return error when implementation is zero address', async () => {
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.implementation.mockResolvedValue('0x0000000000000000000000000000000000000000');
 
       const result = await service.verifyFactoryConfig();
@@ -166,7 +182,7 @@ describe('WalletService', () => {
     });
 
     it('should return error when implementation has no code', async () => {
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.implementation.mockResolvedValue('0xValidImplementation');
       (service.getProvider() as any).getCode = vi.fn().mockResolvedValue('0x');
 
@@ -177,7 +193,7 @@ describe('WalletService', () => {
     });
 
     it('should return error when factory call fails', async () => {
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.implementation.mockRejectedValue(new Error('Network error'));
 
       const result = await service.verifyFactoryConfig();
@@ -332,7 +348,7 @@ describe('WalletService', () => {
 
   describe('getFactoryContract', () => {
     it('should return factory contract', () => {
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       expect(factory).toBeDefined();
     });
   });
@@ -348,7 +364,7 @@ describe('WalletService', () => {
         ],
       };
 
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.interface = {
         parseLog: vi.fn().mockReturnValue({
           name: 'WalletCreated',
@@ -381,7 +397,7 @@ describe('WalletService', () => {
         ],
       };
 
-      const factory = service.getFactoryContract();
+      const factory = asMockFactory(service.getFactoryContract());
       factory.interface = {
         parseLog: vi.fn().mockReturnValue({
           name: 'WalletCreated',

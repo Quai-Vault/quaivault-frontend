@@ -4,7 +4,7 @@ import { formatAddress, formatBalance } from '../utils/formatting';
 import { ExplorerLink } from './ExplorerLink';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
-import type { Token, TokenTransfer } from '../types/database';
+import type { Token } from '../types/database';
 
 const PAGE_SIZE = 50;
 

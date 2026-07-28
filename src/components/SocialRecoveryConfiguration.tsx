@@ -26,7 +26,7 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
   const [showRecoveryManagement, setShowRecoveryManagement] = useState(false);
 
   // Query recovery configuration
-  const { data: recoveryConfig, isLoading, refetch } = useQuery({
+  const { data: recoveryConfig, isLoading } = useQuery({
     queryKey: ['recoveryConfig', walletAddress],
     queryFn: async () => {
       return await multisigService.getRecoveryConfig(walletAddress);
@@ -160,8 +160,8 @@ export function SocialRecoveryConfiguration({ walletAddress, onUpdate }: SocialR
     proposeSetupRecovery.mutate({ guardians: validGuardians, threshold, recoveryPeriodDays });
   };
 
-  const formatRecoveryPeriod = (seconds: bigint): string => {
-    const days = Number(seconds) / 86400;
+  const formatRecoveryPeriod = (seconds: number): string => {
+    const days = seconds / 86400;
     if (days === 1) return '1 day';
     return `${days} days`;
   };

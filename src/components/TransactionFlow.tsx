@@ -27,8 +27,6 @@ interface TransactionFlowProps {
 }
 
 export function TransactionFlow({
-  title,
-  description,
   onExecute,
   onComplete,
   onCancel,

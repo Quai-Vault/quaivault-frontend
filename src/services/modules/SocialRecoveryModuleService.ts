@@ -1,4 +1,5 @@
 import { getAddress } from 'quais';
+import type { Contract } from 'quais';
 import type { Provider } from '../../types';
 import { CONTRACT_ADDRESSES, EVENT_QUERY_RANGE, EVENT_QUERY_RANGE_FALLBACK } from '../../config/contracts';
 import { BaseModuleService } from './BaseModuleService';

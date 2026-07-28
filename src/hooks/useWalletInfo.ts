@@ -49,8 +49,10 @@ export function useWalletInfo(walletAddress?: string) {
       // Fire-and-forget clock skew detection — must not block the query
       if (hasWalletProvider()) {
         getActiveProvider().getBlock(Shard.Cyprus1, 'latest').then(block => {
-          if (block?.timestamp) {
-            detectClockSkew(Number(block.timestamp));
+          // quais puts the block time on the work-object header, not on Block itself.
+          const timestamp = block?.woHeader?.timestamp;
+          if (timestamp) {
+            detectClockSkew(Number(timestamp));
           }
         }).catch(() => {});
       }

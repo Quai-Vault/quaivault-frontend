@@ -30,14 +30,15 @@ export function ExecuteTransactionModal({
   const handleExecute = async (onProgress: (progress: any) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the execution transaction in your wallet' });
 
-    const txHash = await executeTransactionAsync({ walletAddress, txHash: transaction.hash });
+    // The mutation resolves void, so the vault tx hash is what we can report.
+    await executeTransactionAsync({ walletAddress, txHash: transaction.hash });
 
-    onProgress({ step: 'waiting', txHash: txHash || transaction.hash, message: 'Waiting for transaction execution...' });
+    onProgress({ step: 'waiting', txHash: transaction.hash, message: 'Waiting for transaction execution...' });
 
     // Wait for transaction to be mined
     await new Promise(resolve => setTimeout(resolve, TIMING.TX_MINE_WAIT));
 
-    return txHash || transaction.hash;
+    return transaction.hash;
   };
 
   return (

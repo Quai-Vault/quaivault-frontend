@@ -252,7 +252,9 @@ export function NewTransaction() {
       }
     } else if (mode === 'sign-message') {
       // Sign-message validation: self-call with encoded data
-      if (to.toLowerCase() !== walletAddress.toLowerCase()) {
+      // walletAddress comes from the route param, so it is optional here — skip
+      // the self-call check when absent, as the other validations above do.
+      if (walletAddress && to.toLowerCase() !== walletAddress.toLowerCase()) {
         newErrors.push('Message signing must target this vault (self-call)');
       }
       if (data === '0x') {

@@ -87,6 +87,7 @@ describe('walletStore', () => {
         owners: ['0xOwner1', '0xOwner2'],
         threshold: 2,
         balance: '1000000000000000000',
+        minExecutionDelay: 0,
       };
 
       act(() => {
@@ -162,6 +163,7 @@ describe('walletStore', () => {
         owners: ['0xOwner1'],
         threshold: 1,
         balance: '5000000000000000000',
+        minExecutionDelay: 0,
       };
 
       act(() => {
@@ -181,6 +183,7 @@ describe('walletStore', () => {
         owners: ['0xOwner1'],
         threshold: 1,
         balance: '1000',
+        minExecutionDelay: 0,
       };
 
       const info2: WalletInfo = {
@@ -188,6 +191,7 @@ describe('walletStore', () => {
         owners: ['0xOwner1', '0xOwner2'],
         threshold: 2,
         balance: '2000',
+        minExecutionDelay: 0,
       };
 
       act(() => {
@@ -217,6 +221,12 @@ describe('walletStore', () => {
           timestamp: Date.now(),
           proposer: '0xProposer',
           approvals: { '0xOwner1': true },
+          status: 'pending',
+          expiration: 0,
+          executionDelay: 0,
+          approvedAt: 0,
+          executableAfter: 0,
+          isExpired: false,
         },
       ];
 

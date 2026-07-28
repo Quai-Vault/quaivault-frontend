@@ -1,4 +1,4 @@
-import { supabase, INDEXER_CONFIG } from '../../config/supabase';
+import { supabase } from '../../config/supabase';
 import { WalletSchema, WalletOwnerSchema, type Wallet, type WalletOwner } from '../../types/database';
 import { validateAddress } from '../utils/TransactionErrorHandler';
 

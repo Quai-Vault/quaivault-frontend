@@ -110,7 +110,7 @@ const lastNotifiedThresholds = new LRUMap<string, number>(MAX_TRACKED_WALLETS);
 const lastNotifiedDelays = new LRUMap<string, number>(MAX_TRACKED_WALLETS);
 
 // Global tracking of notified module status changes
-const lastNotifiedModuleStatus = new LRUMap<string, Record<string, boolean>>(MAX_TRACKED_WALLETS);
+const lastNotifiedModuleStatus = new LRUMap<string, Record<string, boolean | null>>(MAX_TRACKED_WALLETS);
 
 // Track which wallets are being watched by active hook instances (for cleanup)
 // This one doesn't need LRU since it's cleaned up when hooks unmount
@@ -147,8 +147,10 @@ function useWalletNotifications(
   pendingTransactions: PendingTransaction[] | undefined,
   executedTransactions: PendingTransaction[] | undefined,
   cancelledTransactions: PendingTransaction[] | undefined,
-  moduleStatuses: Record<string, boolean> | undefined,
-  connectedAddress: string | undefined,
+  // Values can be null when a module's status is not yet known.
+  moduleStatuses: Record<string, boolean | null> | null | undefined,
+  // null when no wallet is connected (the store's resting value).
+  connectedAddress: string | null | undefined,
 ) {
   // ---------------------------------------------------------------------------
   // Notification tracking refs (per-instance, cleaned up on unmount)

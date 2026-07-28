@@ -63,8 +63,9 @@ export function ApproveTransactionModal({
     } else {
       setSuccessMessage('Transaction approved successfully!');
       onProgress({ step: 'signing', message: 'Please sign the approval in your wallet' });
-      const txHash = await approveTransactionAsync({ walletAddress, txHash: transaction.hash });
-      onProgress({ step: 'waiting', txHash: txHash || transaction.hash, message: 'Waiting for approval confirmation...' });
+      // The mutation resolves void, so the vault tx hash is what we can report.
+      await approveTransactionAsync({ walletAddress, txHash: transaction.hash });
+      onProgress({ step: 'waiting', txHash: transaction.hash, message: 'Waiting for approval confirmation...' });
     }
 
     await new Promise(resolve => setTimeout(resolve, TIMING.TX_MINE_WAIT));

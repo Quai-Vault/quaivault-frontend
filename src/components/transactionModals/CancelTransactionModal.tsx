@@ -32,8 +32,9 @@ export function CancelTransactionModal({
     if (isProposerCancel) {
       // Direct proposer cancel (pre-approval)
       onProgress({ step: 'signing', message: 'Please approve the cancellation transaction in your wallet' });
-      const txHash = await cancelTransactionAsync({ walletAddress, txHash: transaction.hash });
-      onProgress({ step: 'waiting', txHash: txHash || transaction.hash, message: 'Waiting for cancellation confirmation...' });
+      // The mutation resolves void, so the vault tx hash is what we can report.
+      await cancelTransactionAsync({ walletAddress, txHash: transaction.hash });
+      onProgress({ step: 'waiting', txHash: transaction.hash, message: 'Waiting for cancellation confirmation...' });
     } else {
       // Consensus cancel (post-approval) — proposes a new self-call
       onProgress({ step: 'signing', message: 'Proposing a cancel-by-consensus vote...' });

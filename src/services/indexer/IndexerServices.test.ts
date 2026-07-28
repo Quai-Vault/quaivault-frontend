@@ -10,13 +10,6 @@ const MODULE = '0x9876543210987654321098765432109876543210';
 const TX_HASH = '0x' + 'a'.repeat(64);
 
 // Mock supabase client
-const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockIn = vi.fn();
-const mockOrder = vi.fn();
-const mockLimit = vi.fn();
-const mockRange = vi.fn();
-const mockSingle = vi.fn();
 
 function createChainedMock(finalResult: any = { data: [], error: null }) {
   const chain: any = {};

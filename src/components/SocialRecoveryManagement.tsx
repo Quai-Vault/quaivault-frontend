@@ -7,7 +7,7 @@ import { usePageVisibility } from '../hooks/usePageVisibility';
 import { Modal } from './Modal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
-import { isAddress, formatQuai, getAddress } from 'quais';
+import { isAddress, getAddress } from 'quais';
 import { formatDuration, formatAddress } from '../utils/formatting';
 import { getAdjustedNowSeconds } from '../utils/clockSkew';
 import { isRecoveryEffectivelyExpired } from '../utils/recoveryState';

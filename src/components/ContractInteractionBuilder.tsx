@@ -522,7 +522,6 @@ function ParameterInput({
   const isBoolType = input.baseType === 'bool';
   const isValid = !isAddressType || !value || isQuaiAddress(value);
   const isTokenAmount = isTokenAmountField(input, index, contractType, functionName);
-  const hasDecimals = tokenMetadata?.decimals != null;
 
   // Friendly labels for token contract parameters
   const label = getTokenParamLabel(input, index, contractType, functionName) || input.name || `param${index}`;
@@ -577,7 +576,7 @@ function ParameterInput({
 
 /** Friendly label overrides for common token parameters */
 function getTokenParamLabel(
-  input: FunctionInputInfo,
+  _input: FunctionInputInfo,
   index: number,
   contractType: ContractType,
   functionName: string,

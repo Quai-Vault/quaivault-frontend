@@ -3,11 +3,8 @@ import { SocialRecoveryModuleService } from './SocialRecoveryModuleService';
 
 // Valid test addresses (42 chars: 0x + 40 hex)
 const VALID_WALLET = '0x1234567890123456789012345678901234567890';
-const VALID_GUARDIAN_1 = '0xabcdef0123456789abcdef0123456789abcdef01';
-const VALID_GUARDIAN_2 = '0x9876543210987654321098765432109876543210';
 const VALID_NEW_OWNER_1 = '0x1111111111111111111111111111111111111111';
 const VALID_NEW_OWNER_2 = '0x2222222222222222222222222222222222222222';
-const VALID_SIGNER = '0xfedcba0987654321fedcba0987654321fedcba09';
 
 // Mock config
 vi.mock('../../config/contracts', () => ({
