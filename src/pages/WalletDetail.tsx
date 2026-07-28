@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMultisig } from '../hooks/useMultisig';
 import { useWallet } from '../hooks/useWallet';
 import { useIndexerConnection } from '../hooks/useIndexerConnection';
+import { useCountdown } from '../hooks/useCountdown';
 import { TransactionList } from '../components/TransactionList';
 import { OwnerManagement } from '../components/OwnerManagement';
 import { ModuleManagement } from '../components/ModuleManagement';
@@ -23,6 +24,34 @@ import { Erc1155HoldingsPanel } from '../components/Erc1155HoldingsPanel';
 import { IndexerStatusBanner } from '../components/IndexerStatusBanner';
 import { formatDuration, formatCompactBalance } from '../utils/formatting';
 import { isQuaiAddress } from 'quais';
+
+/**
+ * Live executability of a pending recovery.
+ *
+ * Its own component because the countdown is a hook and these are rendered in
+ * a list. Previously this read the clock during render, so the banner froze at
+ * whatever the last render showed and never flipped to executable — the moment
+ * an owner most needs to see.
+ */
+function RecoveryExecutability({ executionTime }: { executionTime: number }) {
+  const secondsLeft = useCountdown(executionTime);
+
+  if (executionTime <= 0) return null;
+
+  if (secondsLeft <= 0) {
+    return (
+      <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded bg-red-600/40 text-red-200 text-xs font-bold border border-red-500/50">
+        EXECUTABLE NOW
+      </span>
+    );
+  }
+
+  return (
+    <p className="text-sm text-red-300/70 mt-2">
+      Executable in {formatDuration(secondsLeft)}
+    </p>
+  );
+}
 
 export function WalletDetail() {
   const { address: walletAddress } = useParams<{ address: string }>();
@@ -211,22 +240,12 @@ export function WalletDetail() {
                   ? 'A social recovery has been initiated for this vault. If completed, wallet ownership will be transferred to new owners.'
                   : `${pendingRecoveries.length} social recoveries have been initiated for this vault.`}
               </p>
-              {pendingRecoveries.map((recovery) => {
-                const now = Math.floor(Date.now() / 1000);
-                const isExecutable = recovery.executionTime > 0 && now >= recovery.executionTime;
-                const timeUntilExecutable = recovery.executionTime > 0
-                  ? recovery.executionTime - now
-                  : 0;
-                return isExecutable ? (
-                  <span key={recovery.recoveryHash} className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded bg-red-600/40 text-red-200 text-xs font-bold border border-red-500/50">
-                    EXECUTABLE NOW
-                  </span>
-                ) : timeUntilExecutable > 0 ? (
-                  <p key={recovery.recoveryHash} className="text-sm text-red-300/70 mt-2">
-                    Executable in {formatDuration(timeUntilExecutable)}
-                  </p>
-                ) : null;
-              })}
+              {pendingRecoveries.map((recovery) => (
+                <RecoveryExecutability
+                  key={recovery.recoveryHash}
+                  executionTime={recovery.executionTime}
+                />
+              ))}
               {isOwner && (
                 <p className="text-sm text-red-300/80 mt-3">
                   As an owner, you can cancel this recovery from the{' '}

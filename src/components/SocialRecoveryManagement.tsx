@@ -4,6 +4,7 @@ import { multisigService } from '../services/MultisigService';
 import { notificationManager } from './notificationManager';
 import { useWalletStore } from '../store/walletStore';
 import { usePageVisibility } from '../hooks/usePageVisibility';
+import { useCountdown } from '../hooks/useCountdown';
 import { Modal } from './Modal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
@@ -29,6 +30,16 @@ interface OwnerInput {
 // Generate unique IDs for form inputs
 function generateOwnerId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Live time remaining until a recovery timestamp. A component rather than a
+ * helper so the value ticks — read during render it froze and never reached
+ * "Ready to execute".
+ */
+function TimeUntil({ timestamp }: { timestamp: number }) {
+  const secondsLeft = useCountdown(timestamp);
+  return <>{secondsLeft <= 0 ? 'Ready to execute' : formatDuration(secondsLeft)}</>;
 }
 
 export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpdate }: SocialRecoveryManagementProps) {
@@ -305,12 +316,6 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
     initiateRecovery.mutate({ newOwners: validOwners, newThreshold });
   };
 
-  const formatTimeUntilExecution = (timestamp: number): string => {
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const remaining = timestamp - nowSeconds;
-    return remaining <= 0 ? 'Ready to execute' : formatDuration(remaining);
-  };
-
   const handleRefreshRecoveries = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -542,14 +547,14 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
                               <strong>Approvals:</strong> {currentApprovals} / {requiredApprovals}
                             </div>
                             <div>
-                              <strong>Execution Time:</strong> {formatTimeUntilExecution(recovery.executionTime)}
+                              <strong>Execution Time:</strong> <TimeUntil timestamp={recovery.executionTime} />
                             </div>
                             {recovery.expiration > 0 && (
                               <div>
                                 <strong>Expiration:</strong>{' '}
                                 {isExpired
                                   ? <span className="text-primary-500 font-semibold">Expired</span>
-                                  : formatTimeUntilExecution(recovery.expiration)}
+                                  : <TimeUntil timestamp={recovery.expiration} />}
                               </div>
                             )}
                           </div>
