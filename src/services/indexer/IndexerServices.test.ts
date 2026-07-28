@@ -282,6 +282,109 @@ describe('IndexerTransactionService', () => {
       expect(result.get(hash2)).toHaveLength(1);
     });
   });
+
+  describe('getTransactionsByStatus', () => {
+    it('should short-circuit on an empty status list without querying', async () => {
+      const result = await service.getTransactionsByStatus(WALLET, []);
+
+      expect(result).toEqual({ data: [], total: 0, hasMore: false });
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('should read the effective view and filter on effective_status', async () => {
+      const chain = createChainedMock({
+        data: [makeTxData({ status: 'expired' })],
+        error: null,
+        count: 1,
+      });
+      mockFrom.mockReturnValue(chain);
+
+      const result = await service.getTransactionsByStatus(WALLET, ['expired']);
+
+      expect(mockFrom).toHaveBeenCalledWith('transactions_effective');
+      expect(chain.in).toHaveBeenCalledWith('effective_status', ['expired']);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('should report hasMore when the count exceeds the page', async () => {
+      const chain = createChainedMock({
+        data: [makeTxData({ status: 'executed' })],
+        error: null,
+        count: 120,
+      });
+      mockFrom.mockReturnValue(chain);
+
+      const result = await service.getTransactionsByStatus(WALLET, ['executed'], { limit: 1 });
+
+      expect(result.total).toBe(120);
+      expect(result.hasMore).toBe(true);
+    });
+
+    // A clock-expired transaction reads status='pending' in the base table but
+    // effective_status='expired' in the view — this is the row the view exists for.
+    it('should return clock-expired rows in the expired bucket', async () => {
+      const chain = createChainedMock({
+        data: [makeTxData({ status: 'pending', expiration: 1, effective_status: 'expired' })],
+        error: null,
+        count: 1,
+      });
+      mockFrom.mockReturnValue(chain);
+
+      const result = await service.getTransactionsByStatus(WALLET, ['expired']);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].expiration).toBe(1);
+    });
+
+    it.each(['42P01', 'PGRST205'])(
+      'should fall back to the base table when the view is missing (%s)',
+      async (code) => {
+        const missing = createChainedMock({ data: null, error: { code, message: 'no view' } });
+        const base = createChainedMock({
+          data: [makeTxData({ status: 'expired' })],
+          error: null,
+          count: 1,
+        });
+        mockFrom.mockReturnValueOnce(missing).mockReturnValueOnce(base);
+
+        const result = await service.getTransactionsByStatus(WALLET, ['expired']);
+
+        expect(mockFrom).toHaveBeenNthCalledWith(1, 'transactions_effective');
+        expect(mockFrom).toHaveBeenNthCalledWith(2, 'transactions');
+        expect(base.in).toHaveBeenCalledWith('status', ['expired']);
+        expect(result.data).toHaveLength(1);
+      }
+    );
+
+    it('should latch the fallback and stop probing the view', async () => {
+      const missing = createChainedMock({ data: null, error: { code: '42P01', message: 'no view' } });
+      const base = createChainedMock({ data: [], error: null, count: 0 });
+      mockFrom.mockReturnValueOnce(missing).mockReturnValue(base);
+
+      await service.getTransactionsByStatus(WALLET, ['expired']);
+      mockFrom.mockClear();
+      await service.getTransactionsByStatus(WALLET, ['expired']);
+
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+      expect(mockFrom).toHaveBeenCalledWith('transactions');
+    });
+
+    // A genuine failure must surface, not silently downgrade to stored-status bucketing.
+    it('should throw on a non-missing-relation error rather than falling back', async () => {
+      const chain = createChainedMock({
+        data: null,
+        error: { code: '08006', message: 'Connection refused' },
+      });
+      mockFrom.mockReturnValue(chain);
+
+      await expect(service.getTransactionsByStatus(WALLET, ['expired'])).rejects.toThrow(
+        'Indexer query failed'
+      );
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 // ============ IndexerModuleService ============

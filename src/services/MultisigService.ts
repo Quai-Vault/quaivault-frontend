@@ -558,16 +558,19 @@ export class MultisigService {
 
     if (await this.isIndexerAvailable()) {
       try {
+        // Filter server-side. Filtering a fixed page of history client-side
+        // silently truncated each tab to whatever landed in the first 50 rows
+        // and made the count badges wrong.
         const [wallet, result] = await Promise.all([
           indexerService.wallet.getWalletDetails(validatedWallet),
-          indexerService.transaction.getTransactionHistory(validatedWallet, { limit: 50 }),
+          indexerService.transaction.getTransactionsByStatus(validatedWallet, [status], { limit: 100 }),
         ]);
 
         if (!wallet) {
           throw new Error('Wallet not found in indexer');
         }
 
-        const filteredTxs = result.data.filter((tx) => tx.status === status);
+        const filteredTxs = result.data;
 
         const txHashes = filteredTxs.map((tx) => tx.tx_hash);
         const confirmationsMap = await indexerService.transaction.getActiveConfirmationsBatch(

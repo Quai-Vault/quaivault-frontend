@@ -14,6 +14,19 @@ import { HistoricalTransactionTab, type HistoricalTabConfig } from '../component
 import { TokenTransferHistory } from '../components/TokenTransferHistory';
 import type { RecoveryApproval } from '../types/database';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
+import { getEffectiveRecoveryStatus, type RecoveryStatus } from '../utils/recoveryState';
+
+/**
+ * Badge styling per recovery status. All five `recovery_status` labels are
+ * reachable now that the indexer can write `expired` and `invalidated`.
+ */
+const RECOVERY_STATUS_BADGES: Record<RecoveryStatus, { text: string; className: string }> = {
+  pending: { text: 'Pending', className: 'bg-yellow-900/50 text-yellow-300 border border-yellow-700/50' },
+  executed: { text: '✓ Executed', className: 'bg-primary-900/50 text-primary-600 dark:text-primary-300 border border-primary-700/50' },
+  cancelled: { text: '✕ Cancelled', className: 'bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500' },
+  expired: { text: 'Expired', className: 'bg-orange-900/50 text-orange-300 border border-orange-700/50' },
+  invalidated: { text: 'Invalidated', className: 'bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500' },
+};
 
 const CANCELLED_CONFIG: HistoricalTabConfig = {
   title: 'Cancelled Transactions',
@@ -584,14 +597,18 @@ export function TransactionHistory() {
           <div className="space-y-4">
             {recoveryHistory.slice(0, recoveryVisible).map((recovery) => {
               const isExpanded = expandedItems.has(recovery.recovery_hash);
+              // Derive rather than trusting recovery.status: a past-deadline recovery
+              // stays 'pending' in the database until somebody calls expireRecovery.
+              const status = getEffectiveRecoveryStatus(recovery);
+              const badge = RECOVERY_STATUS_BADGES[status];
 
               return (
                 <div
                   key={recovery.recovery_hash}
                   className={`vault-panel p-5 transition-all ${
-                    recovery.status === 'pending'
+                    status === 'pending'
                       ? 'hover:border-yellow-600/50'
-                      : recovery.status === 'executed'
+                      : status === 'executed'
                       ? 'hover:border-primary-600/50'
                       : 'hover:border-primary-600/30 opacity-80'
                   }`}
@@ -612,21 +629,9 @@ export function TransactionHistory() {
                             </svg>
                             Recovery
                           </span>
-                          {recovery.status === 'pending' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-yellow-900/50 text-yellow-300 border border-yellow-700/50">
-                              Pending
-                            </span>
-                          )}
-                          {recovery.status === 'executed' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-primary-900/50 text-primary-600 dark:text-primary-300 border border-primary-700/50">
-                              ✓ Executed
-                            </span>
-                          )}
-                          {recovery.status === 'cancelled' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-base font-bold bg-dark-600/50 text-dark-500 dark:text-dark-400 border border-dark-500">
-                              ✕ Cancelled
-                            </span>
-                          )}
+                          <span className={`inline-flex items-center px-3 py-1 rounded-md text-base font-bold ${badge.className}`}>
+                            {badge.text}
+                          </span>
                         </div>
                         <p className="text-lg text-dark-700 dark:text-dark-200 font-semibold mt-2">
                           Replace owners: {recovery.new_owners.length} new owner{recovery.new_owners.length !== 1 ? 's' : ''}, threshold {recovery.new_threshold}
@@ -680,7 +685,7 @@ export function TransactionHistory() {
                           <span className="text-base font-mono text-dark-500 uppercase tracking-wider">New Threshold:</span>
                           <span className="text-dark-700 dark:text-dark-200 font-semibold">{recovery.new_threshold} of {recovery.new_owners.length}</span>
                         </div>
-                        {recovery.status === 'executed' && recovery.executed_at_tx && (
+                        {recovery.executed_at_tx && (
                           <div className="flex justify-between text-lg">
                             <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Executed TX:</span>
                             <div className="flex items-center gap-2">
@@ -689,12 +694,32 @@ export function TransactionHistory() {
                             </div>
                           </div>
                         )}
-                        {recovery.status === 'cancelled' && recovery.cancelled_at_tx && (
+                        {recovery.cancelled_at_tx && (
                           <div className="flex justify-between text-lg">
                             <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Cancelled TX:</span>
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-lg text-dark-500 dark:text-dark-400">{formatAddress(recovery.cancelled_at_tx)}</span>
                               <CopyButton text={recovery.cancelled_at_tx} size="md" />
+                            </div>
+                          </div>
+                        )}
+                        {/* Only present once expireRecovery has actually been called on chain —
+                            a clock-expired recovery shows the Expired badge with no tx yet. */}
+                        {recovery.expired_at_tx && (
+                          <div className="flex justify-between text-lg">
+                            <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Expired TX:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-lg text-orange-400">{formatAddress(recovery.expired_at_tx)}</span>
+                              <CopyButton text={recovery.expired_at_tx} size="md" />
+                            </div>
+                          </div>
+                        )}
+                        {recovery.invalidated_at_tx && (
+                          <div className="flex justify-between text-lg">
+                            <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Invalidated TX:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-lg text-dark-500 dark:text-dark-400">{formatAddress(recovery.invalidated_at_tx)}</span>
+                              <CopyButton text={recovery.invalidated_at_tx} size="md" />
                             </div>
                           </div>
                         )}

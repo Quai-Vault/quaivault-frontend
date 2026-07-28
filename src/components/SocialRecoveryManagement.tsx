@@ -9,6 +9,8 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { CollapsibleNotice } from './CollapsibleNotice';
 import { isAddress, formatQuai, getAddress } from 'quais';
 import { formatDuration, formatAddress } from '../utils/formatting';
+import { getAdjustedNowSeconds } from '../utils/clockSkew';
+import { isRecoveryEffectivelyExpired } from '../utils/recoveryState';
 import { CopyButton } from './CopyButton';
 
 interface SocialRecoveryManagementProps {
@@ -496,8 +498,10 @@ export function SocialRecoveryManagement({ walletAddress, isOpen, onClose, onUpd
             ) : pendingRecoveries && pendingRecoveries.length > 0 ? (
               <div className="space-y-3">
                 {pendingRecoveries.map((recovery) => {
-                  const nowSeconds = Math.floor(Date.now() / 1000);
-                  const isExpired = recovery.expiration > 0 && recovery.expiration <= nowSeconds;
+                  // Skew-adjusted, matching the transaction lifecycle helpers — these
+                  // timestamps are compared against on-chain values, not local ones.
+                  const nowSeconds = getAdjustedNowSeconds();
+                  const isExpired = isRecoveryEffectivelyExpired(recovery);
                   const canExecute = !isExpired && recovery.executionTime <= nowSeconds && recovery.approvalCount >= (recovery.requiredThreshold || recoveryConfig.threshold);
                   const requiredApprovals = recovery.requiredThreshold || recoveryConfig.threshold;
                   const currentApprovals = recovery.approvalCount;

@@ -8,6 +8,7 @@ import {
   type Confirmation,
 } from '../../types/database';
 import { validateAddress, validateTxHash } from '../utils/TransactionErrorHandler';
+import type { TransactionStatus } from '../../types';
 
 export interface PaginationOptions {
   limit?: number;
@@ -20,9 +21,29 @@ export interface PaginatedResult<T> {
   hasMore: boolean;
 }
 
+/**
+ * View added by indexer migration 001. Exposes `effective_status`, which reports
+ * `expired` for pending rows past their deadline. Absent on schemas predating it.
+ */
+const TRANSACTIONS_EFFECTIVE_VIEW = 'transactions_effective';
+
+/**
+ * Does this error mean the relation isn't there?
+ *
+ * `42P01` is Postgres undefined_table; `PGRST205` is PostgREST failing to find it
+ * in its schema cache. Matched narrowly on purpose — a broader match would swallow
+ * genuine query failures and silently downgrade to stored-status bucketing.
+ */
+function isMissingRelationError(error: { code?: string } | null): boolean {
+  return error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
 export class IndexerTransactionService {
   private readonly DEFAULT_LIMIT = 50;
   private readonly MAX_LIMIT = 100;
+
+  /** Null until the first query tells us whether migration 001 is applied. */
+  private effectiveViewAvailable: boolean | null = null;
 
   private ensureClient() {
     if (!supabase) {
@@ -188,38 +209,73 @@ export class IndexerTransactionService {
     return result;
   }
 
-  async getExpiredTransactions(walletAddress: string): Promise<IndexerTransaction[]> {
+  /**
+   * Fetch transactions in a given lifecycle state, filtered and counted server-side.
+   *
+   * Reads `transactions_effective` so clock-expired transactions land in the
+   * `expired` bucket. Expiry is a timestamp comparison on chain, not a state
+   * transition — `expireTransaction` is a permissionless cleanup call that
+   * frequently nobody makes, so a past-deadline row keeps `status = 'pending'`
+   * indefinitely. The view resolves that at query time, which client-side
+   * filtering cannot: a paginated query has to bucket rows before slicing them.
+   *
+   * Falls back to the base table when the view is absent (schema predating
+   * indexer migration 001), which reverts to stored-status bucketing rather
+   * than failing the query.
+   */
+  async getTransactionsByStatus(
+    walletAddress: string,
+    statuses: TransactionStatus[],
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<IndexerTransaction>> {
     const client = this.ensureClient();
     const validatedWallet = validateAddress(walletAddress);
+    const limit = Math.min(options.limit ?? this.DEFAULT_LIMIT, this.MAX_LIMIT);
+    const offset = options.offset ?? 0;
 
-    const { data, error } = await client
-      .from('transactions')
-      .select('*')
-      .eq('wallet_address', validatedWallet.toLowerCase())
-      .eq('status', 'expired')
-      .order('created_at', { ascending: false })
-      .limit(this.MAX_LIMIT);
+    if (statuses.length === 0) {
+      return { data: [], total: 0, hasMore: false };
+    }
 
+    const query = (table: string, statusColumn: string) =>
+      client
+        .from(table)
+        .select('*', { count: 'exact' })
+        .eq('wallet_address', validatedWallet.toLowerCase())
+        .in(statusColumn, statuses)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+    let result;
+    if (this.effectiveViewAvailable === false) {
+      result = await query('transactions', 'status');
+    } else {
+      result = await query(TRANSACTIONS_EFFECTIVE_VIEW, 'effective_status');
+      if (isMissingRelationError(result.error)) {
+        // Latch so we stop probing a view that isn't coming back.
+        this.effectiveViewAvailable = false;
+        console.warn(
+          `[IndexerTransactionService] ${TRANSACTIONS_EFFECTIVE_VIEW} not found — ` +
+            'falling back to stored status. Past-deadline transactions will stay in ' +
+            'the pending bucket until indexer migration 001 is applied.'
+        );
+        result = await query('transactions', 'status');
+      } else if (!result.error) {
+        this.effectiveViewAvailable = true;
+      }
+    }
+
+    const { data, error, count } = result;
     if (error) throw new Error(`Indexer query failed: ${error.message}`);
 
-    return (data ?? []).map((tx: unknown) => TransactionSchema.parse(tx));
-  }
+    const transactions = (data ?? []).map((tx: unknown) => TransactionSchema.parse(tx));
+    const total = count ?? 0;
 
-  async getFailedTransactions(walletAddress: string): Promise<IndexerTransaction[]> {
-    const client = this.ensureClient();
-    const validatedWallet = validateAddress(walletAddress);
-
-    const { data, error } = await client
-      .from('transactions')
-      .select('*')
-      .eq('wallet_address', validatedWallet.toLowerCase())
-      .eq('status', 'failed')
-      .order('created_at', { ascending: false })
-      .limit(this.MAX_LIMIT);
-
-    if (error) throw new Error(`Indexer query failed: ${error.message}`);
-
-    return (data ?? []).map((tx: unknown) => TransactionSchema.parse(tx));
+    return {
+      data: transactions,
+      total,
+      hasMore: offset + transactions.length < total,
+    };
   }
 
   async getDeposits(
