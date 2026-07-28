@@ -110,7 +110,8 @@ const lastNotifiedThresholds = new LRUMap<string, number>(MAX_TRACKED_WALLETS);
 const lastNotifiedDelays = new LRUMap<string, number>(MAX_TRACKED_WALLETS);
 
 // Global tracking of notified module status changes
-const lastNotifiedModuleStatus = new LRUMap<string, Record<string, boolean | null>>(MAX_TRACKED_WALLETS);
+// Known statuses only — see the module-status effect for why nulls are excluded.
+const lastNotifiedModuleStatus = new LRUMap<string, Record<string, boolean>>(MAX_TRACKED_WALLETS);
 
 // Track which wallets are being watched by active hook instances (for cleanup)
 // This one doesn't need LRU since it's cleaned up when hooks unmount
@@ -341,12 +342,20 @@ function useWalletNotifications(
     const normalizedAddr = walletAddress.toLowerCase();
 
     const prevStatuses = lastNotifiedModuleStatus.get(normalizedAddr) || {};
-    const currentStatuses = moduleStatuses;
+    // Seed from the previous state so modules whose status we couldn't read
+    // this round keep their last known-good value rather than being forgotten.
+    const nextStatuses: Record<string, boolean> = { ...prevStatuses };
 
     // Check each module for status changes
-    for (const [moduleAddress, isEnabled] of Object.entries(currentStatuses)) {
+    for (const [moduleAddress, isEnabled] of Object.entries(moduleStatuses)) {
+      // null means the status query failed — unknown, not disabled. Skipping it
+      // keeps a transient RPC failure from being reported as "module disabled"
+      // (and then "module enabled" again once the RPC recovers).
+      if (isEnabled === null) continue;
+
       const prevEnabled = prevStatuses[moduleAddress];
       const moduleName = getModuleName(moduleAddress) || 'Unknown Module';
+      nextStatuses[moduleAddress] = isEnabled;
 
       // Only notify if status actually changed (not on first load)
       if (prevEnabled !== undefined && prevEnabled !== isEnabled) {
@@ -376,8 +385,9 @@ function useWalletNotifications(
       }
     }
 
-    // Update last notified status
-    lastNotifiedModuleStatus.set(normalizedAddr, { ...currentStatuses });
+    // Update last notified status — known values only, so an unknown reading
+    // never becomes the baseline a later change is compared against.
+    lastNotifiedModuleStatus.set(normalizedAddr, nextStatuses);
   }, [moduleStatuses, walletAddress]);
 
   // Track pending transactions for notifications (new transactions, approvals, ready to execute)

@@ -96,7 +96,6 @@ export function EnableModuleModal({
         </div>
       ) : (
         <TransactionFlow
-          title={`Enable ${moduleName}`}
           description={`Enabling ${moduleName} module`}
           onExecute={handleEnableModule}
           onComplete={handleComplete}

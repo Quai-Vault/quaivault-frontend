@@ -218,7 +218,6 @@ export function ChangeTimelockModal({
         </div>
       ) : (
         <TransactionFlow
-          title="Change Timelock"
           description={`Changing timelock from ${currentDelay > 0 ? formatDuration(currentDelay) : 'None'} to ${computedSeconds > 0 ? formatDuration(computedSeconds) : 'None'}...`}
           onExecute={handleChangeTimelock}
           onComplete={handleComplete}

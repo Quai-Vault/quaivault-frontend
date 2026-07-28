@@ -79,7 +79,6 @@ export function RevokeApprovalModal({
         </div>
 
         <TransactionFlow
-          title="Revoke Approval"
           description="Revoking your approval for this transaction"
           onExecute={handleRevoke}
           onComplete={onClose}

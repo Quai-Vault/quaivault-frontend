@@ -17,8 +17,14 @@ export interface TransactionProgress {
 }
 
 interface TransactionFlowProps {
-  title: string;
-  description: string;
+  /**
+   * Heading for the flow. Omit when the flow is rendered inside a <Modal> that
+   * already shows the same title, to avoid a duplicate heading — pass it when
+   * the flow stands alone (e.g. inside TransactionFlowOverlay).
+   */
+  title?: string;
+  /** What the user is about to sign. Worth passing even when `title` is not. */
+  description?: string;
   onExecute: (onProgress: (progress: TransactionProgress) => void) => Promise<string>;
   onComplete: () => void;
   onCancel: () => void;
@@ -27,6 +33,8 @@ interface TransactionFlowProps {
 }
 
 export function TransactionFlow({
+  title,
+  description,
   onExecute,
   onComplete,
   onCancel,
@@ -182,6 +190,20 @@ export function TransactionFlow({
 
   return (
     <div className="space-y-6">
+      {/* Context for what is being signed. Without this the standalone overlay
+          shows only a spinner, leaving no on-screen record of the action while
+          the user confirms it in their wallet. */}
+      {(title || description) && (
+        <div className="space-y-1">
+          {title && (
+            <h3 className="text-xl font-semibold text-dark-800 dark:text-dark-100">{title}</h3>
+          )}
+          {description && (
+            <p className="text-base text-dark-500 dark:text-dark-400 break-words">{description}</p>
+          )}
+        </div>
+      )}
+
       {/* Progress Indicator */}
       <div className="flex flex-col items-center justify-center py-6">
         {getStepIcon()}

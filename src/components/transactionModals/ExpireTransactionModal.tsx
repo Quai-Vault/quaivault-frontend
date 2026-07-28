@@ -46,7 +46,6 @@ export function ExpireTransactionModal({
           This is a permissionless action — anyone can expire an overdue transaction.
         </p>
         <TransactionFlow
-          title="Expire Transaction"
           description={`Marking transaction ${transaction.hash.substring(0, 10)}... as expired`}
           onExecute={handleExpire}
           onComplete={onClose}

@@ -179,7 +179,6 @@ export function AddOwnerModal({
         </div>
       ) : (
         <TransactionFlow
-          title="Add Owner"
           description={`Adding owner ${newOwnerAddress.substring(0, 10)}...`}
           onExecute={handleAddOwner}
           onComplete={handleComplete}

@@ -65,7 +65,6 @@ export function ExecuteTransactionModal({
           </div>
         )}
         <TransactionFlow
-          title="Execute Transaction"
           description={`You are executing transaction ${transaction.hash.substring(0, 10)}...`}
           onExecute={handleExecute}
           onComplete={onClose}

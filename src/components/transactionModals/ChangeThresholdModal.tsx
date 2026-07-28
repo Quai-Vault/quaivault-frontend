@@ -171,7 +171,6 @@ export function ChangeThresholdModal({
         </div>
       ) : (
         <TransactionFlow
-          title="Change Threshold"
           description={`Changing threshold from ${currentThreshold} to ${newThreshold}...`}
           onExecute={handleChangeThreshold}
           onComplete={handleComplete}
