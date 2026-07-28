@@ -105,7 +105,9 @@ function decodeModuleCall(data: string): { name: string; description: string } |
  * Returns a human-readable string like "0.5 WQI" or falls back to the raw value.
  */
 function formatTokenAmount(raw: string | bigint, tokenMeta?: TokenMetadata | null): string {
-  if (!tokenMeta?.decimals) return String(raw);
+  // Explicitly null-checked: `decimals: 0` is a legitimate token, and treating
+  // it as "no metadata" dropped the symbol from the description.
+  if (tokenMeta?.decimals == null) return String(raw);
   try {
     const formatted = formatBalance(raw, tokenMeta.decimals);
     return tokenMeta.symbol ? `${formatted} ${tokenMeta.symbol}` : formatted;
