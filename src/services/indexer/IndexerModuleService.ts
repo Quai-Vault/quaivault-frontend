@@ -9,6 +9,7 @@ import {
   type WalletDelegatecallTarget,
 } from '../../types/database';
 import { validateAddress, validateTxHash } from '../utils/TransactionErrorHandler';
+import type { PaginationOptions, PaginatedResult } from './IndexerTransactionService';
 
 export interface ModuleStatus {
   address: string;
@@ -219,18 +220,23 @@ export class IndexerModuleService {
   }
 
   /**
-   * Get social recovery history (all statuses) for a wallet
+   * Get social recovery history (all statuses) for a wallet, counted server-side.
    */
-  async getRecoveryHistory(walletAddress: string): Promise<SocialRecovery[]> {
+  async getRecoveryHistory(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<SocialRecovery>> {
     const client = this.ensureClient();
     const validatedWallet = validateAddress(walletAddress);
+    const limit = Math.min(options.limit ?? 50, 100);
+    const offset = options.offset ?? 0;
 
-    const { data, error } = await client
+    const { data, error, count } = await client
       .from('social_recoveries')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('wallet_address', validatedWallet.toLowerCase())
       .order('created_at', { ascending: false })
-      .limit(100);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       if (this.isTableNotFoundError(error)) {
@@ -239,7 +245,14 @@ export class IndexerModuleService {
       throw new Error(`Indexer query failed: ${error.message}`);
     }
 
-    return (data ?? []).map((row: unknown) => SocialRecoverySchema.parse(row));
+    const recoveries = (data ?? []).map((row: unknown) => SocialRecoverySchema.parse(row));
+    const total = count ?? 0;
+
+    return {
+      data: recoveries,
+      total,
+      hasMore: offset + recoveries.length < total,
+    };
   }
 
   /**

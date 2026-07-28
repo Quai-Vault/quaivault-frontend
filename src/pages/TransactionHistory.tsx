@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useMultisig } from '../hooks/useMultisig';
+import { HISTORY_PAGE_SIZE, nextHistoryOffset } from '../utils/historyCache';
 import { useIndexerConnection } from '../hooks/useIndexerConnection';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services';
@@ -59,18 +60,19 @@ const FAILED_CONFIG: HistoricalTabConfig = {
   showFailedReturnData: true,
 };
 
-const PAGE_SIZE = 50;
-
 export function TransactionHistory() {
   const { address: walletAddress } = useParams<{ address: string }>();
   const { isConnected: isIndexerConnected } = useIndexerConnection();
-  const { executedTransactions, cancelledTransactions, recoveryHistory, isLoadingHistory, isLoadingCancelled, isLoadingRecoveryHistory, refreshHistory, refreshCancelled, refreshRecoveryHistory } = useMultisig(walletAddress);
+  const {
+    executedTransactions, cancelledTransactions, recoveryHistory,
+    isLoadingHistory, isLoadingCancelled, isLoadingRecoveryHistory,
+    refreshHistory, refreshCancelled, refreshRecoveryHistory,
+    executedTotal, cancelledTotal, recoveryTotal,
+    fetchMoreHistory, fetchMoreCancelled, fetchMoreRecoveryHistory,
+    hasMoreHistory, hasMoreCancelled, hasMoreRecoveryHistory,
+    isFetchingMoreHistory, isFetchingMoreCancelled, isFetchingMoreRecoveryHistory,
+  } = useMultisig(walletAddress);
   const [activeTab, setActiveTab] = useState<'transactions' | 'cancelled' | 'expired' | 'failed' | 'recovery' | 'tokens'>('transactions');
-  const [executedVisible, setExecutedVisible] = useState(PAGE_SIZE);
-  const [cancelledVisible, setCancelledVisible] = useState(PAGE_SIZE);
-  const [expiredVisible, setExpiredVisible] = useState(PAGE_SIZE);
-  const [failedVisible, setFailedVisible] = useState(PAGE_SIZE);
-  const [recoveryVisible, setRecoveryVisible] = useState(PAGE_SIZE);
   const [isRefreshingExecuted, setIsRefreshingExecuted] = useState(false);
   const [isRefreshingCancelled, setIsRefreshingCancelled] = useState(false);
   const [isRefreshingRecovery, setIsRefreshingRecovery] = useState(false);
@@ -112,8 +114,8 @@ export function TransactionHistory() {
     }
   }, [refreshRecoveryHistory]);
 
-  // Fetch approvals for all visible recovery operations
-  const recoveryHashes = recoveryHistory?.slice(0, recoveryVisible).map(r => r.recovery_hash) ?? [];
+  // Fetch approvals for all loaded recovery operations
+  const recoveryHashes = recoveryHistory?.map(r => r.recovery_hash) ?? [];
   const { data: recoveryApprovalsMap } = useQuery({
     queryKey: ['recoveryApprovals', walletAddress, recoveryHashes.join(',')],
     queryFn: async () => {
@@ -129,25 +131,44 @@ export function TransactionHistory() {
     enabled: !!walletAddress && activeTab === 'recovery' && recoveryHashes.length > 0,
   });
 
-  const { data: expiredTransactions, isLoading: isLoadingExpired } = useQuery({
+  const expiredQuery = useInfiniteQuery({
     queryKey: ['expiredTransactions', walletAddress],
-    queryFn: async () => {
-      if (!walletAddress) return [];
-      return multisigService.getExpiredTransactions(walletAddress);
-    },
+    queryFn: ({ pageParam }) =>
+      multisigService.getExpiredTransactions(walletAddress!, {
+        limit: HISTORY_PAGE_SIZE,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: nextHistoryOffset,
     enabled: !!walletAddress && activeTab === 'expired',
     staleTime: 60_000,
   });
 
-  const { data: failedTransactions, isLoading: isLoadingFailed } = useQuery({
+  const failedQuery = useInfiniteQuery({
     queryKey: ['failedTransactions', walletAddress],
-    queryFn: async () => {
-      if (!walletAddress) return [];
-      return multisigService.getFailedTransactions(walletAddress);
-    },
+    queryFn: ({ pageParam }) =>
+      multisigService.getFailedTransactions(walletAddress!, {
+        limit: HISTORY_PAGE_SIZE,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: nextHistoryOffset,
     enabled: !!walletAddress && activeTab === 'failed',
     staleTime: 60_000,
   });
+
+  const expiredTransactions = useMemo(
+    () => expiredQuery.data?.pages.flatMap((page) => page.data),
+    [expiredQuery.data]
+  );
+  const failedTransactions = useMemo(
+    () => failedQuery.data?.pages.flatMap((page) => page.data),
+    [failedQuery.data]
+  );
+  const isLoadingExpired = expiredQuery.isLoading;
+  const isLoadingFailed = failedQuery.isLoading;
+  const expiredTotal = expiredQuery.data?.pages[0]?.total ?? 0;
+  const failedTotal = failedQuery.data?.pages[0]?.total ?? 0;
 
   // Collect unique contract addresses from all tx lists for token metadata
   const tokenTargetAddresses = useMemo(() => {
@@ -246,8 +267,8 @@ export function TransactionHistory() {
           }`}
         >
           Transactions
-          {executedTransactions && executedTransactions.length > 0 && (
-            <span className="ml-2 text-base font-mono text-dark-500">({executedTransactions.length})</span>
+          {executedTotal > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({executedTotal})</span>
           )}
         </button>
         <button
@@ -259,8 +280,8 @@ export function TransactionHistory() {
           }`}
         >
           Cancelled
-          {cancelledTransactions && cancelledTransactions.length > 0 && (
-            <span className="ml-2 text-base font-mono text-dark-500">({cancelledTransactions.length})</span>
+          {cancelledTotal > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({cancelledTotal})</span>
           )}
         </button>
         <button
@@ -272,8 +293,8 @@ export function TransactionHistory() {
           }`}
         >
           Expired
-          {expiredTransactions && expiredTransactions.length > 0 && (
-            <span className="ml-2 text-base font-mono text-dark-500">({expiredTransactions.length})</span>
+          {expiredTotal > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({expiredTotal})</span>
           )}
         </button>
         <button
@@ -285,8 +306,8 @@ export function TransactionHistory() {
           }`}
         >
           Failed
-          {failedTransactions && failedTransactions.length > 0 && (
-            <span className="ml-2 text-base font-mono text-dark-500">({failedTransactions.length})</span>
+          {failedTotal > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({failedTotal})</span>
           )}
         </button>
         <button
@@ -298,8 +319,8 @@ export function TransactionHistory() {
           }`}
         >
           Social Recovery
-          {recoveryHistory && recoveryHistory.length > 0 && (
-            <span className="ml-2 text-base font-mono text-dark-500">({recoveryHistory.length})</span>
+          {recoveryTotal > 0 && (
+            <span className="ml-2 text-base font-mono text-dark-500">({recoveryTotal})</span>
           )}
         </button>
         <button
@@ -374,7 +395,7 @@ export function TransactionHistory() {
           />
         ) : (
           <div className="space-y-4">
-            {executedTransactions.slice(0, executedVisible).map((tx) => {
+            {executedTransactions.map((tx) => {
               const decoded = decodeTransaction(tx, walletAddress, tokenMetaMap?.get(tx.to.toLowerCase()) ?? null);
               const isExpanded = expandedItems.has(tx.hash);
               const hasDetails = tx.to.toLowerCase() !== walletAddress.toLowerCase() || Object.keys(tx.approvals).length > 0;
@@ -482,12 +503,16 @@ export function TransactionHistory() {
                 </div>
               );
             })}
-            {executedTransactions.length > executedVisible && (
+            {hasMoreHistory && (
               <button
-                onClick={() => setExecutedVisible(v => v + PAGE_SIZE)}
-                className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors"
+                onClick={() => fetchMoreHistory()}
+                disabled={isFetchingMoreHistory}
+                aria-busy={isFetchingMoreHistory || undefined}
+                className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors disabled:opacity-50"
               >
-                Show more ({executedTransactions.length - executedVisible} remaining)
+                {isFetchingMoreHistory
+                  ? 'Loading...'
+                  : `Show more (${Math.max(0, executedTotal - executedTransactions.length)} remaining)`}
               </button>
             )}
           </div>
@@ -504,8 +529,10 @@ export function TransactionHistory() {
           tokenMetaMap={tokenMetaMap}
           expandedItems={expandedItems}
           toggleExpanded={toggleExpanded}
-          visible={cancelledVisible}
-          onShowMore={() => setCancelledVisible(v => v + PAGE_SIZE)}
+          total={cancelledTotal}
+          hasMore={hasMoreCancelled}
+          isFetchingMore={isFetchingMoreCancelled}
+          onShowMore={() => fetchMoreCancelled()}
           onRefresh={handleRefreshCancelled}
           isRefreshing={isRefreshingCancelled}
         />
@@ -521,8 +548,10 @@ export function TransactionHistory() {
           tokenMetaMap={tokenMetaMap}
           expandedItems={expandedItems}
           toggleExpanded={toggleExpanded}
-          visible={expiredVisible}
-          onShowMore={() => setExpiredVisible(v => v + PAGE_SIZE)}
+          total={expiredTotal}
+          hasMore={expiredQuery.hasNextPage}
+          isFetchingMore={expiredQuery.isFetchingNextPage}
+          onShowMore={() => expiredQuery.fetchNextPage()}
         />
       )}
 
@@ -536,8 +565,10 @@ export function TransactionHistory() {
           tokenMetaMap={tokenMetaMap}
           expandedItems={expandedItems}
           toggleExpanded={toggleExpanded}
-          visible={failedVisible}
-          onShowMore={() => setFailedVisible(v => v + PAGE_SIZE)}
+          total={failedTotal}
+          hasMore={failedQuery.hasNextPage}
+          isFetchingMore={failedQuery.isFetchingNextPage}
+          onShowMore={() => failedQuery.fetchNextPage()}
         />
       )}
 
@@ -595,7 +626,7 @@ export function TransactionHistory() {
           </div>
         ) : (
           <div className="space-y-4">
-            {recoveryHistory.slice(0, recoveryVisible).map((recovery) => {
+            {recoveryHistory.map((recovery) => {
               const isExpanded = expandedItems.has(recovery.recovery_hash);
               // Derive rather than trusting recovery.status: a past-deadline recovery
               // stays 'pending' in the database until somebody calls expireRecovery.
@@ -786,12 +817,16 @@ export function TransactionHistory() {
                 </div>
               );
             })}
-            {recoveryHistory.length > recoveryVisible && (
+            {hasMoreRecoveryHistory && (
               <button
-                onClick={() => setRecoveryVisible(v => v + PAGE_SIZE)}
-                className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors"
+                onClick={() => fetchMoreRecoveryHistory()}
+                disabled={isFetchingMoreRecoveryHistory}
+                aria-busy={isFetchingMoreRecoveryHistory || undefined}
+                className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors disabled:opacity-50"
               >
-                Show more ({recoveryHistory.length - recoveryVisible} remaining)
+                {isFetchingMoreRecoveryHistory
+                  ? 'Loading...'
+                  : `Show more (${Math.max(0, recoveryTotal - recoveryHistory.length)} remaining)`}
               </button>
             )}
           </div>

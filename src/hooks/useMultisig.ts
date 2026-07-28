@@ -14,6 +14,7 @@ import { useTransactionHistory } from './useTransactionHistory';
 import { useModuleStatus } from './useModuleStatus';
 import type { DeploymentConfig, TransactionData, PendingTransaction } from '../types';
 import type { WalletModule, Confirmation } from '../types/database';
+import { prependToHistoryCache, MAX_CACHE_TRANSACTIONS, type HistoryCache } from '../utils/historyCache';
 import type { WalletSubscriptionCallbacks } from '../services/indexer';
 import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/notifications';
 import { formatDuration, formatBalance } from '../utils/formatting';
@@ -91,8 +92,6 @@ const notifiedProposedTxs = new LRUMap<string, Set<string>>(MAX_TRACKED_WALLETS)
 // This prevents unbounded growth from composite keys
 const notifiedApprovals = new LRUMap<string, Map<string, Set<string>>>(MAX_TRACKED_WALLETS);
 
-// Maximum number of transactions to keep in cache per wallet
-const MAX_CACHE_TRANSACTIONS = 500;
 
 /** Cap a Set to the last N entries by removing the oldest ones */
 function capSet<T>(set: Set<T>, max: number): void {
@@ -629,6 +628,18 @@ export function useMultisig(walletAddress?: string) {
     isRefetchingHistory,
     isRefetchingCancelled,
     isRefetchingRecoveryHistory,
+    executedTotal,
+    cancelledTotal,
+    recoveryTotal,
+    fetchMoreHistory,
+    fetchMoreCancelled,
+    fetchMoreRecoveryHistory,
+    hasMoreHistory,
+    hasMoreCancelled,
+    hasMoreRecoveryHistory,
+    isFetchingMoreHistory,
+    isFetchingMoreCancelled,
+    isFetchingMoreRecoveryHistory,
   } = useTransactionHistory(walletAddress);
 
   const {
@@ -810,9 +821,9 @@ export function useMultisig(walletAddress?: string) {
             (old = []) => old.filter((t) => t.hash !== tx.tx_hash)
           );
           const historyKey = tx.status === 'executed' ? 'executedTransactions' : 'cancelledTransactions';
-          queryClient.setQueryData<PendingTransaction[]>(
+          queryClient.setQueryData<HistoryCache>(
             [historyKey, walletAddress],
-            (old = []) => [withApprovals, ...old].slice(0, MAX_CACHE_TRANSACTIONS)
+            (old) => prependToHistoryCache(old, withApprovals)
           );
           if (tx.status === 'executed') {
             queryClient.invalidateQueries({ queryKey: ['walletInfo', walletAddress] });
@@ -1047,9 +1058,9 @@ export function useMultisig(walletAddress?: string) {
         (old = []) => old.filter(t => t.hash !== variables.txHash)
       );
       if (executedTx) {
-        queryClient.setQueryData<PendingTransaction[]>(
+        queryClient.setQueryData<HistoryCache>(
           ['executedTransactions', variables.walletAddress],
-          (old = []) => [{ ...executedTx, executed: true }, ...old].slice(0, MAX_CACHE_TRANSACTIONS)
+          (old) => prependToHistoryCache(old, { ...executedTx, executed: true })
         );
       }
       // Delayed safety-net: by the time this runs the indexer should have processed the block.
@@ -1097,9 +1108,9 @@ export function useMultisig(walletAddress?: string) {
         (old = []) => old.filter(t => t.hash !== variables.txHash)
       );
       if (cancelledTx) {
-        queryClient.setQueryData<PendingTransaction[]>(
+        queryClient.setQueryData<HistoryCache>(
           ['cancelledTransactions', variables.walletAddress],
-          (old = []) => [{ ...cancelledTx, cancelled: true }, ...old].slice(0, MAX_CACHE_TRANSACTIONS)
+          (old) => prependToHistoryCache(old, { ...cancelledTx, cancelled: true })
         );
       }
       scheduleInvalidation([
@@ -1139,9 +1150,9 @@ export function useMultisig(walletAddress?: string) {
           (old = []) => old.filter(t => t.hash !== variables.txHash)
         );
         if (executedTx) {
-          queryClient.setQueryData<PendingTransaction[]>(
+          queryClient.setQueryData<HistoryCache>(
             ['executedTransactions', variables.walletAddress],
-            (old = []) => [{ ...executedTx, executed: true, status: 'executed' as const }, ...old].slice(0, MAX_CACHE_TRANSACTIONS)
+            (old) => prependToHistoryCache(old, { ...executedTx, executed: true, status: 'executed' as const })
           );
         }
         queryClient.invalidateQueries({ queryKey: ['walletInfo', variables.walletAddress] });
@@ -1443,5 +1454,19 @@ export function useMultisig(walletAddress?: string) {
     refreshHistory: refetchHistory,
     refreshCancelled: refetchCancelled,
     refreshRecoveryHistory: refetchRecoveryHistory,
+
+    // Pagination — totals are server-side counts, not loaded-row counts
+    executedTotal,
+    cancelledTotal,
+    recoveryTotal,
+    fetchMoreHistory,
+    fetchMoreCancelled,
+    fetchMoreRecoveryHistory,
+    hasMoreHistory,
+    hasMoreCancelled,
+    hasMoreRecoveryHistory,
+    isFetchingMoreHistory,
+    isFetchingMoreCancelled,
+    isFetchingMoreRecoveryHistory,
   };
 }

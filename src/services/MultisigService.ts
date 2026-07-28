@@ -10,6 +10,7 @@ import { SocialRecoveryModuleService } from './modules/SocialRecoveryModuleServi
 
 // Import indexer service for faster reads
 import { indexerService } from './indexer';
+import type { PaginationOptions, PaginatedResult } from './indexer/IndexerTransactionService';
 import { convertIndexerTransaction } from './utils/TransactionConverter';
 import { INDEXER_CONFIG } from '../config/supabase';
 import { getActiveProvider, hasWalletProvider } from '../config/provider';
@@ -534,72 +535,94 @@ export class MultisigService {
     return this.transaction.getPendingTransactions(validatedWallet);
   }
 
-  async getExecutedTransactions(walletAddress: string): Promise<PendingTransaction[]> {
-    return this.getTransactionsByStatus(walletAddress, 'executed');
+  async getExecutedTransactions(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<PendingTransaction>> {
+    return this.getTransactionsByStatus(walletAddress, 'executed', options);
   }
 
-  async getCancelledTransactions(walletAddress: string): Promise<PendingTransaction[]> {
-    return this.getTransactionsByStatus(walletAddress, 'cancelled');
+  async getCancelledTransactions(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<PendingTransaction>> {
+    return this.getTransactionsByStatus(walletAddress, 'cancelled', options);
   }
 
-  async getExpiredTransactions(walletAddress: string): Promise<PendingTransaction[]> {
-    return this.getTransactionsByStatus(walletAddress, 'expired');
+  async getExpiredTransactions(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<PendingTransaction>> {
+    return this.getTransactionsByStatus(walletAddress, 'expired', options);
   }
 
-  async getFailedTransactions(walletAddress: string): Promise<PendingTransaction[]> {
-    return this.getTransactionsByStatus(walletAddress, 'failed');
+  async getFailedTransactions(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<PendingTransaction>> {
+    return this.getTransactionsByStatus(walletAddress, 'failed', options);
   }
 
   private async getTransactionsByStatus(
     walletAddress: string,
-    status: TransactionStatus
-  ): Promise<PendingTransaction[]> {
+    status: TransactionStatus,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<PendingTransaction>> {
     const validatedWallet = validateAddress(walletAddress);
 
     if (await this.isIndexerAvailable()) {
       try {
-        // Filter server-side. Filtering a fixed page of history client-side
-        // silently truncated each tab to whatever landed in the first 50 rows
-        // and made the count badges wrong.
+        // Filter and count server-side. Filtering a fixed page of history
+        // client-side silently truncated each tab to whatever landed in the
+        // first 50 rows and made the totals wrong.
         const [wallet, result] = await Promise.all([
           indexerService.wallet.getWalletDetails(validatedWallet),
-          indexerService.transaction.getTransactionsByStatus(validatedWallet, [status], { limit: 100 }),
+          indexerService.transaction.getTransactionsByStatus(validatedWallet, [status], options),
         ]);
 
         if (!wallet) {
           throw new Error('Wallet not found in indexer');
         }
 
-        const filteredTxs = result.data;
-
-        const txHashes = filteredTxs.map((tx) => tx.tx_hash);
+        const txHashes = result.data.map((tx) => tx.tx_hash);
         const confirmationsMap = await indexerService.transaction.getActiveConfirmationsBatch(
           validatedWallet,
           txHashes
         );
 
-        const multisigTxs = filteredTxs.map((tx) => {
-          const confirmations = confirmationsMap.get(tx.tx_hash) ?? [];
-          return convertIndexerTransaction(tx, wallet.threshold, confirmations);
-        });
-
-        return multisigTxs;
+        return {
+          ...result,
+          data: result.data.map((tx) => {
+            const confirmations = confirmationsMap.get(tx.tx_hash) ?? [];
+            return convertIndexerTransaction(tx, wallet.threshold, confirmations);
+          }),
+        };
       } catch (err) {
         console.warn(`[MultisigService] getTransactionsByStatus(${status}) indexer failed, falling back to blockchain:`, err instanceof Error ? err.message : err);
       }
     }
 
-    // Blockchain fallback — only if wallet provider is available.
-    if (!hasWalletProvider()) return [];
+    // Blockchain fallback — only if wallet provider is available. The RPC path
+    // scans a bounded block range and has no notion of offset, so it returns a
+    // single terminal page rather than pretending to paginate.
+    const empty: PaginatedResult<PendingTransaction> = { data: [], total: 0, hasMore: false };
+    if (!hasWalletProvider()) return empty;
+    // A non-zero offset would re-serve page 0 and duplicate rows.
+    if ((options.offset ?? 0) > 0) return empty;
+
+    let data: PendingTransaction[];
     switch (status) {
       case 'executed':
-        return this.transaction.getExecutedTransactions(validatedWallet);
+        data = await this.transaction.getExecutedTransactions(validatedWallet);
+        break;
       case 'cancelled':
-        return this.transaction.getCancelledTransactions(validatedWallet);
+        data = await this.transaction.getCancelledTransactions(validatedWallet);
+        break;
       default:
         // expired/failed have no RPC-based fallback
-        return [];
+        return empty;
     }
+    return { data, total: data.length, hasMore: false };
   }
 
   // ============ Indexer-First Social Recovery Methods ============
@@ -786,12 +809,15 @@ export class MultisigService {
     }));
   }
 
-  async getRecoveryHistory(walletAddress: string): Promise<SocialRecovery[]> {
-    return this.indexerFirst<SocialRecovery[]>(
+  async getRecoveryHistory(
+    walletAddress: string,
+    options: PaginationOptions = {}
+  ): Promise<PaginatedResult<SocialRecovery>> {
+    return this.indexerFirst<PaginatedResult<SocialRecovery>>(
       'getRecoveryHistory',
-      () => indexerService.module.getRecoveryHistory(walletAddress),
+      () => indexerService.module.getRecoveryHistory(walletAddress, options),
       null,
-      []
+      { data: [], total: 0, hasMore: false }
     );
   }
 

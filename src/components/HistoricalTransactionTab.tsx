@@ -24,7 +24,10 @@ interface HistoricalTransactionTabProps {
   tokenMetaMap: Map<string, TokenMetadata> | undefined;
   expandedItems: Set<string>;
   toggleExpanded: (id: string) => void;
-  visible: number;
+  /** Server-side row count for this status, not the number of rows loaded. */
+  total: number;
+  hasMore: boolean;
+  isFetchingMore: boolean;
   onShowMore: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -38,18 +41,26 @@ export function HistoricalTransactionTab({
   tokenMetaMap,
   expandedItems,
   toggleExpanded,
-  visible,
+  total,
+  hasMore,
+  isFetchingMore,
   onShowMore,
   onRefresh,
   isRefreshing,
 }: HistoricalTransactionTabProps) {
+  const loaded = transactions?.length ?? 0;
   return (
     <div className="vault-panel p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-lg font-display font-bold text-dark-600 dark:text-dark-300 mb-1">{config.title}</h2>
           <p className="text-base font-mono text-dark-500 uppercase tracking-wider">
-            {transactions?.length || 0} {config.countLabel}
+            {total} {config.countLabel}
+            {loaded > 0 && loaded < total && (
+              <span className="ml-2 normal-case tracking-normal text-dark-600">
+                ({loaded} loaded)
+              </span>
+            )}
           </p>
         </div>
         {onRefresh && (
@@ -87,7 +98,7 @@ export function HistoricalTransactionTab({
         </div>
       ) : (
         <div className="space-y-4">
-          {transactions.slice(0, visible).map((tx) => {
+          {transactions.map((tx) => {
             const decoded = decodeTransaction(tx, walletAddress, tokenMetaMap?.get(tx.to.toLowerCase()) ?? null);
             const isExpanded = expandedItems.has(tx.hash);
             const hasDetails = tx.to.toLowerCase() !== walletAddress.toLowerCase() || (Object.keys(tx.approvals).length > 0 && Object.values(tx.approvals).some(v => v));
@@ -197,12 +208,16 @@ export function HistoricalTransactionTab({
               </div>
             );
           })}
-          {transactions.length > visible && (
+          {hasMore && (
             <button
               onClick={onShowMore}
-              className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors"
+              disabled={isFetchingMore}
+              aria-busy={isFetchingMore || undefined}
+              className="w-full py-3 text-center text-primary-600 dark:text-primary-400 hover:text-primary-500 font-semibold transition-colors disabled:opacity-50"
             >
-              Show more ({transactions.length - visible} remaining)
+              {isFetchingMore
+                ? 'Loading...'
+                : `Show more (${Math.max(0, total - loaded)} remaining)`}
             </button>
           )}
         </div>

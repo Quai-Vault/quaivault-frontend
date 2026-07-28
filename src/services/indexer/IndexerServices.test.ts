@@ -475,4 +475,67 @@ describe('IndexerModuleService', () => {
       expect(result[MODULE.toLowerCase()]).toBe(true);
     });
   });
+
+  describe('getRecoveryHistory', () => {
+    function makeRecoveryData(overrides: Record<string, unknown> = {}) {
+      return {
+        id: '1',
+        wallet_address: WALLET.toLowerCase(),
+        recovery_hash: TX_HASH,
+        new_owners: [OWNER.toLowerCase()],
+        new_threshold: 1,
+        initiator_address: OWNER.toLowerCase(),
+        approval_count: 1,
+        required_threshold: 2,
+        execution_time: 0,
+        expiration: 0,
+        status: 'pending',
+        initiated_at_block: 100,
+        initiated_at_tx: '0xtx',
+        executed_at_block: null,
+        executed_at_tx: null,
+        cancelled_at_block: null,
+        cancelled_at_tx: null,
+        expired_at_block: null,
+        expired_at_tx: null,
+        invalidated_at_block: null,
+        invalidated_at_tx: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        ...overrides,
+      };
+    }
+
+    it('should return a paginated result with the server-side total', async () => {
+      const chain = createChainedMock({
+        data: [makeRecoveryData()],
+        error: null,
+        count: 7,
+      });
+      mockFrom.mockReturnValue(chain);
+
+      const result = await service.getRecoveryHistory(WALLET, { limit: 1 });
+
+      expect(mockFrom).toHaveBeenCalledWith('social_recoveries');
+      expect(chain.select).toHaveBeenCalledWith('*', { count: 'exact' });
+      expect(chain.range).toHaveBeenCalledWith(0, 0);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(7);
+      expect(result.hasMore).toBe(true);
+    });
+
+    it('should report no more rows on the final page', async () => {
+      const chain = createChainedMock({
+        data: [makeRecoveryData()],
+        error: null,
+        count: 3,
+      });
+      mockFrom.mockReturnValue(chain);
+
+      const result = await service.getRecoveryHistory(WALLET, { limit: 50, offset: 2 });
+
+      expect(chain.range).toHaveBeenCalledWith(2, 51);
+      expect(result.hasMore).toBe(false);
+    });
+  });
 });
