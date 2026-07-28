@@ -82,16 +82,9 @@ export function LookupTransaction() {
     setCancelModalTx(tx);
   };
 
-  if (!walletAddress) {
-    return (
-      <div className="text-center py-20">
-        <div className="vault-panel max-w-md mx-auto p-6 sm:p-12">
-          <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Invalid Wallet Address</h2>
-          <p className="text-dark-500">The requested vault address is invalid.</p>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: every hook must run before the `!walletAddress` early return below.
+  // Returning first made these conditional, so the hook count changed with the
+  // route param and React would throw "rendered fewer hooks than expected".
 
   // Memoize expensive calculations to prevent recalculation on every render
   const isOwner = useMemo(() =>
@@ -102,7 +95,9 @@ export function LookupTransaction() {
   );
 
   const decoded = useMemo(() =>
-    transaction ? decodeTransaction(transaction, walletAddress) : null,
+    // A transaction can only be set by a lookup, which requires walletAddress,
+    // so this guard is for the type rather than a reachable state.
+    transaction && walletAddress ? decodeTransaction(transaction, walletAddress) : null,
     [transaction, walletAddress]
   );
 
@@ -151,6 +146,17 @@ export function LookupTransaction() {
     transaction ? getDisplayStatus(transaction) : '',
     [transaction]
   );
+
+  if (!walletAddress) {
+    return (
+      <div className="text-center py-20">
+        <div className="vault-panel max-w-md mx-auto p-6 sm:p-12">
+          <h2 className="text-lg font-display font-bold text-dark-700 dark:text-dark-200 mb-2">Invalid Wallet Address</h2>
+          <p className="text-dark-500">The requested vault address is invalid.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">

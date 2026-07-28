@@ -51,7 +51,8 @@ export function NewTransaction() {
   const initialMode = useMemo(() => {
     const param = searchParams.get('mode');
     return param && VALID_MODES.includes(param as TransactionMode) ? param as TransactionMode : 'send-quai';
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — only read on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only read on mount
+  }, []);
 
   const [mode, setMode] = useState<TransactionMode>(initialMode);
   const [tokenMeta, setTokenMeta] = useState<SendTokenMeta | null>(null);

@@ -19,5 +19,23 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // The codebase already marks intentionally-unused bindings with a leading
+      // underscore (matching what tsconfig's noUnusedParameters honours);
+      // teach the lint rule the same convention instead of duplicating it.
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
+    },
+  },
+  {
+    // Tests stub third-party shapes (quais contracts, supabase query chains)
+    // where writing the full type buys no safety and obscures the fixture.
+    files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
   },
 ])

@@ -87,7 +87,6 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       />
 
       {/* Modal container - outer scroll handles overflow on small screens */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         className="fixed inset-0 z-50 overflow-y-auto overscroll-contain"
         onClick={onClose}
