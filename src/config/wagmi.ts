@@ -68,8 +68,8 @@ export const wagmiConfig = createConfig({
           getPelagusProvider(w as Parameters<typeof getPelagusProvider>[0]) as never,
       },
     }),
-    // Kept for in-app browsers (Blip Pay), where there are no competing
-    // extensions and `window.ethereum` is unambiguous.
+    // Escape hatch for an injected wallet that exposes only `window.ethereum`.
+    // Pelagus and Blip Pay both go through the connector above.
     injected({ shimDisconnect: true }),
     walletConnect({
       projectId,

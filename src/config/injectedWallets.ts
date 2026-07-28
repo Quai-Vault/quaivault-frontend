@@ -13,6 +13,9 @@
  * provider discovery cannot find it either. `window.pelagus` is the only
  * reliable handle.
  *
+ * The Blip Pay mobile app's in-app browser exposes its provider at
+ * `window.pelagus` too, so both wallets are reached the same way.
+ *
  * https://github.com/PelagusWallet/pelagus-extension/blob/main/src/window-provider.ts
  */
 
@@ -46,7 +49,8 @@ function readWindowEthereum(w: InjectedWindow): InjectedProvider | undefined {
 }
 
 /**
- * The Pelagus provider, or undefined when Pelagus is not present.
+ * The Pelagus provider — extension or Blip Pay in-app browser — or undefined
+ * when neither is present.
  *
  * Prefers `window.pelagus`. Falls back to `window.ethereum` only when it
  * self-identifies as Pelagus, which covers hosts that expose the provider
@@ -66,10 +70,10 @@ export function getPelagusProvider(
 /**
  * A non-Pelagus injected provider, or undefined when there isn't one.
  *
- * This is the Blip Pay in-app browser case, where there are no competing
- * extensions and `window.ethereum` is unambiguous. Deliberately returns
- * undefined when the provider is Pelagus — that wallet is reached through
- * {@link getPelagusProvider} instead.
+ * An escape hatch for wallets that expose only `window.ethereum`; note that on
+ * Quai such a wallet may not be able to sign transactions at all. Deliberately
+ * returns undefined when the provider is Pelagus — Pelagus and Blip Pay are
+ * reached through {@link getPelagusProvider} instead.
  */
 export function getGenericInjectedProvider(
   w: InjectedWindow | undefined = typeof window !== 'undefined'

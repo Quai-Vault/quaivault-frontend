@@ -19,6 +19,14 @@ function BlipPayIcon({ className }: { className?: string }) {
 const buttonClass =
   'flex items-center gap-4 p-4 rounded-lg border-2 border-dark-200 dark:border-dark-700 hover:border-primary-500 dark:hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
+function WalletIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 0 0 6h3.75A2.25 2.25 0 0 0 21 13.5m0-1.5v1.5m0-1.5V8.25A2.25 2.25 0 0 0 18.75 6H5.25A2.25 2.25 0 0 1 3 3.75m0 0v13.5A2.25 2.25 0 0 0 5.25 19.5h13.5A2.25 2.25 0 0 0 21 17.25V13.5M3 3.75A2.25 2.25 0 0 1 5.25 1.5h9" />
+    </svg>
+  );
+}
+
 export function ConnectModal() {
   const open = useWalletStore((s) => s.connectModalOpen);
   const setOpen = useWalletStore((s) => s.setConnectModalOpen);
@@ -42,10 +50,10 @@ export function ConnectModal() {
     <Modal isOpen={open} onClose={() => setOpen(false)} title="Connect Wallet" size="sm">
       <div className="flex flex-col gap-3">
         {/*
-          Pelagus is only offered when `window.pelagus` is actually present. The
-          generic injected connector is a separate entry rather than a fallback:
-          pointing a "Pelagus" button at `window.ethereum` is what opened
-          MetaMask/Phantom/Brave instead of Pelagus.
+          Both Pelagus and Blip Pay expose their provider at `window.pelagus`, so
+          one entry covers both. It is only offered when that provider is
+          actually present — pointing this button at `window.ethereum` is what
+          opened MetaMask/Phantom/Brave instead.
         */}
         {pelagus && (
           <button
@@ -54,11 +62,14 @@ export function ConnectModal() {
             disabled={busy !== null}
             className={buttonClass}
           >
-            <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded flex-shrink-0" />
+            <div className="flex -space-x-2 flex-shrink-0">
+              <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded ring-2 ring-white dark:ring-vault-dark-2 relative z-10" />
+              <BlipPayIcon className="w-10 h-10 rounded bg-white ring-2 ring-white dark:ring-vault-dark-2 p-1" />
+            </div>
             <div className="flex-1 text-left">
-              <div className="font-semibold text-dark-800 dark:text-dark-100">Pelagus</div>
+              <div className="font-semibold text-dark-800 dark:text-dark-100">Pelagus or Blip Pay</div>
               <div className="text-xs text-dark-500 dark:text-dark-400">
-                Browser extension or in-app browser
+                Pelagus browser extension or Blip Pay mobile app
               </div>
             </div>
             {busy === 'pelagus' && (
@@ -67,6 +78,11 @@ export function ConnectModal() {
           </button>
         )}
 
+        {/*
+          Escape hatch for an injected wallet that is neither Pelagus nor Blip
+          Pay. Deliberately unbranded: on Quai this is most likely a wallet that
+          cannot sign Quai transactions at all.
+        */}
         {!pelagus && otherInjected && (
           <button
             type="button"
@@ -74,11 +90,11 @@ export function ConnectModal() {
             disabled={busy !== null}
             className={buttonClass}
           >
-            <BlipPayIcon className="w-10 h-10 rounded bg-white p-1 flex-shrink-0" />
+            <WalletIcon className="w-10 h-10 rounded flex-shrink-0 text-dark-400 dark:text-dark-500" />
             <div className="flex-1 text-left">
-              <div className="font-semibold text-dark-800 dark:text-dark-100">Blip Pay</div>
+              <div className="font-semibold text-dark-800 dark:text-dark-100">Other browser wallet</div>
               <div className="text-xs text-dark-500 dark:text-dark-400">
-                Browser wallet detected on this device
+                Injected wallet detected — must support Quai
               </div>
             </div>
             {busy === 'injected' && (

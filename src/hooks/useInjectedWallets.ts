@@ -6,9 +6,9 @@ import {
 } from '../config/injectedWallets';
 
 export interface InjectedWallets {
-  /** Pelagus is available at `window.pelagus`. */
+  /** Pelagus or Blip Pay is available at `window.pelagus`. */
   pelagus: boolean;
-  /** A non-Pelagus injected provider is available (e.g. a Blip Pay in-app browser). */
+  /** An injected provider that is neither Pelagus nor Blip Pay is available. */
   otherInjected: boolean;
 }
 
