@@ -25,10 +25,20 @@ export function canApprove(tx: PendingTransaction, ownerAddress: string): boolea
   return !hasOwnerApproved(tx.approvals, ownerAddress);
 }
 
-/** Derive actual approval count from the approvals map (authoritative source) */
+/**
+ * Derive actual approval count from the approvals map (authoritative source).
+ *
+ * Only an *empty* map falls back to the indexer's count, meaning approvals have
+ * not been loaded yet. A populated map whose entries are all false means every
+ * approval was revoked — counting a stale numApprovals there would advertise a
+ * transaction as executable when the contract would reject it.
+ */
 function getApprovalCount(tx: PendingTransaction): number {
-  const fromMap = Object.values(tx.approvals).filter(Boolean).length;
-  return fromMap > 0 ? fromMap : (Number.isFinite(tx.numApprovals) ? tx.numApprovals : 0);
+  const entries = Object.values(tx.approvals);
+  if (entries.length === 0) {
+    return Number.isFinite(tx.numApprovals) ? tx.numApprovals : 0;
+  }
+  return entries.filter(Boolean).length;
 }
 
 /** Can the transaction be executed? */
