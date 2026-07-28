@@ -73,12 +73,15 @@ export function useTransactionModalFlow({
     }
   }, [isOpen]);
 
-  // Increment reset key when modal opens (to reset TransactionFlow)
-  useEffect(() => {
-    if (isOpen && showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [isOpen, showFlow]);
+  // Increment reset key when the flow becomes visible (to reset TransactionFlow).
+  // Adjusted during render rather than in an effect so the flow never renders
+  // once with the previous key. See the note in useSimpleTransactionModalFlow.
+  const flowVisible = isOpen && showFlow;
+  const [prevFlowVisible, setPrevFlowVisible] = useState(flowVisible);
+  if (flowVisible !== prevFlowVisible) {
+    setPrevFlowVisible(flowVisible);
+    if (flowVisible) setResetKey(prev => prev + 1);
+  }
 
   const startFlow = useCallback(() => {
     setShowFlow(true);
@@ -116,12 +119,14 @@ export function useTransactionModalFlow({
  */
 export function useSimpleTransactionModalFlow(isOpen: boolean): number {
   const [resetKey, setResetKey] = useState(0);
-
-  useEffect(() => {
-    if (isOpen) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [isOpen]);
+  // Adjusting state during render rather than in an effect: React re-renders
+  // immediately without committing, so children never see the stale key.
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) setResetKey(prev => prev + 1);
+  }
 
   return resetKey;
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '../Modal';
 import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
+import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
 import { isQuaiAddress } from 'quais';
 
@@ -23,24 +24,13 @@ export function AddOwnerModal({
   const { addOwnerAsync } = useMultisig(walletAddress);
   const [newOwnerAddress, setNewOwnerAddress] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
-  const [showFlow, setShowFlow] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
-
-  // Reset the flow when showFlow becomes true
-  useEffect(() => {
-    if (showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [showFlow]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFlow(false);
+  const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({
+    isOpen,
+    onBeforeClose: () => {
       setNewOwnerAddress('');
       setErrors([]);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const validateOwnerAddress = (address: string): string[] => {
     const newErrors: string[] = [];
@@ -99,19 +89,19 @@ export function AddOwnerModal({
 
   const handleStart = () => {
     if (validateOwnerAddress(newOwnerAddress)) {
-      setShowFlow(true);
+      startFlow();
     }
   };
 
   const handleComplete = () => {
-    setShowFlow(false);
+    resetFlow();
     setNewOwnerAddress('');
     setErrors([]);
     onClose();
   };
 
   const handleCancel = () => {
-    setShowFlow(false);
+    resetFlow();
     setNewOwnerAddress('');
     setErrors([]);
     onClose();

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '../Modal';
 import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
+import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
 
 interface ChangeThresholdModalProps {
@@ -22,24 +23,13 @@ export function ChangeThresholdModal({
   const { changeThresholdAsync } = useMultisig(walletAddress);
   const [newThreshold, setNewThreshold] = useState(currentThreshold);
   const [errors, setErrors] = useState<string[]>([]);
-  const [showFlow, setShowFlow] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
-
-  // Reset the flow when showFlow becomes true
-  useEffect(() => {
-    if (showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [showFlow]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFlow(false);
+  const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({
+    isOpen,
+    onBeforeClose: () => {
       setNewThreshold(currentThreshold);
       setErrors([]);
-    }
-  }, [isOpen, currentThreshold]);
+    },
+  });
 
   const validateThreshold = (thresh: number): boolean => {
     const newErrors: string[] = [];
@@ -75,19 +65,19 @@ export function ChangeThresholdModal({
 
   const handleStart = () => {
     if (validateThreshold(newThreshold)) {
-      setShowFlow(true);
+      startFlow();
     }
   };
 
   const handleComplete = () => {
-    setShowFlow(false);
+    resetFlow();
     setNewThreshold(currentThreshold);
     setErrors([]);
     onClose();
   };
 
   const handleCancel = () => {
-    setShowFlow(false);
+    resetFlow();
     setNewThreshold(currentThreshold);
     setErrors([]);
     onClose();

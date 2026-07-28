@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '../Modal';
 import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { useMultisig } from '../../hooks/useMultisig';
+import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
 import { formatDuration } from '../../utils/formatting';
 import type { DelayUnit } from '../../utils/timeConversions';
@@ -47,26 +48,15 @@ export function ChangeTimelockModal({
   const [delayValue, setDelayValue] = useState(String(initial.value));
   const [delayUnit, setDelayUnit] = useState<DelayUnit>(initial.unit);
   const [errors, setErrors] = useState<string[]>([]);
-  const [showFlow, setShowFlow] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
-
-  // Reset the flow when showFlow becomes true
-  useEffect(() => {
-    if (showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [showFlow]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFlow(false);
+  const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({
+    isOpen,
+    onBeforeClose: () => {
       const init = secondsToUnit(currentDelay);
       setDelayValue(String(init.value));
       setDelayUnit(init.unit);
       setErrors([]);
-    }
-  }, [isOpen, currentDelay]);
+    },
+  });
 
   const computedSeconds = computeDelaySeconds(delayValue, delayUnit);
 
@@ -104,12 +94,12 @@ export function ChangeTimelockModal({
 
   const handleStart = () => {
     if (validate().length === 0) {
-      setShowFlow(true);
+      startFlow();
     }
   };
 
   const handleComplete = () => {
-    setShowFlow(false);
+    resetFlow();
     const init = secondsToUnit(currentDelay);
     setDelayValue(String(init.value));
     setDelayUnit(init.unit);
@@ -118,7 +108,7 @@ export function ChangeTimelockModal({
   };
 
   const handleCancel = () => {
-    setShowFlow(false);
+    resetFlow();
     const init = secondsToUnit(currentDelay);
     setDelayValue(String(init.value));
     setDelayUnit(init.unit);

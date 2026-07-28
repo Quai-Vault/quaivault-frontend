@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
 import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { TransactionFlowOverlay } from '../TransactionFlowOverlay';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useMultisig } from '../../hooks/useMultisig';
+import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
 import { formatAddress } from '../../utils/formatting';
 
@@ -22,22 +22,7 @@ export function RemoveOwnerModal({
   threshold,
 }: RemoveOwnerModalProps) {
   const { removeOwnerAsync } = useMultisig(walletAddress);
-  const [showFlow, setShowFlow] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
-
-  // Reset the flow when showFlow becomes true
-  useEffect(() => {
-    if (showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [showFlow]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFlow(false);
-    }
-  }, [isOpen]);
+  const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({ isOpen });
 
   const handleRemoveOwner = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the remove owner transaction in your wallet' });
@@ -53,16 +38,16 @@ export function RemoveOwnerModal({
   };
 
   const handleConfirm = () => {
-    setShowFlow(true);
+    startFlow();
   };
 
   const handleComplete = () => {
-    setShowFlow(false);
+    resetFlow();
     onClose();
   };
 
   const handleCancelFlow = () => {
-    setShowFlow(false);
+    resetFlow();
     onClose();
   };
 

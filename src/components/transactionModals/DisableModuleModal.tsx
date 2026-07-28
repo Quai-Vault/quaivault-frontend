@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TransactionFlow, type TransactionProgress } from '../TransactionFlow';
 import { TransactionFlowOverlay } from '../TransactionFlowOverlay';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useMultisig } from '../../hooks/useMultisig';
+import { useTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
 
 interface DisableModuleModalProps {
@@ -21,24 +22,11 @@ export function DisableModuleModal({
   moduleName,
 }: DisableModuleModalProps) {
   const { disableModuleAsync } = useMultisig(walletAddress);
-  const [showFlow, setShowFlow] = useState(false);
   const [showConfirm, setShowConfirm] = useState(true);
-  const [resetKey, setResetKey] = useState(0);
-
-  // Reset the flow when showFlow becomes true
-  useEffect(() => {
-    if (showFlow) {
-      setResetKey(prev => prev + 1);
-    }
-  }, [showFlow]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFlow(false);
-      setShowConfirm(true);
-    }
-  }, [isOpen]);
+  const { resetKey, showFlow, startFlow, resetFlow } = useTransactionModalFlow({
+    isOpen,
+    onBeforeClose: () => setShowConfirm(true),
+  });
 
   const handleDisableModule = async (onProgress: (progress: TransactionProgress) => void) => {
     onProgress({ step: 'signing', message: 'Please approve the disable module transaction in your wallet' });
@@ -55,17 +43,17 @@ export function DisableModuleModal({
 
   const handleConfirm = () => {
     setShowConfirm(false);
-    setShowFlow(true);
+    startFlow();
   };
 
   const handleComplete = () => {
-    setShowFlow(false);
+    resetFlow();
     setShowConfirm(true);
     onClose();
   };
 
   const handleCancel = () => {
-    setShowFlow(false);
+    resetFlow();
     setShowConfirm(true);
     onClose();
   };
