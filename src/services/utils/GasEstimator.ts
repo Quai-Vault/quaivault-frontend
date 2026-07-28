@@ -12,13 +12,15 @@ import { extractErrorMessage } from './TransactionErrorHandler';
  * Use this for pre-validation before sending transactions.
  */
 export async function estimateGasOrThrow(
-  contractMethod: { estimateGas: (...args: any[]) => Promise<bigint> },
-  args: any[],
+  contractMethod: { estimateGas: (...args: never[]) => Promise<bigint> },
+  args: unknown[],
   operation: string,
   contract?: Contract
 ): Promise<bigint> {
   try {
-    const estimated = await contractMethod.estimateGas(...args);
+    // `never[]` on the parameter keeps any contract method assignable here;
+    // the cast is the other half of that trade.
+    const estimated = await contractMethod.estimateGas(...(args as never[]));
     return estimated;
   } catch (error) {
     const message = extractErrorMessage(error, contract);

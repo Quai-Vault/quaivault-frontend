@@ -51,9 +51,10 @@ const MODULE_FUNCTION_ABIS = [
 ];
 
 // Module function descriptions
-const MODULE_FUNCTION_DESCRIPTIONS: Record<string, (args: any[]) => string> = {
+const MODULE_FUNCTION_DESCRIPTIONS: Record<string, (args: readonly unknown[]) => string> = {
   setupRecovery: (args) => {
-    const guardianCount = args[1]?.length ?? '?';
+    const guardians = args[1];
+    const guardianCount = Array.isArray(guardians) ? guardians.length : '?';
     const threshold = String(args[2] ?? '?');
     return `Configure recovery: ${guardianCount} guardians, ${threshold} required`;
   },

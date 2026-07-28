@@ -1,5 +1,7 @@
 import { Contract as QuaisContract, Interface } from 'quais';
+import type { TransactionReceipt } from 'quais';
 import type { Contract, Signer, Provider } from '../../types';
+import type { ContractAbi } from '../utils/ContractMetadataService';
 import { BaseService } from '../core/BaseService';
 import { TransactionService } from '../core/TransactionService';
 import { estimateGasOrThrow } from '../utils/GasEstimator';
@@ -14,10 +16,16 @@ import { isUserRejection } from '../utils/TransactionErrorHandler';
  */
 export abstract class BaseModuleService extends BaseService {
   protected readonly moduleAddress: string;
-  protected readonly moduleAbi: any;
+  protected readonly moduleAbi: ContractAbi;
   private transactionService?: TransactionService;
 
-  constructor(provider: Provider | undefined, moduleAddress: string, moduleAbi: any, transactionService?: TransactionService) {
+  constructor(
+    provider: Provider | undefined,
+    moduleAddress: string,
+    // Accepts a bare ABI array or a compiler artifact wrapping one.
+    moduleAbi: ContractAbi | { abi: ContractAbi },
+    transactionService?: TransactionService,
+  ) {
     super(provider);
     this.moduleAddress = moduleAddress;
     // Handle both array and { abi: [...] } formats
@@ -39,7 +47,7 @@ export abstract class BaseModuleService extends BaseService {
   /**
    * Get module ABI for encoding function calls
    */
-  protected getModuleAbi(): any[] {
+  protected getModuleAbi(): ContractAbi {
     return this.moduleAbi;
   }
 
@@ -56,7 +64,7 @@ export abstract class BaseModuleService extends BaseService {
   protected async createModuleProposal(
     walletAddress: string,
     functionName: string,
-    args: any[]
+    args: unknown[]
   ): Promise<string> {
     const signer = this.requireSigner();
     let txService = this.transactionService;
@@ -87,7 +95,7 @@ export abstract class BaseModuleService extends BaseService {
     methodName: string,
     args: unknown[],
     description: string
-  ): Promise<any> {
+  ): Promise<TransactionReceipt> {
     const signer = this.requireSigner();
     const module = this.getModuleContract(signer);
     await estimateGasOrThrow(module[methodName], args, description, module);

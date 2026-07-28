@@ -590,7 +590,7 @@ export class TransactionService extends BaseService {
     wallet: Contract,
     txHash: string,
     walletAddress: string
-  ): Promise<any> {
+  ): Promise<Transaction> {
     const [txDetails, threshold] = await Promise.all([
       wallet.transactions(txHash),
       wallet.threshold(),
@@ -625,7 +625,7 @@ export class TransactionService extends BaseService {
   /**
    * Validate self-call constraints (owner management, module management)
    */
-  private async validateSelfCallConstraints(wallet: Contract, txDetails: any): Promise<void> {
+  private async validateSelfCallConstraints(wallet: Contract, txDetails: Transaction): Promise<void> {
     try {
       const decoded = wallet.interface.parseTransaction({ data: txDetails.data });
       if (decoded?.name === 'removeOwner') {
@@ -654,7 +654,7 @@ export class TransactionService extends BaseService {
    * The Zodiac module linked list changes when modules are added/removed,
    * so a proposal's baked-in prevModule can become stale.
    */
-  private async validateDisableModulePrevModule(wallet: Contract, args: any): Promise<void> {
+  private async validateDisableModulePrevModule(wallet: Contract, args: ArrayLike<unknown>): Promise<void> {
     const SENTINEL = '0x0000000000000000000000000000000000000001';
     const prevModule = String(args[0]);
     const moduleToDisable = String(args[1]);
@@ -692,7 +692,7 @@ export class TransactionService extends BaseService {
   /**
    * Derive lifecycle fields for a PendingTransaction from raw contract data.
    */
-  private derivePendingTxFields(tx: any): {
+  private derivePendingTxFields(tx: Transaction): {
     status: TransactionStatus;
     expiration: number;
     executionDelay: number;
@@ -759,7 +759,7 @@ export class TransactionService extends BaseService {
   private async getTransactionsByFilter(
     walletAddress: string,
     eventName: string,
-    filterFn: (tx: any) => boolean
+    filterFn: (tx: Transaction) => boolean
   ): Promise<PendingTransaction[]> {
     validateAddress(walletAddress);
     const wallet = this.getWalletContract(walletAddress);
@@ -769,7 +769,7 @@ export class TransactionService extends BaseService {
     ]);
 
     const filter = wallet.filters[eventName]();
-    let events: any[] = [];
+    let events: Awaited<ReturnType<Contract['queryFilter']>> = [];
 
     try {
       events = await wallet.queryFilter(filter, EVENT_QUERY_RANGE, 'latest');

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Interface, isQuaiAddress, parseUnits } from 'quais';
 import type { FunctionInfo, FunctionInputInfo } from '../hooks/useContractInteraction';
+import type { ContractAbi } from '../services/utils/ContractMetadataService';
 import type { ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
 import { useAssetValidation } from '../hooks/useAssetValidation';
 
 interface ContractInteractionBuilderProps {
-  abi: any[] | null;
+  abi: ContractAbi | null;
   abiSource: string | null;
   isFetchingAbi: boolean;
   abiFetchError: string | null;
@@ -15,7 +16,7 @@ interface ContractInteractionBuilderProps {
   onDataChange: (data: string) => void;
   onValueChange: (value: string) => void;
   currentValue: string;
-  setManualAbi: (abi: any[]) => { success: boolean; error?: string };
+  setManualAbi: (abi: ContractAbi) => { success: boolean; error?: string };
   walletAddress?: string;
   contractAddress?: string;
   onValidationChange?: (validation: { warning: string | null; isBlocking: boolean }) => void;
@@ -665,7 +666,7 @@ function getPlaceholder(input: FunctionInputInfo): string {
  * Coerce a string input value to the appropriate type for ABI encoding.
  * Note: token amount conversion (parseUnits) is handled in encodeCalldata.
  */
-function coerceValue(raw: string, input: FunctionInputInfo): any {
+function coerceValue(raw: string, input: FunctionInputInfo): unknown {
   if (!raw && raw !== '0') return raw;
 
   switch (input.baseType) {

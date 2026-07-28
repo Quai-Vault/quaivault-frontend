@@ -12,7 +12,7 @@ export interface ErrorInfo {
 /**
  * Parse blockchain error and return user-friendly message
  */
-export function parseError(error: any): ErrorInfo {
+export function parseError(error: unknown): ErrorInfo {
   // Guard against null/undefined/primitive input
   if (!error || typeof error !== 'object') {
     return {
@@ -22,15 +22,24 @@ export function parseError(error: any): ErrorInfo {
     };
   }
 
+  // Past the guard this is an object of unknown shape. Probe the fields that
+  // wallets and RPC layers actually set rather than typing it as `any`.
+  const err = error as {
+    code?: string | number;
+    message?: string;
+    reason?: string;
+    shortMessage?: string;
+  };
+
   // User rejection
   if (
-    error.code === 'ACTION_REJECTED' ||
-    error.code === 4001 ||
-    (error.message && (
-      error.message.includes('rejected') ||
-      error.message.includes('denied') ||
-      error.message.includes('cancelled') ||
-      error.message.includes('User rejected')
+    err.code === 'ACTION_REJECTED' ||
+    err.code === 4001 ||
+    (err.message && (
+      err.message.includes('rejected') ||
+      err.message.includes('denied') ||
+      err.message.includes('cancelled') ||
+      err.message.includes('User rejected')
     ))
   ) {
     return {
@@ -42,9 +51,9 @@ export function parseError(error: any): ErrorInfo {
 
   // Insufficient funds
   if (
-    error.message?.includes('insufficient funds') ||
-    error.message?.includes('insufficient balance') ||
-    error.code === 'INSUFFICIENT_FUNDS'
+    err.message?.includes('insufficient funds') ||
+    err.message?.includes('insufficient balance') ||
+    err.code === 'INSUFFICIENT_FUNDS'
   ) {
     return {
       message: 'Insufficient funds for this transaction',
@@ -56,11 +65,11 @@ export function parseError(error: any): ErrorInfo {
 
   // Gas estimation failed — use specific patterns to avoid false positives
   if (
-    error.message?.includes('cannot estimate gas') ||
-    error.message?.includes('gas required exceeds') ||
-    error.message?.includes('out of gas') ||
-    error.message?.includes('execution reverted') ||
-    error.code === 'UNPREDICTABLE_GAS_LIMIT'
+    err.message?.includes('cannot estimate gas') ||
+    err.message?.includes('gas required exceeds') ||
+    err.message?.includes('out of gas') ||
+    err.message?.includes('execution reverted') ||
+    err.code === 'UNPREDICTABLE_GAS_LIMIT'
   ) {
     return {
       message: 'Transaction would fail',
@@ -72,9 +81,9 @@ export function parseError(error: any): ErrorInfo {
 
   // Network error
   if (
-    error.message?.includes('network') ||
-    error.message?.includes('connection') ||
-    error.code === 'NETWORK_ERROR'
+    err.message?.includes('network') ||
+    err.message?.includes('connection') ||
+    err.code === 'NETWORK_ERROR'
   ) {
     return {
       message: 'Network connection error',
@@ -86,9 +95,9 @@ export function parseError(error: any): ErrorInfo {
 
   // Transaction already exists
   if (
-    error.message?.includes('already exists') ||
-    error.message?.includes('duplicate') ||
-    error.reason?.includes('Transaction already exists')
+    err.message?.includes('already exists') ||
+    err.message?.includes('duplicate') ||
+    err.reason?.includes('Transaction already exists')
   ) {
     return {
       message: 'This transaction already exists',
@@ -99,9 +108,9 @@ export function parseError(error: any): ErrorInfo {
   }
 
   // Try to decode revert reason (check before broad "invalid" match)
-  if (error.reason) {
+  if (err.reason) {
     return {
-      message: error.reason,
+      message: err.reason,
       title: 'Transaction Failed',
       suggestion: 'The transaction was rejected by the smart contract. Check the error message above for details.',
     };
@@ -109,7 +118,7 @@ export function parseError(error: any): ErrorInfo {
 
   // Generic error
   return {
-    message: error.message || 'An unexpected error occurred',
+    message: err.message || 'An unexpected error occurred',
     title: 'Error',
     suggestion: 'Please try again. If the problem persists, check your connection and wallet settings.',
   };
@@ -118,7 +127,7 @@ export function parseError(error: any): ErrorInfo {
 /**
  * Format error for display in UI
  */
-export function formatError(error: any): string {
+export function formatError(error: unknown): string {
   const errorInfo = parseError(error);
   return errorInfo.message;
 }

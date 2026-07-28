@@ -4,6 +4,7 @@ import { transactionBuilderService } from '../services/TransactionBuilderService
 import { Interface } from 'quais';
 import QuaiVaultABI from '../config/abi/QuaiVault.json';
 import { formatAddress, formatDuration, formatExpiration } from '../utils/formatting';
+import type { ContractAbi } from '../services/utils/ContractMetadataService';
 import { isSafeImageUrl } from '../utils/imageValidation';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
 import type { TransactionMode, SendTokenMeta, SendNftMeta, SendErc1155Meta } from '../types';
@@ -26,7 +27,7 @@ interface TransactionPreviewProps {
   value: string;
   data: string;
   walletAddress: string;
-  contractAbi?: any[] | null;
+  contractAbi?: ContractAbi | null;
   tokenMetadata?: TokenMetadata | null;
   onConfirm: () => void;
   onCancel: () => void;

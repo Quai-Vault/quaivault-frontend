@@ -1,4 +1,5 @@
 import { Interface, Contract as QuaisContract, getAddress } from 'quais';
+import type { JsonFragment } from 'quais';
 import { decode, AuxdataStyle } from '@ethereum-sourcify/bytecode-utils';
 import { NETWORK_CONFIG, CONTRACT_ADDRESSES } from '../../config/contracts';
 import { getActiveProvider } from '../../config/provider';
@@ -6,6 +7,13 @@ import QuaiVaultABI from '../../config/abi/QuaiVault.json';
 import QuaiVaultFactoryABI from '../../config/abi/QuaiVaultFactory.json';
 import SocialRecoveryModuleABI from '../../config/abi/SocialRecoveryModule.json';
 import MultiSendCallOnlyABI from '../../config/abi/MultiSendCallOnly.json';
+
+/**
+ * A JSON ABI, however it reached us — bundled locally, fetched from IPFS, or
+ * pulled from the explorer. This is the shape quais' Interface accepts, so
+ * fetched ABIs are checked at the boundary rather than on first use.
+ */
+export type ContractAbi = JsonFragment[];
 
 const IPFS_GATEWAY = NETWORK_CONFIG.IPFS_GATEWAY;
 const FETCH_TIMEOUT_MS = 10000;
@@ -15,9 +23,9 @@ const MAX_PROXY_DEPTH = 5;
 const EIP_1967_IMPL_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
 // Known contract ABIs keyed by lowercase address
-const KNOWN_ABIS: Record<string, { abi: any[]; name: string }> = {};
+const KNOWN_ABIS: Record<string, { abi: ContractAbi; name: string }> = {};
 
-function registerKnownAbi(address: string | undefined, abi: { abi: any[] }, name: string) {
+function registerKnownAbi(address: string | undefined, abi: { abi: ContractAbi }, name: string) {
   if (address) {
     KNOWN_ABIS[address.toLowerCase()] = { abi: abi.abi, name };
   }
@@ -29,13 +37,13 @@ registerKnownAbi(CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE, SocialRecoveryModule
 registerKnownAbi(CONTRACT_ADDRESSES.MULTISEND_CALL_ONLY, MultiSendCallOnlyABI, 'MultiSendCallOnly');
 
 export interface AbiResult {
-  abi: any[] | null;
+  abi: ContractAbi | null;
   source: 'ipfs' | 'explorer' | 'known' | null;
 }
 
 interface CacheEntry {
   isContract: boolean;
-  abi: any[] | null;
+  abi: ContractAbi | null;
   source: 'ipfs' | 'explorer' | 'known' | null;
 }
 
@@ -107,7 +115,7 @@ export async function fetchAbi(address: string): Promise<AbiResult> {
   return { abi: null, source: null };
 }
 
-function updateCache(key: string, abi: any[] | null, source: 'ipfs' | 'explorer' | 'known' | null) {
+function updateCache(key: string, abi: ContractAbi | null, source: 'ipfs' | 'explorer' | 'known' | null) {
   const existing = cache.get(key);
   cache.set(key, {
     isContract: existing?.isContract ?? true,
@@ -121,7 +129,7 @@ function updateCache(key: string, abi: any[] | null, source: 'ipfs' | 'explorer'
  * Fetch ABI from IPFS via bytecode CBOR metadata (Pelagus pattern).
  * Handles proxy contracts by recursing into implementation addresses.
  */
-async function fetchAbiFromIpfs(address: string, depth = 0): Promise<any[] | null> {
+async function fetchAbiFromIpfs(address: string, depth = 0): Promise<ContractAbi | null> {
   if (depth >= MAX_PROXY_DEPTH) return null;
 
   try {
@@ -196,11 +204,11 @@ function detectMinimalProxy(bytecode: string): string | null {
 /**
  * Check if an ABI looks like a proxy contract.
  */
-function looksLikeProxy(abi: any[]): boolean {
+function looksLikeProxy(abi: ContractAbi): boolean {
   const proxyMethods = ['upgradeTo', 'upgradeToAndCall', 'implementation'];
   const methodNames = abi
-    .filter((item: any) => item.type === 'function')
-    .map((item: any) => item.name);
+    .filter((item) => item.type === 'function')
+    .map((item) => item.name);
   return proxyMethods.some(m => methodNames.includes(m));
 }
 
@@ -228,11 +236,11 @@ export type ContractType = 'erc20' | 'erc721' | 'erc1155' | 'generic';
  * safeTransferFrom and setApprovalForAll. ERC1155 is distinguished by
  * balanceOfBatch and safeBatchTransferFrom (unique to ERC1155).
  */
-export function detectContractType(abi: any[]): ContractType {
+export function detectContractType(abi: ContractAbi): ContractType {
   const functionNames = new Set(
     abi
-      .filter((item: any) => item.type === 'function')
-      .map((item: any) => item.name)
+      .filter((item) => item.type === 'function')
+      .map((item) => item.name)
   );
 
   // ERC1155: unique markers — balanceOfBatch + safeBatchTransferFrom
@@ -347,7 +355,7 @@ export async function getNftOwner(
 /**
  * Fetch ABI from Quaiscan block explorer API.
  */
-async function fetchAbiFromExplorer(address: string): Promise<any[] | null> {
+async function fetchAbiFromExplorer(address: string): Promise<ContractAbi | null> {
   try {
     const url = `${NETWORK_CONFIG.BLOCK_EXPLORER_URL}/api?module=contract&action=getabi&address=${getAddress(address)}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });

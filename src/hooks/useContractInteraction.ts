@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Interface } from 'quais';
 import type { ParamType } from 'quais';
 import { isContract, fetchAbi, detectContractType, fetchTokenMetadata } from '../services/utils/ContractMetadataService';
-import type { AbiResult, ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
+import type { AbiResult, ContractAbi, ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
 
 export interface FunctionInputInfo {
   name: string;
@@ -29,17 +29,17 @@ export interface ContractInteractionResult {
   isContract: boolean | null;
   isDetecting: boolean;
   detectError: string | null;
-  abi: any[] | null;
+  abi: ContractAbi | null;
   abiSource: 'ipfs' | 'explorer' | 'known' | null;
   isFetchingAbi: boolean;
   abiFetchError: string | null;
   functions: FunctionInfo[];
   contractType: ContractType;
   tokenMetadata: TokenMetadata | null;
-  setManualAbi: (abi: any[]) => { success: boolean; error?: string };
+  setManualAbi: (abi: ContractAbi) => { success: boolean; error?: string };
 }
 
-function parseFunctions(abi: any[]): FunctionInfo[] {
+function parseFunctions(abi: ContractAbi): FunctionInfo[] {
   try {
     const iface = new Interface(abi);
     const writeFunctions: FunctionInfo[] = [];
@@ -71,7 +71,7 @@ function parseFunctions(abi: any[]): FunctionInfo[] {
 }
 
 export function useContractInteraction(address: string | undefined): ContractInteractionResult {
-  const [manualAbi, setManualAbiState] = useState<any[] | null>(null);
+  const [manualAbi, setManualAbiState] = useState<ContractAbi | null>(null);
   const [manualAbiSource, setManualAbiSource] = useState<'ipfs' | 'explorer' | 'known' | null>(null);
 
   // Query 1: Is this address a contract?
@@ -122,7 +122,7 @@ export function useContractInteraction(address: string | undefined): ContractInt
     retry: 1,
   });
 
-  const setManualAbi = (abi: any[]): { success: boolean; error?: string } => {
+  const setManualAbi = (abi: ContractAbi): { success: boolean; error?: string } => {
     try {
       Interface.from(abi);
       setManualAbiState(abi);

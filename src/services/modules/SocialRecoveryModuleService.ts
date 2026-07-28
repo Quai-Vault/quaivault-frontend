@@ -1,5 +1,5 @@
 import { getAddress } from 'quais';
-import type { Contract } from 'quais';
+import type { Contract, TransactionReceipt } from 'quais';
 import type { Provider } from '../../types';
 import { CONTRACT_ADDRESSES, EVENT_QUERY_RANGE, EVENT_QUERY_RANGE_FALLBACK } from '../../config/contracts';
 import { BaseModuleService } from './BaseModuleService';
@@ -328,7 +328,7 @@ export class SocialRecoveryModuleService extends BaseModuleService {
 
     // Query RecoveryInitiated events
     const filter = module.filters.RecoveryInitiated(walletAddress);
-    let events: any[] = [];
+    let events: Awaited<ReturnType<Contract['queryFilter']>> = [];
 
     try {
       events = await module.queryFilter(filter, EVENT_QUERY_RANGE, 'latest');
@@ -347,7 +347,8 @@ export class SocialRecoveryModuleService extends BaseModuleService {
     const seenHashes = new Set<string>();
 
     for (const event of events) {
-      const recoveryHash = event.args?.recoveryHash;
+      // queryFilter returns EventLog | Log; only the former carries decoded args.
+      const recoveryHash = 'args' in event ? event.args?.recoveryHash : undefined;
       if (!recoveryHash) continue;
 
       const hashLower = recoveryHash.toLowerCase();
@@ -377,11 +378,13 @@ export class SocialRecoveryModuleService extends BaseModuleService {
   /**
    * Extract recovery hash from receipt
    */
-  private extractRecoveryHashFromReceipt(receipt: any, module: Contract): string {
+  private extractRecoveryHashFromReceipt(receipt: TransactionReceipt, module: Contract): string {
     if (receipt.logs) {
       for (const log of receipt.logs) {
         try {
-          const parsedLog = module.interface.parseLog(log);
+          // `topics` is readonly on Log and may be absent; parseLog wants a
+          // mutable array.
+          const parsedLog = module.interface.parseLog({ topics: [...(log.topics ?? [])], data: log.data });
           if (parsedLog?.name === 'RecoveryInitiated' && parsedLog.args?.recoveryHash) {
             return parsedLog.args.recoveryHash;
           }
