@@ -12,16 +12,10 @@ export interface InjectedWallets {
   otherInjected: boolean;
 }
 
-function detect(): InjectedWallets {
-  return {
-    pelagus: getPelagusProvider() !== undefined,
-    otherInjected: getGenericInjectedProvider() !== undefined,
-  };
-}
-
-// Extensions normally inject at document_start, but React can mount first.
-// Re-check on a short schedule in addition to the readiness event.
-const RECHECK_DELAYS_MS = [100, 300, 1000];
+// Covers hosts that expose `window.pelagus` without dispatching Pelagus's
+// readiness event, and the gap between render and effect commit where the
+// event could fire before the listener below is attached.
+const FALLBACK_RECHECK_MS = 500;
 
 /**
  * Which injected wallets are present right now.
@@ -31,31 +25,25 @@ const RECHECK_DELAYS_MS = [100, 300, 1000];
  * for, so detection is handled here instead of in the connector.
  */
 export function useInjectedWallets(): InjectedWallets {
-  const [wallets, setWallets] = useState<InjectedWallets>(detect);
+  const [pelagus, setPelagus] = useState(() => getPelagusProvider() !== undefined);
+  const [otherInjected, setOtherInjected] = useState(
+    () => getGenericInjectedProvider() !== undefined
+  );
 
   useEffect(() => {
-    let cancelled = false;
-
     const recheck = () => {
-      if (cancelled) return;
-      const next = detect();
-      setWallets((prev) =>
-        prev.pelagus === next.pelagus && prev.otherInjected === next.otherInjected
-          ? prev
-          : next
-      );
+      setPelagus(getPelagusProvider() !== undefined);
+      setOtherInjected(getGenericInjectedProvider() !== undefined);
     };
 
     window.addEventListener(PELAGUS_READY_EVENT, recheck);
-    const timers = RECHECK_DELAYS_MS.map((delay) => setTimeout(recheck, delay));
-    recheck();
+    const timer = setTimeout(recheck, FALLBACK_RECHECK_MS);
 
     return () => {
-      cancelled = true;
       window.removeEventListener(PELAGUS_READY_EVENT, recheck);
-      timers.forEach(clearTimeout);
+      clearTimeout(timer);
     };
   }, []);
 
-  return wallets;
+  return { pelagus, otherInjected };
 }

@@ -18,6 +18,7 @@
  *
  * https://github.com/PelagusWallet/pelagus-extension/blob/main/src/window-provider.ts
  */
+import type { EIP1193Provider } from 'viem';
 
 export const PELAGUS_ICON = 'https://pelaguswallet.io/docs/img/PelagusLogoSquare.png';
 export const PELAGUS_INSTALL_URL = 'https://pelaguswallet.io/';
@@ -25,15 +26,17 @@ export const PELAGUS_INSTALL_URL = 'https://pelaguswallet.io/';
 /** Dispatched on `window` once Pelagus has finished injecting. */
 export const PELAGUS_READY_EVENT = 'quai#initialized';
 
-export type InjectedProvider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  isPelagus?: boolean;
-};
+export type InjectedProvider = EIP1193Provider & { isPelagus?: boolean };
 
-type InjectedWindow = {
+export type InjectedWindow = {
   pelagus?: InjectedProvider;
   ethereum?: InjectedProvider;
 };
+
+/** `window` as an injected-wallet host, or an empty host outside the browser. */
+function hostWindow(): InjectedWindow {
+  return typeof window !== 'undefined' ? (window as unknown as InjectedWindow) : {};
+}
 
 /**
  * Read `window.ethereum` defensively. Pelagus installs it as a getter that
@@ -56,12 +59,7 @@ function readWindowEthereum(w: InjectedWindow): InjectedProvider | undefined {
  * self-identifies as Pelagus, which covers hosts that expose the provider
  * under the standard name without the extension's wallet router.
  */
-export function getPelagusProvider(
-  w: InjectedWindow | undefined = typeof window !== 'undefined'
-    ? (window as unknown as InjectedWindow)
-    : undefined
-): InjectedProvider | undefined {
-  if (!w) return undefined;
+export function getPelagusProvider(w: InjectedWindow = hostWindow()): InjectedProvider | undefined {
   if (w.pelagus) return w.pelagus;
   const ethereum = readWindowEthereum(w);
   return ethereum?.isPelagus ? ethereum : undefined;
@@ -76,11 +74,8 @@ export function getPelagusProvider(
  * reached through {@link getPelagusProvider} instead.
  */
 export function getGenericInjectedProvider(
-  w: InjectedWindow | undefined = typeof window !== 'undefined'
-    ? (window as unknown as InjectedWindow)
-    : undefined
+  w: InjectedWindow = hostWindow()
 ): InjectedProvider | undefined {
-  if (!w) return undefined;
   const ethereum = readWindowEthereum(w);
   if (!ethereum || ethereum.isPelagus) return undefined;
   return ethereum;

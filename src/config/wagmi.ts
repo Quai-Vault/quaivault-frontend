@@ -2,6 +2,7 @@ import { createConfig, http } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 import { defineChain } from 'viem';
 import { PELAGUS_ICON, getPelagusProvider } from './injectedWallets';
+import type { InjectedWindow } from './injectedWallets';
 
 const projectId = import.meta.env.VITE_WC_PROJECT_ID || '';
 
@@ -62,10 +63,7 @@ export const wagmiConfig = createConfig({
         id: CONNECTOR_IDS.pelagus,
         name: 'Pelagus',
         icon: PELAGUS_ICON,
-        // Cast: wagmi's `WalletProvider` type is not exported. The Pelagus
-        // provider is an EIP-1193 EventEmitter, so it satisfies the contract.
-        provider: (w) =>
-          getPelagusProvider(w as Parameters<typeof getPelagusProvider>[0]) as never,
+        provider: (w) => getPelagusProvider(w as InjectedWindow),
       },
     }),
     // Escape hatch for an injected wallet that exposes only `window.ethereum`.

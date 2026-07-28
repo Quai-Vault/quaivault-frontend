@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { getPelagusProvider, getGenericInjectedProvider } from './injectedWallets';
 import type { InjectedProvider } from './injectedWallets';
 
-const provider = (extra: Partial<InjectedProvider> = {}): InjectedProvider => ({
-  request: async () => undefined,
-  ...extra,
-});
+// The EIP-1193 `request` signature is heavily overloaded; these tests only ever
+// identify providers, never call them, so a stub is cast in rather than typed out.
+const noopRequest = (async () => undefined) as unknown as InjectedProvider['request'];
+
+const provider = (extra: Partial<InjectedProvider> = {}): InjectedProvider =>
+  ({ request: noopRequest, ...extra }) as InjectedProvider;
 
 /** A `window.ethereum` that throws on access, as Pelagus's getter can. */
 function windowWithThrowingEthereum(pelagus?: InjectedProvider) {

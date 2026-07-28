@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useConnect, useConnections, useDisconnect } from 'wagmi';
 import { useWalletStore } from '../store/walletStore';
 import { multisigService } from '../services/MultisigService';
 import { indexerService } from '../services/indexer';
@@ -20,10 +20,28 @@ export function useWallet() {
 
   const { address, isConnected, connector } = useAccount();
   const { connectAsync, connectors } = useConnect();
-  const { disconnectAsync, connectors: activeConnectors } = useDisconnect();
+  const { disconnectAsync } = useDisconnect();
+  // Not `useDisconnect().connectors` — that maps over the connections on every
+  // render, which would defeat the memoization of `disconnect` below.
+  const connections = useConnections();
 
   const signerRef = useRef<Signer | null>(null);
   const prevAddressRef = useRef<string | null>(null);
+
+  /** Drop the signer and provider held for the previous account. */
+  const clearSigner = useCallback(() => {
+    signerRef.current = null;
+    multisigService.setSigner(null);
+    setWalletProvider(null);
+  }, []);
+
+  /** Tear down everything scoped to a wallet session. */
+  const resetWalletSession = useCallback(() => {
+    prevAddressRef.current = null;
+    clearSigner();
+    indexerService.cleanup();
+    setConnected(false, null);
+  }, [clearSigner, setConnected]);
 
   // Mirror wagmi connection state into our store so the rest of the app
   // (which reads from zustand) stays in sync. Clear stale signer/provider on
@@ -31,21 +49,14 @@ export function useWallet() {
   useEffect(() => {
     if (isConnected && address) {
       if (prevAddressRef.current && prevAddressRef.current !== address) {
-        signerRef.current = null;
-        multisigService.setSigner(null);
-        setWalletProvider(null);
+        clearSigner();
       }
       prevAddressRef.current = address;
       setConnected(true, address);
     } else if (!isConnected) {
-      prevAddressRef.current = null;
-      signerRef.current = null;
-      multisigService.setSigner(null);
-      setWalletProvider(null);
-      indexerService.cleanup();
-      setConnected(false, null);
+      resetWalletSession();
     }
-  }, [isConnected, address, setConnected]);
+  }, [isConnected, address, setConnected, clearSigner, resetWalletSession]);
 
   // Bridge connector raw EIP-1193 provider -> quais Signer.
   // We call getProvider() directly to bypass wagmi's chain validation, which
@@ -107,24 +118,17 @@ export function useWallet() {
     // wagmi supports simultaneous connections, and disconnecting without a
     // connector only drops the current one — it then promotes a remaining
     // connection to current, which would re-mark us as connected under a
-    // different account. Drop every live connection instead.
-    try {
-      if (activeConnectors.length > 0) {
-        for (const target of activeConnectors) {
-          await disconnectAsync({ connector: target });
-        }
-      } else {
-        await disconnectAsync();
+    // different account. Drop every live connection instead, catching per
+    // connection so one failure doesn't strand the others.
+    for (const connection of connections) {
+      try {
+        await disconnectAsync({ connector: connection.connector });
+      } catch (err) {
+        console.error('Failed to disconnect wallet:', err);
       }
-    } catch (err) {
-      console.error('Failed to disconnect wallet:', err);
     }
-    signerRef.current = null;
-    multisigService.setSigner(null);
-    setWalletProvider(null);
-    indexerService.cleanup();
-    setConnected(false, null);
-  }, [disconnectAsync, activeConnectors, setConnected]);
+    resetWalletSession();
+  }, [connections, disconnectAsync, resetWalletSession]);
 
   const signMessage = useCallback(async (message: string) => {
     if (!signerRef.current) {

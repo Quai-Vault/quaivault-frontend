@@ -27,6 +27,19 @@ function WalletIcon({ className }: { className?: string }) {
   );
 }
 
+function OptionLabel({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="flex-1 text-left">
+      <div className="font-semibold text-dark-800 dark:text-dark-100">{title}</div>
+      <div className="text-xs text-dark-500 dark:text-dark-400">{subtitle}</div>
+    </div>
+  );
+}
+
+function Connecting() {
+  return <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>;
+}
+
 export function ConnectModal() {
   const open = useWalletStore((s) => s.connectModalOpen);
   const setOpen = useWalletStore((s) => s.setConnectModalOpen);
@@ -50,12 +63,14 @@ export function ConnectModal() {
     <Modal isOpen={open} onClose={() => setOpen(false)} title="Connect Wallet" size="sm">
       <div className="flex flex-col gap-3">
         {/*
-          Both Pelagus and Blip Pay expose their provider at `window.pelagus`, so
-          one entry covers both. It is only offered when that provider is
-          actually present — pointing this button at `window.ethereum` is what
-          opened MetaMask/Phantom/Brave instead.
+          Exactly one injected option renders. Pelagus and Blip Pay both expose
+          their provider at `window.pelagus`, so one entry covers both, and it
+          is offered only when that provider is actually present — pointing this
+          button at `window.ethereum` is what opened MetaMask/Phantom/Brave
+          instead. The unbranded fallback is for an injected wallet that is
+          neither; on Quai that most likely cannot sign transactions at all.
         */}
-        {pelagus && (
+        {pelagus ? (
           <button
             type="button"
             onClick={() => handleClick('pelagus')}
@@ -66,24 +81,13 @@ export function ConnectModal() {
               <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded ring-2 ring-white dark:ring-vault-dark-2 relative z-10" />
               <BlipPayIcon className="w-10 h-10 rounded bg-white ring-2 ring-white dark:ring-vault-dark-2 p-1" />
             </div>
-            <div className="flex-1 text-left">
-              <div className="font-semibold text-dark-800 dark:text-dark-100">Pelagus or Blip Pay</div>
-              <div className="text-xs text-dark-500 dark:text-dark-400">
-                Pelagus browser extension or Blip Pay mobile app
-              </div>
-            </div>
-            {busy === 'pelagus' && (
-              <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
-            )}
+            <OptionLabel
+              title="Pelagus or Blip Pay"
+              subtitle="Pelagus browser extension or Blip Pay mobile app"
+            />
+            {busy === 'pelagus' && <Connecting />}
           </button>
-        )}
-
-        {/*
-          Escape hatch for an injected wallet that is neither Pelagus nor Blip
-          Pay. Deliberately unbranded: on Quai this is most likely a wallet that
-          cannot sign Quai transactions at all.
-        */}
-        {!pelagus && otherInjected && (
+        ) : otherInjected ? (
           <button
             type="button"
             onClick={() => handleClick('injected')}
@@ -91,19 +95,13 @@ export function ConnectModal() {
             className={buttonClass}
           >
             <WalletIcon className="w-10 h-10 rounded flex-shrink-0 text-dark-400 dark:text-dark-500" />
-            <div className="flex-1 text-left">
-              <div className="font-semibold text-dark-800 dark:text-dark-100">Other browser wallet</div>
-              <div className="text-xs text-dark-500 dark:text-dark-400">
-                Injected wallet detected — must support Quai
-              </div>
-            </div>
-            {busy === 'injected' && (
-              <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
-            )}
+            <OptionLabel
+              title="Other browser wallet"
+              subtitle="Injected wallet detected — must support Quai"
+            />
+            {busy === 'injected' && <Connecting />}
           </button>
-        )}
-
-        {!pelagus && !otherInjected && (
+        ) : (
           <a
             href={PELAGUS_INSTALL_URL}
             target="_blank"
@@ -111,12 +109,10 @@ export function ConnectModal() {
             className={buttonClass}
           >
             <img src={PELAGUS_ICON} alt="" className="w-10 h-10 rounded flex-shrink-0" />
-            <div className="flex-1 text-left">
-              <div className="font-semibold text-dark-800 dark:text-dark-100">Install Pelagus</div>
-              <div className="text-xs text-dark-500 dark:text-dark-400">
-                No browser wallet detected — get the Pelagus extension
-              </div>
-            </div>
+            <OptionLabel
+              title="Install Pelagus"
+              subtitle="No browser wallet detected — get the Pelagus extension"
+            />
           </a>
         )}
 
@@ -131,15 +127,11 @@ export function ConnectModal() {
               <path d="M12.0883 14.5443C16.4554 10.2873 23.5446 10.2873 27.9117 14.5443L28.4313 15.0506C28.6498 15.2635 28.6498 15.6088 28.4313 15.8217L26.6531 17.5547C26.5438 17.6611 26.3666 17.6611 26.2574 17.5547L25.5422 16.8579C22.4965 13.8898 17.5035 13.8898 14.4578 16.8579L13.6925 17.6044C13.5832 17.7108 13.406 17.7108 13.2968 17.6044L11.5186 15.8714C11.3001 15.6585 11.3001 15.3132 11.5186 15.1003L12.0883 14.5443ZM31.6358 18.171L33.2189 19.7141C33.4374 19.9269 33.4374 20.2722 33.2189 20.4851L26.0884 27.435C25.8699 27.6479 25.5155 27.6479 25.297 27.435L20.2299 22.4944C20.1753 22.4412 20.0867 22.4412 20.0321 22.4944L14.9651 27.435C14.7466 27.6479 14.3922 27.6479 14.1737 27.435L7.04316 20.4847C6.82467 20.2718 6.82467 19.9265 7.04316 19.7136L8.6263 18.1705C8.84478 17.9576 9.19911 17.9576 9.41759 18.1705L14.485 23.1112C14.5396 23.1644 14.6282 23.1644 14.6828 23.1112L19.7497 18.1705C19.9682 17.9576 20.3226 17.9576 20.5411 18.1705L25.6086 23.1112C25.6632 23.1644 25.7518 23.1644 25.8064 23.1112L30.8735 18.171C31.0925 17.9582 31.4469 17.9582 31.6358 18.171Z" />
             </svg>
           </div>
-          <div className="flex-1 text-left">
-            <div className="font-semibold text-dark-800 dark:text-dark-100">WalletConnect</div>
-            <div className="text-xs text-dark-500 dark:text-dark-400">
-              Scan QR with a mobile or hardware wallet (e.g. Tangem)
-            </div>
-          </div>
-          {busy === 'walletConnect' && (
-            <span className="text-xs text-dark-500 dark:text-dark-400">Connecting…</span>
-          )}
+          <OptionLabel
+            title="WalletConnect"
+            subtitle="Scan QR with a mobile or hardware wallet (e.g. Tangem)"
+          />
+          {busy === 'walletConnect' && <Connecting />}
         </button>
 
         {error && (
