@@ -53,7 +53,14 @@ export function convertIndexerTransaction(
     to: safeGetAddress(tx.to_address),
     value: tx.value,
     data: tx.data ?? '0x',
-    numApprovals: Number.isFinite(tx.confirmation_count) ? tx.confirmation_count : activeConfirmations.length,
+    // Confirmation records win when we have them, so a fully revoked
+    // transaction reports zero rather than a denormalised count that may not
+    // have caught up. Downstream this decides whether Execute is offered, and
+    // the realtime handler already recomputes the same way on revocation.
+    // With no records the caller did not fetch them, so the count is all we have.
+    numApprovals: confirmations.length > 0
+      ? activeConfirmations.length
+      : (Number.isFinite(tx.confirmation_count) ? tx.confirmation_count : 0),
     threshold: walletThreshold,
     executed: status === 'executed',
     cancelled: status === 'cancelled',
