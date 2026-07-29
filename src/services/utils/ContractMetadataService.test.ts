@@ -175,11 +175,10 @@ describe('fetchTokenMetadata', () => {
       expect(contractCalls.name).toHaveBeenCalledTimes(1);
     });
 
-    // Documented rather than endorsed: a wholly failed lookup is cached like
-    // any other, so one bad round trip leaves a real token without a symbol or
-    // decimals for the life of the page — and amounts then render raw. The
-    // tradeoff is not re-querying contracts that genuinely lack the methods.
-    it('caches a failed lookup and does not retry it', async () => {
+    // Caching a total failure would outlive the outage: the token renders raw
+    // amounts with no symbol for the whole session, and the caller's react-query
+    // `retry` is defeated because the retry re-enters this cache.
+    it('does not cache a wholly failed lookup, so a later attempt recovers', async () => {
       const address = freshAddress();
       contractCalls.name.mockRejectedValue(new Error('rpc down'));
       contractCalls.symbol.mockRejectedValue(new Error('rpc down'));
@@ -196,10 +195,22 @@ describe('fetchTokenMetadata', () => {
       contractCalls.decimals.mockResolvedValue(18n);
 
       expect(await fetchTokenMetadata(address)).toEqual({
-        name: null,
-        symbol: null,
-        decimals: null,
+        name: 'Recovered',
+        symbol: 'REC',
+        decimals: 18,
       });
+    });
+
+    // A token that implements only some of the three is answering correctly,
+    // so that answer is worth keeping.
+    it('still caches a partial result', async () => {
+      const address = freshAddress();
+      contractCalls.symbol.mockRejectedValue(new Error('not implemented'));
+
+      await fetchTokenMetadata(address);
+      await fetchTokenMetadata(address);
+
+      expect(contractCalls.name).toHaveBeenCalledTimes(1);
     });
   });
 });

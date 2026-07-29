@@ -301,8 +301,17 @@ export async function fetchTokenMetadata(address: string): Promise<TokenMetadata
     decimals: decimals.status === 'fulfilled' ? Number(decimals.value) : null,
   };
 
-  tokenMetadataCache.set(key, result);
-  enforceLimit(tokenMetadataCache, MAX_CACHE_ENTRIES);
+  // Every field failing means the calls did not land, not that the token
+  // answered "none of these". Caching that would outlive the outage: the token
+  // would render raw amounts with no symbol for the rest of the session, and
+  // the caller's react-query `retry` would be defeated, since the retry
+  // re-enters this cache rather than the network. A partial result is a real
+  // answer — plenty of tokens omit one of the three — so that is still cached.
+  const isTotalFailure = result.name === null && result.symbol === null && result.decimals === null;
+  if (!isTotalFailure) {
+    tokenMetadataCache.set(key, result);
+    enforceLimit(tokenMetadataCache, MAX_CACHE_ENTRIES);
+  }
   return result;
 }
 
