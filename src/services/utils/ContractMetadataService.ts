@@ -278,16 +278,17 @@ const ERC20_METADATA_ABI = [
   'function decimals() view returns (uint8)',
 ];
 
-const tokenMetadataCache = new Map<string, TokenMetadata>();
-
 /**
  * Fetch ERC20 token metadata (name, symbol, decimals) from the contract.
+ *
+ * Deliberately uncached. This used to memoise into a module-level Map beneath
+ * react-query, which already caches the only call site with staleTime:
+ * Infinity. Two layers cannot be invalidated together — the outer one could be
+ * cleared while the inner kept serving the old answer — and the inner one
+ * silently defeated the caller's `retry`, since a retry re-entered the cache
+ * instead of the network. Caching belongs to the caller.
  */
 export async function fetchTokenMetadata(address: string): Promise<TokenMetadata> {
-  const key = address.toLowerCase();
-  const cached = tokenMetadataCache.get(key);
-  if (cached) return cached;
-
   const contract = new QuaisContract(getAddress(address), ERC20_METADATA_ABI, getActiveProvider());
   const [name, symbol, decimals] = await Promise.allSettled([
     contract.name() as Promise<string>,
@@ -301,17 +302,6 @@ export async function fetchTokenMetadata(address: string): Promise<TokenMetadata
     decimals: decimals.status === 'fulfilled' ? Number(decimals.value) : null,
   };
 
-  // Every field failing means the calls did not land, not that the token
-  // answered "none of these". Caching that would outlive the outage: the token
-  // would render raw amounts with no symbol for the rest of the session, and
-  // the caller's react-query `retry` would be defeated, since the retry
-  // re-enters this cache rather than the network. A partial result is a real
-  // answer — plenty of tokens omit one of the three — so that is still cached.
-  const isTotalFailure = result.name === null && result.symbol === null && result.decimals === null;
-  if (!isTotalFailure) {
-    tokenMetadataCache.set(key, result);
-    enforceLimit(tokenMetadataCache, MAX_CACHE_ENTRIES);
-  }
   return result;
 }
 

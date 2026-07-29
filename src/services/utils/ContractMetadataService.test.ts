@@ -106,8 +106,6 @@ describe('detectContractType', () => {
 
 describe('fetchTokenMetadata', () => {
   let nextAddress = 0;
-  // The cache is module-level and deliberately not resettable, so each test
-  // uses a distinct address rather than trying to clear it.
   const freshAddress = () =>
     '0x' + String(++nextAddress).padStart(40, '0');
 
@@ -156,29 +154,20 @@ describe('fetchTokenMetadata', () => {
     });
   });
 
+  // Caching belongs to the caller: the only call site is a react-query with
+  // staleTime Infinity. This function now always asks the contract, so the
+  // retry above it can actually reach the network.
   describe('caching', () => {
-    it('does not call the contract twice for the same token', async () => {
+    it('asks the contract every time rather than memoising', async () => {
       const address = freshAddress();
 
       await fetchTokenMetadata(address);
       await fetchTokenMetadata(address);
 
-      expect(contractCalls.name).toHaveBeenCalledTimes(1);
+      expect(contractCalls.name).toHaveBeenCalledTimes(2);
     });
 
-    it('treats differently-cased addresses as the same token', async () => {
-      const address = freshAddress();
-
-      await fetchTokenMetadata(address);
-      await fetchTokenMetadata(address.toUpperCase().replace('0X', '0x'));
-
-      expect(contractCalls.name).toHaveBeenCalledTimes(1);
-    });
-
-    // Caching a total failure would outlive the outage: the token renders raw
-    // amounts with no symbol for the whole session, and the caller's react-query
-    // `retry` is defeated because the retry re-enters this cache.
-    it('does not cache a wholly failed lookup, so a later attempt recovers', async () => {
+    it('recovers once a failing call starts succeeding', async () => {
       const address = freshAddress();
       contractCalls.name.mockRejectedValue(new Error('rpc down'));
       contractCalls.symbol.mockRejectedValue(new Error('rpc down'));
@@ -199,18 +188,6 @@ describe('fetchTokenMetadata', () => {
         symbol: 'REC',
         decimals: 18,
       });
-    });
-
-    // A token that implements only some of the three is answering correctly,
-    // so that answer is worth keeping.
-    it('still caches a partial result', async () => {
-      const address = freshAddress();
-      contractCalls.symbol.mockRejectedValue(new Error('not implemented'));
-
-      await fetchTokenMetadata(address);
-      await fetchTokenMetadata(address);
-
-      expect(contractCalls.name).toHaveBeenCalledTimes(1);
     });
   });
 });
