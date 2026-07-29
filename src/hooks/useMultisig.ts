@@ -20,6 +20,7 @@ import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/n
 import { formatDuration, formatBalance } from '../utils/formatting';
 import { getModuleName } from '../utils/transactionDecoder';
 import { diffModuleStatuses } from '../utils/moduleStatus';
+import { diffWalletInfo } from '../utils/walletInfoChanges';
 
 // Maximum number of wallets to track in memory (LRU eviction after this limit)
 // Prevents memory leaks in long-running sessions
@@ -182,163 +183,112 @@ function useWalletNotifications(
 
   // Track wallet info changes for notifications (balance, owners, threshold)
   useEffect(() => {
-    if (walletInfo && walletAddress) {
-      // Normalize address for consistent map key access (matches cleanup in unmount effect)
-      const normalizedAddr = walletAddress.toLowerCase();
-      const prevInfo = prevWalletInfoRef.current.get(normalizedAddr);
+    if (!walletInfo || !walletAddress) return;
 
-      // Track balance changes
-      const currentBalance = walletInfo.balance;
-      const prevBalance = prevBalancesRef.current.get(normalizedAddr);
-      const lastNotifiedBalance = lastNotifiedBalances.get(normalizedAddr);
+    const normalizedAddr = walletAddress.toLowerCase();
+    const prevInfo = prevWalletInfoRef.current.get(normalizedAddr);
+    const prevBalance = prevBalancesRef.current.get(normalizedAddr);
 
-      if (prevBalance && currentBalance) {
-        let prevBigInt: bigint, currentBigInt: bigint, lastNotifiedBigInt: bigint | null;
-        try {
-          prevBigInt = BigInt(prevBalance);
-          currentBigInt = BigInt(currentBalance);
-          lastNotifiedBigInt = lastNotifiedBalance ? BigInt(lastNotifiedBalance) : null;
-        } catch {
-          // Invalid balance string — skip notification for this cycle
-          prevBalancesRef.current.set(normalizedAddr, currentBalance);
-          return;
-        }
+    const current = {
+      owners: walletInfo.owners,
+      threshold: walletInfo.threshold,
+      minExecutionDelay: walletInfo.minExecutionDelay ?? 0,
+      balance: walletInfo.balance,
+    };
 
-        const hasIncreased = currentBigInt > prevBigInt;
-        const alreadyNotified = lastNotifiedBigInt !== null && currentBigInt === lastNotifiedBigInt;
+    const { changes, notified, commitSnapshot } = diffWalletInfo(
+      prevInfo
+        ? {
+            owners: prevInfo.owners,
+            threshold: prevInfo.threshold,
+            minExecutionDelay: prevInfo.minExecutionDelay ?? 0,
+            balance: prevBalance ?? '',
+          }
+        : undefined,
+      current,
+      {
+        balance: lastNotifiedBalances.get(normalizedAddr),
+        ownersKey: lastNotifiedOwners.get(normalizedAddr),
+        threshold: lastNotifiedThresholds.get(normalizedAddr),
+        delay: lastNotifiedDelays.peek(normalizedAddr),
+      },
+    );
 
-        if (hasIncreased && !alreadyNotified) {
-          const increase = currentBigInt - prevBigInt;
-          const increaseFormatted = formatBalance(increase);
-          const totalFormatted = formatBalance(currentBigInt);
-
-          lastNotifiedBalances.set(normalizedAddr, currentBalance);
-
+    for (const change of changes) {
+      switch (change.kind) {
+        case 'balanceIncrease': {
+          const increase = formatBalance(change.increase);
+          const total = formatBalance(change.total);
           notificationManager.add({
-            message: `💰 Vault received ${increaseFormatted} QUAI! New balance: ${totalFormatted} QUAI`,
+            message: `💰 Vault received ${increase} QUAI! New balance: ${total} QUAI`,
             type: 'success',
           });
-
           if (canShowBrowserNotifications()) {
             sendBrowserNotification('Vault Received Funds', {
-              body: `Received ${increaseFormatted} QUAI. New balance: ${totalFormatted} QUAI`,
-              tag: `${normalizedAddr}-${currentBalance}`,
+              body: `Received ${increase} QUAI. New balance: ${total} QUAI`,
+              tag: `${normalizedAddr}-${current.balance}`,
             });
           }
+          break;
         }
-      }
-
-      prevBalancesRef.current.set(normalizedAddr, currentBalance);
-
-      // Track owner changes
-      if (prevInfo) {
-        const prevOwners = prevInfo.owners.map(o => o.toLowerCase()).sort();
-        const currentOwners = walletInfo.owners.map(o => o.toLowerCase()).sort();
-
-        // Use Set comparison instead of JSON.stringify for better performance
-        const prevOwnersSet = new Set(prevOwners);
-        const currentOwnersSet = new Set(currentOwners);
-        const ownersChanged = prevOwners.length !== currentOwners.length ||
-          prevOwners.some(o => !currentOwnersSet.has(o));
-
-        // Use joined string for notification dedup (sorted, so consistent)
-        const currentOwnersKey = currentOwners.join(',');
-        const lastNotifiedOwnersKey = lastNotifiedOwners.get(normalizedAddr);
-
-        if (ownersChanged && currentOwnersKey !== lastNotifiedOwnersKey) {
-          const addedOwners = currentOwners.filter(addr => !prevOwnersSet.has(addr));
-          const removedOwners = prevOwners.filter(addr => !currentOwnersSet.has(addr));
-
-          if (addedOwners.length > 0) {
-            addedOwners.forEach((owner) => {
-              const ownerShort = `${owner.slice(0, 6)}...${owner.slice(-4)}`;
-              notificationManager.add({
-                message: `👤 Owner added: ${ownerShort}`,
-                type: 'success',
-              });
-
-              if (canShowBrowserNotifications()) {
-                sendBrowserNotification('Owner Added', {
-                  body: `${ownerShort} has been added as a vault owner`,
-                  tag: `owner-added-${normalizedAddr}-${owner}`,
-                });
-              }
-            });
-          }
-
-          if (removedOwners.length > 0) {
-            removedOwners.forEach((owner) => {
-              const ownerShort = `${owner.slice(0, 6)}...${owner.slice(-4)}`;
-              notificationManager.add({
-                message: `👤 Owner removed: ${ownerShort}`,
-                type: 'warning',
-              });
-
-              if (canShowBrowserNotifications()) {
-                sendBrowserNotification('Owner Removed', {
-                  body: `${ownerShort} has been removed as a vault owner`,
-                  tag: `owner-removed-${normalizedAddr}-${owner}`,
-                });
-              }
-            });
-          }
-
-          lastNotifiedOwners.set(normalizedAddr, currentOwnersKey);
-        }
-
-        // Track threshold changes
-        const prevThreshold = prevInfo.threshold;
-        const currentThreshold = walletInfo.threshold;
-        const lastNotifiedThreshold = lastNotifiedThresholds.get(normalizedAddr);
-
-        if (prevThreshold !== currentThreshold && currentThreshold !== lastNotifiedThreshold) {
+        case 'ownerAdded':
+        case 'ownerRemoved': {
+          const added = change.kind === 'ownerAdded';
+          const ownerShort = `${change.owner.slice(0, 6)}...${change.owner.slice(-4)}`;
           notificationManager.add({
-            message: `⚙️ Threshold changed: ${prevThreshold} → ${currentThreshold}`,
+            message: `👤 Owner ${added ? 'added' : 'removed'}: ${ownerShort}`,
+            type: added ? 'success' : 'warning',
+          });
+          if (canShowBrowserNotifications()) {
+            sendBrowserNotification(added ? 'Owner Added' : 'Owner Removed', {
+              body: `${ownerShort} has been ${added ? 'added as' : 'removed as'} a vault owner`,
+              tag: `owner-${added ? 'added' : 'removed'}-${normalizedAddr}-${change.owner}`,
+            });
+          }
+          break;
+        }
+        case 'thresholdChanged': {
+          notificationManager.add({
+            message: `⚙️ Threshold changed: ${change.from} → ${change.to}`,
             type: 'info',
           });
-
           if (canShowBrowserNotifications()) {
             sendBrowserNotification('Threshold Changed', {
-              body: `Approval threshold changed from ${prevThreshold} to ${currentThreshold}`,
-              tag: `threshold-${normalizedAddr}-${currentThreshold}`,
+              body: `Approval threshold changed from ${change.from} to ${change.to}`,
+              tag: `threshold-${normalizedAddr}-${change.to}`,
             });
           }
-
-          lastNotifiedThresholds.set(normalizedAddr, currentThreshold);
+          break;
         }
-
-        // Track minExecutionDelay changes
-        const prevMinDelay = prevInfo.minExecutionDelay ?? 0;
-        const currentMinDelay = walletInfo.minExecutionDelay ?? 0;
-        const lastNotifiedDelay = lastNotifiedDelays.peek(normalizedAddr);
-
-        if (prevMinDelay !== currentMinDelay && currentMinDelay !== lastNotifiedDelay) {
-          const delayLabel = currentMinDelay > 0
-            ? `Timelock changed to ${formatDuration(currentMinDelay)}`
+        case 'timelockChanged': {
+          const label = change.seconds > 0
+            ? `Timelock changed to ${formatDuration(change.seconds)}`
             : 'Timelock removed';
-          notificationManager.add({
-            message: `⏱️ ${delayLabel}`,
-            type: 'info',
-          });
-
+          notificationManager.add({ message: `⏱️ ${label}`, type: 'info' });
           if (canShowBrowserNotifications()) {
             sendBrowserNotification('Vault Timelock Changed', {
-              body: currentMinDelay > 0
-                ? `Minimum execution delay changed to ${formatDuration(currentMinDelay)}`
+              body: change.seconds > 0
+                ? `Minimum execution delay changed to ${formatDuration(change.seconds)}`
                 : 'Minimum execution delay has been removed',
-              tag: `delay-${normalizedAddr}-${currentMinDelay}`,
+              tag: `delay-${normalizedAddr}-${change.seconds}`,
             });
           }
-
-          lastNotifiedDelays.set(normalizedAddr, currentMinDelay);
+          break;
         }
       }
+    }
 
-      // Update stored wallet info
+    if (notified.balance !== undefined) lastNotifiedBalances.set(normalizedAddr, notified.balance);
+    if (notified.ownersKey !== undefined) lastNotifiedOwners.set(normalizedAddr, notified.ownersKey);
+    if (notified.threshold !== undefined) lastNotifiedThresholds.set(normalizedAddr, notified.threshold);
+    if (notified.delay !== undefined) lastNotifiedDelays.set(normalizedAddr, notified.delay);
+
+    prevBalancesRef.current.set(normalizedAddr, current.balance);
+    if (commitSnapshot) {
       prevWalletInfoRef.current.set(normalizedAddr, {
-        owners: walletInfo.owners,
-        threshold: walletInfo.threshold,
-        minExecutionDelay: walletInfo.minExecutionDelay ?? 0,
+        owners: current.owners,
+        threshold: current.threshold,
+        minExecutionDelay: current.minExecutionDelay,
       });
     }
   }, [walletInfo, walletAddress]);
