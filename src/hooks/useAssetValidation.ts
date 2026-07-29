@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { parseUnits } from 'quais';
 import { getTokenBalance, getNftOwner } from '../services/utils/ContractMetadataService';
 import type { ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
 import { formatBalance } from '../utils/formatting';
+import {
+  isErc20SpendFromVault,
+  isErc721TransferFunction,
+  extractErc20Amount,
+  extractErc721TokenId,
+} from '../utils/assetSpend';
 
 const BALANCE_STALE_TIME = 15_000;
 const BALANCE_REFETCH_INTERVAL = 30_000;
@@ -16,65 +21,6 @@ export interface AssetValidationResult {
   isLoadingNftOwner: boolean;
   vaultOwnsNft: boolean | null;
   validationWarning: string | null;
-}
-
-/**
- * Check if the selected function spends ERC20 tokens from the vault.
- * For `transfer`, the vault is always the sender.
- * For `transferFrom`, only when the `from` arg matches the vault address.
- */
-function isErc20SpendFromVault(
-  functionName: string,
-  argValues: Record<number, string>,
-  walletAddress: string | undefined,
-): boolean {
-  if (functionName === 'transfer') return true;
-  if (functionName === 'transferFrom') {
-    const from = argValues[0]?.trim();
-    if (!from || !walletAddress) return true; // not yet entered — show balance proactively
-    return from.toLowerCase() === walletAddress.toLowerCase();
-  }
-  return false;
-}
-
-function isErc721TransferFunction(functionName: string): boolean {
-  return functionName === 'transferFrom' || functionName === 'safeTransferFrom';
-}
-
-/**
- * Extract the token amount from argValues for a known ERC20 spend function.
- */
-function extractErc20Amount(
-  functionName: string,
-  argValues: Record<number, string>,
-  decimals: number,
-): bigint | null {
-  let rawAmount: string | undefined;
-  if (functionName === 'transfer') {
-    rawAmount = argValues[1];
-  } else if (functionName === 'transferFrom') {
-    rawAmount = argValues[2];
-  }
-  if (!rawAmount || !rawAmount.trim()) return null;
-  try {
-    return parseUnits(rawAmount, decimals);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Extract the tokenId from argValues for an ERC721 transfer function.
- */
-function extractErc721TokenId(
-  functionName: string,
-  argValues: Record<number, string>,
-): string | null {
-  if (functionName === 'transferFrom' || functionName === 'safeTransferFrom') {
-    const tokenId = argValues[2];
-    return tokenId && tokenId.trim() ? tokenId.trim() : null;
-  }
-  return null;
 }
 
 export function useAssetValidation(
