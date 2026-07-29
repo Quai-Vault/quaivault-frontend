@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Interface, isQuaiAddress, parseUnits } from 'quais';
 import type { FunctionInfo, FunctionInputInfo } from '../hooks/useContractInteraction';
 import type { ContractAbi } from '../services/utils/ContractMetadataService';
@@ -77,10 +77,9 @@ export function ContractInteractionBuilder({
 }: ContractInteractionBuilderProps) {
   const [selectedFunctionIndex, setSelectedFunctionIndex] = useState<number>(-1);
   const [argValues, setArgValues] = useState<Record<number, string>>({});
-  const [encodingError, setEncodingError] = useState<string | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showRawData, setShowRawData] = useState(false);
-  const [rawData, setRawData] = useState('0x');
+  const [userRawData, setUserRawData] = useState('0x');
   const [showPasteAbi, setShowPasteAbi] = useState(false);
   const [pasteAbiText, setPasteAbiText] = useState('');
   const [pasteAbiError, setPasteAbiError] = useState<string | null>(null);
@@ -118,18 +117,17 @@ export function ContractInteractionBuilder({
     });
   }, [selectedFunction, argValues]);
 
-  // Encode calldata when function or args change — only when all inputs are filled
-  const encodeCalldata = useCallback(() => {
-    if (!abi || !selectedFunction) {
-      onDataChange('0x');
-      return;
-    }
-
-    // Don't attempt encoding until all fields have values
-    if (!allInputsFilled) {
-      setEncodingError(null);
-      return;
-    }
+  /**
+   * The calldata the form describes, derived rather than stored.
+   *
+   * `data` is undefined when there is nothing to publish yet — either no
+   * function is chosen or its arguments are incomplete — which is different
+   * from an encoding failure, where the error is shown and no calldata is sent.
+   */
+  const encoded = useMemo((): { data?: string; error: string | null } => {
+    if (!selectedFunction) return { error: null };
+    if (!abi) return { data: '0x', error: null };
+    if (!allInputsFilled) return { error: null };
 
     try {
       const iface = new Interface(abi);
@@ -146,26 +144,23 @@ export function ContractInteractionBuilder({
         }
         return coerceValue(raw, input);
       });
-      const encoded = iface.encodeFunctionData(selectedFunction.name, values);
-      onDataChange(encoded);
-      setRawData(encoded);
-      setEncodingError(null);
+      return { data: iface.encodeFunctionData(selectedFunction.name, values), error: null };
     } catch (e) {
-      setEncodingError(e instanceof Error ? e.message : 'Encoding error');
+      return { error: e instanceof Error ? e.message : 'Encoding error' };
     }
-  }, [abi, selectedFunction, argValues, allInputsFilled, onDataChange, contractType, tokenMetadata]);
+  }, [abi, selectedFunction, argValues, allInputsFilled, contractType, tokenMetadata]);
 
-  // Unlike the other forms, the encoded result cannot simply be derived: it
-  // feeds `rawData`, which the user can also edit directly in raw-data mode, so
-  // the value is genuinely two-way. Making it one-way means redesigning how
-  // calldata is composed — worth doing, but not as an untested change to the
-  // path that decides what a transaction actually calls.
+  const encodingError = encoded.error;
+
+  // `rawData` is only ever authored by the user, and only while no function is
+  // selected — typing into it deselects. So the displayed value is the encoded
+  // calldata whenever the form is driving, and the user's text otherwise.
+  const rawData = selectedFunction ? (encoded.data ?? '0x') : userRawData;
+
+  // The effect now only publishes the derived value outwards.
   useEffect(() => {
-    if (selectedFunction) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
-      encodeCalldata();
-    }
-  }, [encodeCalldata, selectedFunction]);
+    if (encoded.data !== undefined) onDataChange(encoded.data);
+  }, [encoded, onDataChange]);
 
   // Force value to '0' for nonpayable functions (including when value is empty)
   useEffect(() => {
@@ -196,11 +191,10 @@ export function ContractInteractionBuilder({
   const handleFunctionSelect = (index: number) => {
     setSelectedFunctionIndex(index);
     setArgValues({});
-    setEncodingError(null);
     setHasInteracted(false);
     if (index < 0) {
       onDataChange('0x');
-      setRawData('0x');
+      setUserRawData('0x');
     }
   };
 
@@ -230,7 +224,7 @@ export function ContractInteractionBuilder({
   };
 
   const handleRawDataChange = (value: string) => {
-    setRawData(value);
+    setUserRawData(value);
     onDataChange(value);
     setSelectedFunctionIndex(-1);
     setArgValues({});
@@ -494,6 +488,7 @@ export function ContractInteractionBuilder({
       </button>
       {showRawData && (
         <textarea
+          aria-label="Raw calldata"
           value={rawData}
           onChange={(e) => handleRawDataChange(e.target.value)}
           rows={4}
