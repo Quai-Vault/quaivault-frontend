@@ -21,6 +21,7 @@ import { formatDuration, formatBalance } from '../utils/formatting';
 import { getModuleName } from '../utils/transactionDecoder';
 import { diffModuleStatuses } from '../utils/moduleStatus';
 import { diffWalletInfo } from '../utils/walletInfoChanges';
+import { applyConfirmation } from '../utils/approvalUpdates';
 
 // Maximum number of wallets to track in memory (LRU eviction after this limit)
 // Prevents memory leaks in long-running sessions
@@ -703,11 +704,9 @@ export function useMultisig(walletAddress?: string) {
       const ownerKey = safeGetAddress(confirmation.owner_address);
       queryClient.setQueryData<PendingTransaction[]>(
         ['pendingTransactions', walletAddress],
-        (old = []) => old.map(tx => {
-          if (tx.hash !== confirmation.tx_hash) return tx;
-          const updatedApprovals = { ...tx.approvals, [ownerKey]: true };
-          return { ...tx, approvals: updatedApprovals, numApprovals: Object.values(updatedApprovals).filter(Boolean).length };
-        })
+        (old = []) => old.map(tx =>
+          tx.hash === confirmation.tx_hash ? applyConfirmation(tx, ownerKey, true) : tx
+        )
       );
     };
 
@@ -716,15 +715,11 @@ export function useMultisig(walletAddress?: string) {
       const ownerKey = safeGetAddress(confirmation.owner_address);
       queryClient.setQueryData<PendingTransaction[]>(
         ['pendingTransactions', walletAddress],
-        (old = []) => old.map(tx => {
-          if (tx.hash !== confirmation.tx_hash) return tx;
-          if (!confirmation.is_active) {
-            const { [ownerKey]: _, ...remainingApprovals } = tx.approvals;
-            return { ...tx, approvals: remainingApprovals, numApprovals: Object.values(remainingApprovals).filter(Boolean).length };
-          }
-          const updatedApprovals = { ...tx.approvals, [ownerKey]: true };
-          return { ...tx, approvals: updatedApprovals, numApprovals: Object.values(updatedApprovals).filter(Boolean).length };
-        })
+        (old = []) => old.map(tx =>
+          tx.hash === confirmation.tx_hash
+            ? applyConfirmation(tx, ownerKey, confirmation.is_active)
+            : tx
+        )
       );
     };
 
