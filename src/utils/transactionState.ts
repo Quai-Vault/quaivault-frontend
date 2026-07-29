@@ -33,7 +33,7 @@ export function canApprove(tx: PendingTransaction, ownerAddress: string): boolea
  * approval was revoked — counting a stale numApprovals there would advertise a
  * transaction as executable when the contract would reject it.
  */
-function getApprovalCount(tx: PendingTransaction): number {
+export function getApprovalCount(tx: PendingTransaction): number {
   const entries = Object.values(tx.approvals);
   if (entries.length === 0) {
     return Number.isFinite(tx.numApprovals) ? tx.numApprovals : 0;

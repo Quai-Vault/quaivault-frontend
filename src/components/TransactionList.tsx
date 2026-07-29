@@ -26,6 +26,7 @@ import { TimelockCountdown } from './TimelockCountdown';
 import { formatAddress, formatTimestamp, formatRelativeTime, formatDuration, formatBalance } from '../utils/formatting';
 import { indexerService } from '../services';
 import type { TokenMetadata } from '../services/utils/ContractMetadataService';
+import { getApprovalCount } from '../utils/transactionState';
 
 // Virtualization constants
 const ESTIMATED_ITEM_HEIGHT = 320; // Approximate height of a transaction item
@@ -96,7 +97,7 @@ const TransactionItem = memo(function TransactionItem({
 
     // Derive approval count from the approvals map (authoritative — kept in sync by subscription)
     // Falls back to tx.numApprovals for edge cases where approvals map may be incomplete
-    const approvalCount = Object.values(tx.approvals).filter(Boolean).length || tx.numApprovals;
+    const approvalCount = getApprovalCount(tx);
     // Prevent division by zero - default to 100% if threshold is 0 (shouldn't happen but defensive)
     const thresholdNum = Number(tx.threshold);
     const percentage = thresholdNum > 0 ? (approvalCount / thresholdNum) * 100 : 100;

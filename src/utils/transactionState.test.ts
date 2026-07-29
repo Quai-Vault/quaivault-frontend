@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  getApprovalCount,
   canApprove,
   canExecute,
   canRevoke,
@@ -51,6 +52,34 @@ describe('transactionState', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  // The single definition of "how many owners have approved". Every display
+  // and decision goes through it, so the map-versus-count rule lives in one
+  // place rather than being restated at each call site.
+  describe('getApprovalCount', () => {
+    it('counts the true entries in the approvals map', () => {
+      expect(getApprovalCount(tx({ approvals: { [OWNER]: true, [OTHER]: true } }))).toBe(2);
+    });
+
+    it('ignores false entries', () => {
+      // The on-chain path records every owner, approved or not.
+      expect(getApprovalCount(tx({ approvals: { [OWNER]: true, [OTHER]: false } }))).toBe(1);
+    });
+
+    it('reports zero for a populated map where nobody has approved', () => {
+      const noneApproved = tx({ approvals: { [OWNER]: false, [OTHER]: false }, numApprovals: 2 });
+
+      expect(getApprovalCount(noneApproved)).toBe(0);
+    });
+
+    it("falls back to the indexer's count only when the map is empty", () => {
+      expect(getApprovalCount(tx({ approvals: {}, numApprovals: 3 }))).toBe(3);
+    });
+
+    it('reports zero when the map is empty and the count is unusable', () => {
+      expect(getApprovalCount(tx({ approvals: {}, numApprovals: Number.NaN }))).toBe(0);
+    });
   });
 
   describe('canApprove', () => {

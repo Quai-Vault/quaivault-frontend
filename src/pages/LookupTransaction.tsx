@@ -6,6 +6,7 @@ import { multisigService } from '../services/MultisigService';
 import { decodeTransaction } from '../utils/transactionDecoder';
 import { formatAddress, formatTimestamp, formatExpiration, formatBalance } from '../utils/formatting';
 import {
+  getApprovalCount,
   canApprove,
   canExecute as computeCanExecute,
   canRevoke,
@@ -103,7 +104,7 @@ export function LookupTransaction() {
 
   const approvalPercentage = useMemo(() => {
     if (!transaction) return 0;
-    const count = Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals;
+    const count = getApprovalCount(transaction);
     return transaction.threshold > 0 ? (count / transaction.threshold) * 100 : 100;
   }, [transaction]);
 
@@ -337,7 +338,7 @@ export function LookupTransaction() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-base font-mono text-dark-500 uppercase tracking-wider">Approvals</span>
                   <span className="text-base font-semibold text-dark-700 dark:text-dark-200">
-                    <span className="text-primary-600 dark:text-primary-400">{Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals}</span>
+                    <span className="text-primary-600 dark:text-primary-400">{getApprovalCount(transaction)}</span>
                     <span className="text-dark-500 mx-1">/</span>
                     <span className="text-dark-600 dark:text-dark-300">{transaction.threshold.toString()}</span>
                   </span>

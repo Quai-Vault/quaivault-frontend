@@ -4,6 +4,7 @@ import type { PendingTransaction } from '../../types';
 import { useMultisig } from '../../hooks/useMultisig';
 import { useSimpleTransactionModalFlow } from '../../hooks/useTransactionModalFlow';
 import { TIMING } from '../../config/contracts';
+import { getApprovalCount } from '../../utils/transactionState';
 
 interface RevokeApprovalModalProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export function RevokeApprovalModal({
             <div className="flex justify-between items-center">
               <span className="text-base font-mono text-dark-500 dark:text-dark-400 uppercase tracking-wider">Approvals:</span>
               <span className="text-dark-700 dark:text-dark-200 font-semibold">
-                <span className="text-primary-500 dark:text-primary-400">{Object.values(transaction.approvals).filter(Boolean).length || transaction.numApprovals}</span>
+                <span className="text-primary-500 dark:text-primary-400">{getApprovalCount(transaction)}</span>
                 <span className="text-dark-500 mx-2">/</span>
                 <span className="text-dark-600 dark:text-dark-300">{transaction.threshold}</span>
               </span>

@@ -19,6 +19,7 @@ import type { WalletSubscriptionCallbacks } from '../services/indexer';
 import { canShowBrowserNotifications, sendBrowserNotification } from '../utils/notifications';
 import { formatDuration, formatBalance } from '../utils/formatting';
 import { getModuleName } from '../utils/transactionDecoder';
+import { getApprovalCount } from '../utils/transactionState';
 import { diffModuleStatuses } from '../utils/moduleStatus';
 import { diffWalletInfo } from '../utils/walletInfoChanges';
 import { applyConfirmation } from '../utils/approvalUpdates';
@@ -361,8 +362,8 @@ function useWalletNotifications(
         // Existing transaction - check for changes
 
         // Check if transaction is now ready to execute
-        const prevCount = Object.values(prevTx.approvals).filter(Boolean).length || prevTx.numApprovals;
-        const curCount = Object.values(tx.approvals).filter(Boolean).length || tx.numApprovals;
+        const prevCount = getApprovalCount(prevTx);
+        const curCount = getApprovalCount(tx);
         const wasReady = prevCount >= prevTx.threshold;
         const isReady = curCount >= tx.threshold;
         const walletReadySet = notifiedReadyTxs.get(normalizedWallet) ?? new Set();
