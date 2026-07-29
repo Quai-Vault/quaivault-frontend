@@ -112,7 +112,11 @@ export function ChangeThresholdModal({
                 max={ownerCount}
                 value={newThreshold}
                 onChange={(e) => {
-                  setNewThreshold(parseInt(e.target.value) || 1);
+                  // Clamp to the range the input advertises: typing past the
+                  // owner count otherwise displayed a threshold no vault can
+                  // have, and only failed on submit.
+                  const entered = parseInt(e.target.value) || 1;
+                  setNewThreshold(Math.max(1, Math.min(entered, ownerCount)));
                   setErrors([]);
                 }}
                 className="input-field w-24"

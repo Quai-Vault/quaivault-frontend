@@ -27,13 +27,29 @@ Object.assign(navigator, {
 // Mock window.open for block explorer tests
 vi.spyOn(window, 'open').mockImplementation(() => null);
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
+// Mock localStorage. Backed by a real store rather than bare spies: without
+// one, setItem records the call but getItem always returns undefined, so
+// anything that round-trips a value (preferences, zustand persist) silently
+// behaves as though storage were empty. Still spies, so call assertions work.
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string) => (key in store ? store[key] : null)),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = String(value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      store = {};
+    }),
+    key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+    get length() {
+      return Object.keys(store).length;
+    },
+  };
+})();
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });

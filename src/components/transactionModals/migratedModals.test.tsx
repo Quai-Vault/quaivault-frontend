@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddOwnerModal } from './AddOwnerModal';
 import { ChangeThresholdModal } from './ChangeThresholdModal';
@@ -141,16 +141,35 @@ describe('migrated transaction modals', () => {
       expect(screen.getByRole('spinbutton')).toHaveValue(2);
     });
 
+    // The input advertises max={ownerCount}; a value past it used to display a
+    // threshold no vault can have and only fail on submit. fireEvent sets the
+    // raw value directly, since typing appends to whatever is already there.
+    it('clamps a threshold above the owner count', () => {
+      render(<ChangeThresholdModal {...props(true)} />);
+      const field = screen.getByRole('spinbutton');
+
+      fireEvent.change(field, { target: { value: '99' } });
+
+      expect(field).toHaveValue(3); // ownerCount
+    });
+
+    it('clamps a threshold below one', () => {
+      render(<ChangeThresholdModal {...props(true)} />);
+      const field = screen.getByRole('spinbutton');
+
+      fireEvent.change(field, { target: { value: '0' } });
+
+      expect(field).toHaveValue(1);
+    });
+
     it('restores the current threshold when reopened after an edit', async () => {
       const user = userEvent.setup();
       const { rerender } = render(<ChangeThresholdModal {...props(true)} />);
 
       const field = screen.getByRole('spinbutton');
-      // Clearing lands on 1 (the input's own `|| 1` fallback) and typing
-      // appends, so assert only that the value moved off the seeded one.
       await user.clear(field);
       await user.type(field, '3');
-      expect(field).not.toHaveValue(2);
+      expect(field).toHaveValue(3);
 
       rerender(<ChangeThresholdModal {...props(false)} />);
       rerender(<ChangeThresholdModal {...props(true)} />);
