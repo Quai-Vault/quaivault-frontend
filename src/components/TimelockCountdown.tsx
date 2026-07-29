@@ -36,7 +36,8 @@ export function TimelockCountdown({ executableAfter, onElapsed }: TimelockCountd
     }, 1000);
 
     return () => clearInterval(id);
-  }, [executableAfter, secondsLeft <= 0]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on whether the countdown has elapsed, not on secondsLeft itself, so the interval is not torn down and rebuilt every tick
+  }, [executableAfter, secondsLeft <= 0]);
 
   const readyDate = new Date(executableAfter * 1000);
   const formattedDate = readyDate.toLocaleDateString(undefined, {

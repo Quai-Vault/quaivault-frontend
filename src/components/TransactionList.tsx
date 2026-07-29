@@ -114,7 +114,7 @@ const TransactionItem = memo(function TransactionItem({
       timelocked: computeIsTimelocked(tx),
       canExpireIt: computeCanExpire(tx),
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- timelockTick is the intended trigger; the state helpers read the clock, so this must recompute when a countdown elapses
   }, [tx, connectedAddress, timelockTick]);
 
   return (

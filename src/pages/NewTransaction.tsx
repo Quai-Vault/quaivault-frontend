@@ -101,8 +101,10 @@ export function NewTransaction() {
   const initialToken = useMemo(() => {
     const token = searchParams.get('token');
     return token && isAddress(token) ? token : undefined;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const initialTokenId = useMemo(() => searchParams.get('tokenId') ?? undefined, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deep link is read once on mount; later param changes must not reset the form
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- as above
+  const initialTokenId = useMemo(() => searchParams.get('tokenId') ?? undefined, []);
 
   // Reset all form fields except optionally preserving `to`
   const resetFormFields = useCallback((options?: { preserveTo?: boolean }) => {
