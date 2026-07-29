@@ -195,15 +195,23 @@ export class IndexerTransactionService {
 
     if (error) throw new Error(`Indexer query failed: ${error.message}`);
 
-    // Group confirmations by tx_hash
+    // Group confirmations by tx_hash, keyed by the hash the caller passed.
+    // Validation normalises a missing 0x prefix, so grouping by the hash the
+    // row comes back with could land under a different key than the one the
+    // caller seeded and later reads — leaving them with an empty entry and the
+    // conclusion that nobody had approved.
+    const requestedByValidated = new Map<string, string>();
+    txHashes.forEach((hash, i) => requestedByValidated.set(validatedHashes[i], hash));
+
     const result = new Map<string, Confirmation[]>();
     txHashes.forEach((hash) => result.set(hash, []));
 
     (data ?? []).forEach((c: unknown) => {
       const confirmation = ConfirmationSchema.parse(c);
-      const existing = result.get(confirmation.tx_hash) ?? [];
+      const key = requestedByValidated.get(confirmation.tx_hash) ?? confirmation.tx_hash;
+      const existing = result.get(key) ?? [];
       existing.push(confirmation);
-      result.set(confirmation.tx_hash, existing);
+      result.set(key, existing);
     });
 
     return result;
