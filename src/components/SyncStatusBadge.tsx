@@ -36,15 +36,25 @@ export function SyncStatusBadge() {
     );
   }
 
-  if (!isSynced && blocksBehind !== null) {
+  // Gated on isSynced alone. The health endpoint reports isSyncing separately
+  // from blocksBehind and may say it is syncing without saying how far, so
+  // requiring a count here fell through to "Live" — telling the user real-time
+  // updates were enabled while the indexer was still catching up.
+  if (!isSynced) {
     return (
       <div
         className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-400"
-        title={`Indexer is ${blocksBehind} blocks behind`}
+        title={
+          blocksBehind !== null
+            ? `Indexer is ${blocksBehind} blocks behind`
+            : 'Indexer is still catching up'
+        }
       >
         <div className="w-2 h-2 rounded-full bg-yellow-500 dark:bg-yellow-400 animate-pulse" />
         <span className="hidden sm:inline">Syncing...</span>
-        <span className="text-yellow-600/70 dark:text-yellow-500/70 hidden sm:inline">({blocksBehind} behind)</span>
+        {blocksBehind !== null && (
+          <span className="text-yellow-600/70 dark:text-yellow-500/70 hidden sm:inline">({blocksBehind} behind)</span>
+        )}
       </div>
     );
   }
