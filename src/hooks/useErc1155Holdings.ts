@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { indexerService } from '../services/indexer';
+import { deriveErc1155Candidates } from '../utils/holdingsFromTransfers';
 import { getERC1155Balances } from '../services/utils/TokenBalanceService';
 import { getErc1155MetadataBatch, type NftMetadata } from '../services/utils/NftMetadataService';
 import { useIndexerConnection } from './useIndexerConnection';
@@ -64,23 +65,7 @@ export function useErc1155Holdings(walletAddress?: string) {
         erc1155Addresses
       );
 
-      // Aggregate by (tokenAddress, tokenId): sum inflow values, subtract outflow values
-      const balanceMap = new Map<string, { tokenAddress: string; tokenId: string; net: bigint }>();
-      for (const t of transfers) {
-        if (!t.token_id) continue;
-        const key = `${t.token_address.toLowerCase()}:${t.token_id}`;
-        if (!balanceMap.has(key)) {
-          balanceMap.set(key, { tokenAddress: t.token_address, tokenId: t.token_id, net: 0n });
-        }
-        const entry = balanceMap.get(key)!;
-        const val = BigInt(t.value || '0');
-        entry.net += t.direction === 'inflow' ? val : -val;
-      }
-
-      // Keep only positive-balance entries
-      const candidates = Array.from(balanceMap.values())
-        .filter(e => e.net > 0n)
-        .slice(0, MAX_DISPLAY);
+      const candidates = deriveErc1155Candidates(transfers).slice(0, MAX_DISPLAY);
 
       if (candidates.length === 0) return [];
 

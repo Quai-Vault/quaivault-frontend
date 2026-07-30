@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { indexerService } from '../services/indexer';
+import { deriveErc721Candidates } from '../utils/holdingsFromTransfers';
 import { getNftOwner } from '../services/utils/ContractMetadataService';
 import { getNftMetadataBatch, type NftHolding, type NftMetadata } from '../services/utils/NftMetadataService';
 import { useIndexerConnection } from './useIndexerConnection';
@@ -60,20 +61,7 @@ export function useNftHoldings(walletAddress?: string) {
         erc721Addresses
       );
 
-      // Deduplicate: keep only the latest transfer per (token_address, token_id).
-      // Transfers are ordered by block_number DESC, so first occurrence = latest.
-      const seen = new Set<string>();
-      const latestInflows: Array<{ tokenAddress: string; tokenId: string }> = [];
-      for (const t of transfers) {
-        if (!t.token_id) continue;
-        const key = `${t.token_address.toLowerCase()}:${t.token_id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        // Only keep inflows (wallet received the NFT)
-        if (t.direction === 'inflow') {
-          latestInflows.push({ tokenAddress: t.token_address, tokenId: t.token_id });
-        }
-      }
+      const latestInflows = deriveErc721Candidates(transfers);
 
       // Verify on-chain ownership with concurrency limit
       const candidates = latestInflows.slice(0, MAX_DISPLAY_NFTS);
