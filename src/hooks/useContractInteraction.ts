@@ -1,29 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Interface } from 'quais';
-import type { ParamType } from 'quais';
 import { isContract, fetchAbi, detectContractType, fetchTokenMetadata } from '../services/utils/ContractMetadataService';
+import { parseWriteFunctions } from '../utils/abiFunctions';
+export type { FunctionInfo, FunctionInputInfo } from '../utils/abiFunctions';
+import type { FunctionInfo } from '../utils/abiFunctions';
 import type { AbiResult, ContractAbi, ContractType, TokenMetadata } from '../services/utils/ContractMetadataService';
-
-export interface FunctionInputInfo {
-  name: string;
-  type: string;
-  baseType: string;
-  isArray: boolean;
-  isTuple: boolean;
-  components: ReadonlyArray<ParamType> | null;
-  arrayChildren: ParamType | null;
-}
-
-export interface FunctionInfo {
-  name: string;
-  signature: string;
-  selector: string;
-  inputs: FunctionInputInfo[];
-  stateMutability: string;
-  payable: boolean;
-  outputs: { name: string; type: string }[];
-}
 
 export interface ContractInteractionResult {
   isContract: boolean | null;
@@ -37,37 +19,6 @@ export interface ContractInteractionResult {
   contractType: ContractType;
   tokenMetadata: TokenMetadata | null;
   setManualAbi: (abi: ContractAbi) => { success: boolean; error?: string };
-}
-
-function parseFunctions(abi: ContractAbi): FunctionInfo[] {
-  try {
-    const iface = new Interface(abi);
-    const writeFunctions: FunctionInfo[] = [];
-    iface.forEachFunction((func) => {
-      if (func.stateMutability === 'payable' || func.stateMutability === 'nonpayable') {
-        writeFunctions.push({
-          name: func.name,
-          signature: func.format('minimal'),
-          selector: func.selector,
-          inputs: func.inputs.map((p) => ({
-            name: p.name,
-            type: p.type,
-            baseType: p.baseType,
-            isArray: p.isArray(),
-            isTuple: p.isTuple(),
-            components: p.components,
-            arrayChildren: p.arrayChildren,
-          })),
-          stateMutability: func.stateMutability,
-          payable: func.payable,
-          outputs: func.outputs.map((p) => ({ name: p.name, type: p.type })),
-        });
-      }
-    });
-    return writeFunctions;
-  } catch {
-    return [];
-  }
 }
 
 export function useContractInteraction(address: string | undefined): ContractInteractionResult {
@@ -105,7 +56,7 @@ export function useContractInteraction(address: string | undefined): ContractInt
 
   const functions = useMemo(() => {
     if (!effectiveAbi) return [];
-    return parseFunctions(effectiveAbi);
+    return parseWriteFunctions(effectiveAbi);
   }, [effectiveAbi]);
 
   const contractType = useMemo<ContractType>(() => {
