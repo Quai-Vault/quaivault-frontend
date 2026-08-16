@@ -80,7 +80,7 @@ export function DisableModuleModal({
       onClose={handleCancel}
       onConfirm={handleConfirm}
       title={`Disable ${moduleName}`}
-      message={`Are you sure you want to disable the ${moduleName} module? This will revoke its ability to execute transactions. Any pending transactions from this module will need to be handled separately. This action requires multisig approval.`}
+      message={`Are you sure you want to disable ${moduleName} at ${moduleAddress}? This will revoke that exact address's ability to execute transactions. Any pending module activity must be handled separately. This action requires multisig approval.`}
       confirmText="Disable Module"
       cancelText="Keep Module"
       variant="warning"

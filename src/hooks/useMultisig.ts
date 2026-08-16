@@ -681,6 +681,8 @@ export function useMultisig(walletAddress?: string) {
     // Helper: patch module status cache directly from payload
     const patchModuleStatus = (module: WalletModule) => {
       if (!isActive) return;
+      queryClient.invalidateQueries({ queryKey: ['moduleInventory', walletAddress] });
+      queryClient.invalidateQueries({ queryKey: ['liveModules', walletAddress] });
       const configKey = [
         CONTRACT_ADDRESSES.SOCIAL_RECOVERY_MODULE,
       ].find(addr => addr?.toLowerCase() === module.module_address.toLowerCase());
@@ -789,6 +791,10 @@ export function useMultisig(walletAddress?: string) {
       // --- Wallet modules ---
       onWalletModuleInsert: patchModuleStatus,
       onWalletModuleUpdate: patchModuleStatus,
+      onModuleExecutionInsert: () => {
+        if (!isActive) return;
+        queryClient.invalidateQueries({ queryKey: ['moduleInventory', walletAddress] });
+      },
 
       // --- Wallet owners ---
       onWalletOwnerInsert: () => {
@@ -852,6 +858,8 @@ export function useMultisig(walletAddress?: string) {
         queryClient.invalidateQueries({ queryKey: ['walletInfo', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['deposits', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['moduleStatus', walletAddress] });
+        queryClient.invalidateQueries({ queryKey: ['moduleInventory', walletAddress] });
+        queryClient.invalidateQueries({ queryKey: ['liveModules', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['owners', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['recoveryConfig', walletAddress] });
         queryClient.invalidateQueries({ queryKey: ['isGuardian', walletAddress] });

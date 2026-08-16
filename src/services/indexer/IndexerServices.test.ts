@@ -26,10 +26,12 @@ function createChainedMock(finalResult: any = { data: [], error: null }) {
 }
 
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('../../config/supabase', () => ({
   supabase: {
     from: (...args: any[]) => mockFrom(...args),
+    rpc: (...args: any[]) => mockRpc(...args),
   },
   INDEXER_CONFIG: {
     ENABLED: true,
@@ -466,6 +468,56 @@ describe('IndexerModuleService', () => {
       const result = await service.getModuleStatuses(WALLET);
 
       expect(result[MODULE.toLowerCase()]).toBe(true);
+    });
+  });
+
+  describe('getWalletModuleInventory', () => {
+    it('parses the stable lifecycle RPC envelope including orphan disables', async () => {
+      const envelope = {
+        wallet: WALLET.toLowerCase(),
+        walletIndexed: true,
+        walletCreatedAtBlock: 10,
+        indexedThroughBlock: 200,
+        lastIndexedAt: '2026-08-16T00:00:00Z',
+        isSyncing: false,
+        modules: [{
+          moduleAddress: MODULE.toLowerCase(),
+          isActive: false,
+          enabledAtBlock: null,
+          enabledAtTx: null,
+          disabledAtBlock: 150,
+          disabledAtTx: TX_HASH,
+          lastEventBlock: 150,
+          lastEventBlockHash: null,
+          lastEventTx: TX_HASH,
+          lastEventLogIndex: 2,
+          executionCount: 3,
+          successfulExecutionCount: 2,
+          failedExecutionCount: 1,
+          lastExecutionBlock: 140,
+          lastExecutionTx: TX_HASH,
+          lastExecutionLogIndex: 1,
+        }],
+      };
+      mockRpc.mockResolvedValue({ data: envelope, error: null });
+
+      const result = await service.getWalletModuleInventory(WALLET);
+
+      expect(mockRpc).toHaveBeenCalledWith('get_wallet_module_inventory', {
+        p_wallet_address: WALLET.toLowerCase(),
+      });
+      expect(result.modules[0]).toMatchObject({
+        enabledAtBlock: null,
+        isActive: false,
+        failedExecutionCount: 1,
+      });
+    });
+
+    it('surfaces missing migration/RPC support without fabricating an empty inventory', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'function does not exist' } });
+      await expect(service.getWalletModuleInventory(WALLET)).rejects.toThrow(
+        'Module inventory query failed'
+      );
     });
   });
 

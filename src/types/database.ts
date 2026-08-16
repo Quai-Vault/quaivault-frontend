@@ -100,13 +100,61 @@ export const WalletModuleSchema = z.object({
   id: z.string(),
   wallet_address: z.string(),
   module_address: z.string(),
-  enabled_at_block: z.number(),
-  enabled_at_tx: z.string(),
+  // A disable can be observed before its matching enable during backfill or
+  // after an old partial index. The lifecycle indexer deliberately preserves
+  // that orphan instead of inventing enable provenance.
+  enabled_at_block: z.number().nullable(),
+  enabled_at_tx: z.string().nullable(),
   disabled_at_block: z.number().nullable(),
   disabled_at_tx: z.string().nullable(),
   is_active: z.boolean(),
+  last_event_block: z.number(),
+  last_event_block_hash: z.string().nullable(),
+  last_event_tx: z.string(),
+  last_event_log_index: z.number(),
   created_at: z.string(),
   updated_at: z.string(),
+});
+
+export const WalletModuleEventSchema = z.object({
+  id: z.string(),
+  wallet_address: z.string(),
+  module_address: z.string(),
+  event_type: z.enum(['enabled', 'disabled']),
+  event_block: z.number(),
+  event_block_hash: z.string().nullable(),
+  event_tx: z.string(),
+  log_index: z.number(),
+  created_at: z.string(),
+});
+
+export const WalletModuleInventoryItemSchema = z.object({
+  moduleAddress: z.string(),
+  isActive: z.boolean(),
+  enabledAtBlock: z.number().nullable(),
+  enabledAtTx: z.string().nullable(),
+  disabledAtBlock: z.number().nullable(),
+  disabledAtTx: z.string().nullable(),
+  lastEventBlock: z.number(),
+  lastEventBlockHash: z.string().nullable(),
+  lastEventTx: z.string(),
+  lastEventLogIndex: z.number(),
+  executionCount: z.number().nonnegative(),
+  successfulExecutionCount: z.number().nonnegative(),
+  failedExecutionCount: z.number().nonnegative(),
+  lastExecutionBlock: z.number().nullable(),
+  lastExecutionTx: z.string().nullable(),
+  lastExecutionLogIndex: z.number().nullable(),
+});
+
+export const WalletModuleInventorySchema = z.object({
+  wallet: z.string(),
+  walletIndexed: z.boolean(),
+  walletCreatedAtBlock: z.number().nullable(),
+  indexedThroughBlock: z.number(),
+  lastIndexedAt: z.string().nullable(),
+  isSyncing: z.boolean(),
+  modules: z.array(WalletModuleInventoryItemSchema),
 });
 
 export const DailyLimitStateSchema = z.object({
@@ -224,6 +272,7 @@ export const ModuleExecutionSchema = z.object({
   data_hash: z.string().nullable(),
   executed_at_block: z.number(),
   executed_at_tx: z.string(),
+  log_index: z.number().nullable(),
   created_at: z.string(),
 });
 
@@ -276,6 +325,9 @@ export type IndexerTransaction = z.infer<typeof TransactionSchema>;
 export type Confirmation = z.infer<typeof ConfirmationSchema>;
 export type Deposit = z.infer<typeof DepositSchema>;
 export type WalletModule = z.infer<typeof WalletModuleSchema>;
+export type WalletModuleEvent = z.infer<typeof WalletModuleEventSchema>;
+export type WalletModuleInventoryItem = z.infer<typeof WalletModuleInventoryItemSchema>;
+export type WalletModuleInventory = z.infer<typeof WalletModuleInventorySchema>;
 export type DailyLimitState = z.infer<typeof DailyLimitStateSchema>;
 export type WhitelistEntry = z.infer<typeof WhitelistEntrySchema>;
 export type SocialRecoveryConfig = z.infer<typeof SocialRecoveryConfigSchema>;

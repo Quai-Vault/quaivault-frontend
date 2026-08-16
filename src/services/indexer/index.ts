@@ -12,6 +12,11 @@ export {
   type RecoveryConfig,
   type PendingRecovery,
 } from './IndexerModuleService';
+export type {
+  WalletModuleInventory,
+  WalletModuleInventoryItem,
+  ModuleExecution,
+} from '../../types/database';
 export {
   IndexerSubscriptionService,
   type SubscriptionCallbacks,

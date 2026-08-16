@@ -340,6 +340,18 @@ describe('WalletService', () => {
     });
   });
 
+  describe('getModules', () => {
+    it('reads and normalizes the complete live module list in one call', async () => {
+      const mockWallet = {
+        getModules: vi.fn().mockResolvedValue(['0xModuleA', '0xModuleB']),
+      };
+      vi.spyOn(service as any, 'getWalletContract').mockReturnValue(mockWallet);
+
+      await expect(service.getModules('0xWallet')).resolves.toEqual(['0xModuleA', '0xModuleB']);
+      expect(mockWallet.getModules).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getFactoryContract', () => {
     it('should return factory contract', () => {
       const factory = asMockFactory(service.getFactoryContract());

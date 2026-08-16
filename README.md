@@ -76,6 +76,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_NETWORK_SCHEMA=dev
 VITE_INDEXER_URL=https://index.devnet.quaivault.org
 
+# DAO Ships metadata (optional; defaults to the indexer settings above)
+VITE_DAOSHIPS_SUPABASE_URL=https://your-project.supabase.co
+VITE_DAOSHIPS_SUPABASE_ANON_KEY=your-anon-key
+VITE_DAOSHIPS_NETWORK_SCHEMA=testnet
+VITE_DAOSHIPS_APP_URL=https://testnet.daoships.org
+
 # WalletConnect
 VITE_WC_PROJECT_ID=your-walletconnect-project-id
 

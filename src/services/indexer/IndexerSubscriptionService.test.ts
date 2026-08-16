@@ -134,6 +134,18 @@ describe('IndexerSubscriptionService', () => {
 
       expect(latest().bindings.map((b) => b.event).sort()).toEqual(['INSERT', 'UPDATE']);
     });
+
+    it('subscribes to bounded module execution activity for the selected wallet', () => {
+      service.subscribeToModuleExecutions(WALLET, {});
+
+      expect(latest().bindings).toEqual([
+        expect.objectContaining({
+          event: 'INSERT',
+          table: 'module_executions',
+          filter: `wallet_address=eq.${WALLET.toLowerCase()}`,
+        }),
+      ]);
+    });
   });
 
   describe('payload handling', () => {
@@ -149,6 +161,27 @@ describe('IndexerSubscriptionService', () => {
       fire('INSERT', transactionRow());
 
       expect(onInsert).toHaveBeenCalledWith(expect.objectContaining({ tx_hash: HASH }));
+    });
+
+    it('delivers a valid module execution insert', () => {
+      const onInsert = vi.fn();
+      service.subscribeToModuleExecutions(WALLET, { onInsert });
+      fire('INSERT', {
+        id: 'execution-1',
+        wallet_address: WALLET.toLowerCase(),
+        module_address: WALLET.toLowerCase(),
+        success: true,
+        operation_type: null,
+        to_address: null,
+        value: null,
+        data_hash: null,
+        executed_at_block: 42,
+        executed_at_tx: HASH,
+        log_index: 3,
+        created_at: '2026-08-16T00:00:00Z',
+      });
+
+      expect(onInsert).toHaveBeenCalledWith(expect.objectContaining({ log_index: 3, success: true }));
     });
 
     it('delivers a valid update', () => {

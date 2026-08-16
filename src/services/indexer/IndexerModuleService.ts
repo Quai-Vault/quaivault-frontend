@@ -4,9 +4,13 @@ import {
   SocialRecoverySchema,
   RecoveryApprovalSchema,
   WalletDelegatecallTargetSchema,
+  WalletModuleInventorySchema,
+  ModuleExecutionSchema,
   type SocialRecovery,
   type RecoveryApproval,
   type WalletDelegatecallTarget,
+  type WalletModuleInventory,
+  type ModuleExecution,
 } from '../../types/database';
 import { validateAddress, validateTxHash } from '../utils/TransactionErrorHandler';
 import type { PaginationOptions, PaginatedResult } from './IndexerTransactionService';
@@ -78,6 +82,64 @@ export class IndexerModuleService {
     });
 
     return statuses;
+  }
+
+  /**
+   * Get the indexer's stable lifecycle envelope for every module observed on a
+   * vault. This is history and freshness data; callers must use getModules()
+   * on the live vault as the authority for security-sensitive actions.
+   */
+  async getWalletModuleInventory(walletAddress: string): Promise<WalletModuleInventory> {
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+
+    const { data, error } = await client.rpc('get_wallet_module_inventory', {
+      p_wallet_address: validatedWallet.toLowerCase(),
+    });
+
+    if (error) {
+      throw new Error(`Module inventory query failed: ${error.message}`);
+    }
+    if (!data) {
+      throw new Error('Module inventory query returned no envelope');
+    }
+
+    const inventory = WalletModuleInventorySchema.parse(data);
+    if (inventory.wallet.toLowerCase() !== validatedWallet.toLowerCase()) {
+      throw new Error('Module inventory returned a different wallet');
+    }
+    return inventory;
+  }
+
+  /** Fetch a bounded, deterministic module activity feed for a vault. */
+  async getModuleExecutions(
+    walletAddress: string,
+    moduleAddress?: string,
+    limit = 20
+  ): Promise<ModuleExecution[]> {
+    const client = this.ensureClient();
+    const validatedWallet = validateAddress(walletAddress);
+    const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
+
+    let query = client
+      .from('module_executions')
+      .select('*')
+      .eq('wallet_address', validatedWallet.toLowerCase());
+
+    if (moduleAddress) {
+      query = query.eq('module_address', validateAddress(moduleAddress).toLowerCase());
+    }
+
+    const { data, error } = await query
+      .order('executed_at_block', { ascending: false })
+      .order('log_index', { ascending: false, nullsFirst: false })
+      .limit(boundedLimit);
+
+    if (error) {
+      throw new Error(`Module execution query failed: ${error.message}`);
+    }
+
+    return (data ?? []).map((row: unknown) => ModuleExecutionSchema.parse(row));
   }
 
   /**

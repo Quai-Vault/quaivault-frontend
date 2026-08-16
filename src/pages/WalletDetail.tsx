@@ -488,13 +488,12 @@ export function WalletDetail() {
         )}
       </div>
 
-      {/* Module Management */}
-      {isOwner && (
-        <ModuleManagement
-          walletAddress={walletAddress}
-          onUpdate={refresh}
-        />
-      )}
+      {/* Module visibility is public; mutating controls remain owner-only. */}
+      <ModuleManagement
+        walletAddress={walletAddress}
+        isOwner={isOwner}
+        onUpdate={refresh}
+      />
 
       {/* Guardian Actions - For guardians who are not owners */}
       {!isOwner && isGuardian && isSocialRecoveryEnabled && (

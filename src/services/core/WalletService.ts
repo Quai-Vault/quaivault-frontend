@@ -313,6 +313,16 @@ export class WalletService extends BaseService {
   }
 
   /**
+   * Read the vault's complete live module linked list in one RPC call.
+   * This is the authority for whether a module can act right now.
+   */
+  async getModules(walletAddress: string): Promise<string[]> {
+    const wallet = this.getWalletContract(walletAddress);
+    const modules = await wallet.getModules();
+    return Array.from(modules).map((module) => String(module));
+  }
+
+  /**
    * Get the balance of a wallet address
    */
   async getBalance(walletAddress: string): Promise<bigint> {

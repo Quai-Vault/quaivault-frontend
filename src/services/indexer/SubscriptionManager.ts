@@ -9,6 +9,7 @@ import type {
   SocialRecovery,
   RecoveryApproval,
   TokenTransfer,
+  ModuleExecution,
 } from '../../types/database';
 
 export interface WalletSubscriptionCallbacks {
@@ -23,6 +24,8 @@ export interface WalletSubscriptionCallbacks {
   // Wallet module subscriptions
   onWalletModuleInsert?: (module: WalletModule) => void;
   onWalletModuleUpdate?: (module: WalletModule) => void;
+  // Generic Zodiac module execution subscriptions
+  onModuleExecutionInsert?: (execution: ModuleExecution) => void;
   // Wallet owner subscriptions
   onWalletOwnerInsert?: (owner: WalletOwner) => void;
   onWalletOwnerUpdate?: (owner: WalletOwner) => void;
@@ -126,6 +129,14 @@ export class SubscriptionManager {
           this.subscriptionService.subscribeToWalletModules(normalizedAddress, withShared({
             onInsert: callbacks.onWalletModuleInsert,
             onUpdate: callbacks.onWalletModuleUpdate,
+          }))
+        );
+      }
+
+      if (callbacks.onModuleExecutionInsert) {
+        unsubscribers.push(
+          this.subscriptionService.subscribeToModuleExecutions(normalizedAddress, withShared({
+            onInsert: callbacks.onModuleExecutionInsert,
           }))
         );
       }
