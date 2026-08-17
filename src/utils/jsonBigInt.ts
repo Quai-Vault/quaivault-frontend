@@ -1,6 +1,6 @@
-/** True when a JSON integer literal cannot round-trip through a JS number. */
+/** True when a JSON integer literal cannot be represented safely as a JS number. */
 function isLossyInteger(token: string): boolean {
-  return /^-?\d+$/.test(token) && String(Number(token)) !== token;
+  return /^-?\d+$/.test(token) && !Number.isSafeInteger(Number(token));
 }
 
 /**
